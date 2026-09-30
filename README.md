@@ -10,7 +10,7 @@ Semua file berada langsung di root ZIP agar bisa dipilih sekaligus saat upload k
 - Branding sekarang dibaca dari tabel `branding` oleh website publik, sehingga perubahan Admin benar-benar muncul di website.
 - Branding mendukung upload Logo, Favicon, dan Hero langsung dari File Manager melalui Supabase Storage.
 - Kanji: hanya `Kanji` dan `Jawaban/Arti` yang wajib; field lainnya opsional.
-- Kanji publik dibuat menjadi flashcard: tap kartu → kartu berbalik → jawaban/arti, reading, romaji, dan catatan tampil.
+- Kanji publik dibuat menjadi flashcard: tap kartu → kartu berbalik → cara baca dan arti tampil.
 - Kartu Part diperbaiki agar teks putih dan jelas pada tema gelap.
 - Tambah `Cara Penggunaan Admin` dengan panduan dan contoh pengisian.
 - Tambah `Reset Statistik`: menghapus semua riwayat hasil, tetapi daftar nama disimpan terpisah dan tidak ikut dihapus.
