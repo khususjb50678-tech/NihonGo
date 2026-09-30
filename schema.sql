@@ -10,6 +10,11 @@ create table if not exists branding (
   favicon_url text,
   hero_image text,
   description text default 'Belajar bahasa Jepang dengan Kanji dan latihan interaktif.',
+  creator_name text default 'Witama Yuliananta',
+  developer_description text default 'Website ini dibuat dan dikembangkan oleh Witama Yuliananta, sebagai bagian dari pengembangan media pembelajaran bahasa Jepang yang interaktif, modern, dan mudah digunakan.',
+  whatsapp_url text,
+  telegram_url text,
+  instagram_url text,
   updated_at timestamptz default now()
 );
 
@@ -51,6 +56,11 @@ create table if not exists results (
   details jsonb, created_at timestamptz default now()
 );
 
+alter table branding add column if not exists creator_name text default 'Witama Yuliananta';
+alter table branding add column if not exists developer_description text;
+alter table branding add column if not exists whatsapp_url text;
+alter table branding add column if not exists telegram_url text;
+alter table branding add column if not exists instagram_url text;
 alter table branding enable row level security;
 alter table kanji enable row level security;
 alter table parts enable row level security;
