@@ -56,7 +56,11 @@ create table if not exists results (
   details jsonb, created_at timestamptz default now()
 );
 
+alter table branding add column if not exists logo_url text;
+alter table branding add column if not exists favicon_url text;
+alter table branding add column if not exists hero_image text;
 alter table branding add column if not exists creator_name text default 'Witama Yuliananta';
+alter table branding add column if not exists developer_logo_url text;
 alter table branding add column if not exists developer_description text;
 alter table branding add column if not exists whatsapp_url text;
 alter table branding add column if not exists telegram_url text;
