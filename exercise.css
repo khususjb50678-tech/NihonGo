@@ -1,0 +1,10 @@
+.exercise-wrap{min-height:100vh;width:min(100% - 24px,760px);margin:auto}
+.exercise-head{height:68px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e1e5ec}
+.exercise-head .brand{font-size:13px;font-weight:900}.exercise-head #counter{color:#707887;font-size:12px;font-weight:800}.exercise-head #timer{font-weight:900;color:#ef233c}
+.gate{min-height:calc(100vh - 80px);display:grid;place-items:center;padding:24px 0}
+.gate .panel{width:min(100%,520px);background:#fff;border:1px solid #e1e5ec;border-radius:21px;padding:24px;box-shadow:0 10px 30px rgba(20,30,50,.06)}
+.gate h1{font-size:36px;line-height:1.08;margin:5px 0 8px;letter-spacing:-.04em}.gate p{color:#707887}
+.gate input{width:100%;margin:12px 0;border:1px solid #dfe3ea;border-radius:11px;padding:13px;outline:none}
+.gate .btn{width:100%}
+.quiz{margin:24px 0;padding:22px;background:#fff;border:1px solid #e1e5ec;border-radius:20px;box-shadow:0 5px 20px rgba(20,30,50,.05)}
+.quiz h2{font-size:26px;line-height:1.3}.options{display:grid;gap:9px;margin:18px 0}.option{padding:14px;border:1px solid #e1e5ec;background:#f8f9fb;border-radius:12px;cursor:pointer;text-align:left;font-weight:700}.option:hover{border-color:#bdc5d1}.option.correct{border-color:#29a36a;background:#effaf4}.option.wrong{border-color:#ef233c;background:#fff0f2}.feedback{padding:13px;border-radius:12px;background:#f5f7fb;border:1px solid #e1e5ec;margin:14px 0;color:#555d68}.actions{display:flex;gap:8px;margin-top:12px}.hidden{display:none!important}

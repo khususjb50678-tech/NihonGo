@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kanji — Belajar Nihongo</title><link rel="stylesheet" href="main.css"><style>
+:root{
+  --bg:#f4f6f9;--surface:#fff;--ink:#15171b;--muted:#69717d;
+  --line:#d9dee6;--accent:#2456d3;--accent2:#183fa7;--soft:#eef2f7;
+  --max:760px;--radius:24px
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}
+button,input{font:inherit}
+a{text-decoration:none;color:inherit}
+.container{width:min(calc(100% - 32px),var(--max));margin:auto}
+.topbar{
+  position:sticky;top:0;z-index:30;background:#10182a;color:#fff;
+  min-height:92px;padding:12px 18px;display:flex;align-items:center;justify-content:center;
+  border-bottom:1px solid #222c42
+}
+.brand{text-align:center;font-weight:900;letter-spacing:.02em}
+.brand-main{font-size:30px;line-height:1.05}
+.brand-sub{font-size:14px;color:#cbd3e2;margin-top:4px;font-weight:650}
+.topbar nav{position:absolute;right:14px;top:14px;display:flex;gap:5px}
+.topbar nav a{font-size:11px;padding:7px 9px;border-radius:8px;color:#cbd3e2}
+.topbar nav a:hover{background:#1b263d;color:#fff}
+.page{padding:16px 0 28px}
+.search{width:100%;background:#fff;border:2px solid #dce1e8;border-radius:20px;padding:15px 18px;font-size:17px;outline:none;box-shadow:0 2px 6px rgba(20,30,50,.03)}
+.search:focus{border-color:#b7c2d3}
+.control-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.control{
+  min-height:60px;border:2px solid #dce1e8;background:#fff;border-radius:19px;
+  display:flex;align-items:center;justify-content:center;font-weight:850;font-size:16px;
+  color:#17191d;box-shadow:0 2px 5px rgba(20,30,50,.025);cursor:pointer
+}
+.control:hover{border-color:#b9c2d0}
+.progress-meta{display:flex;justify-content:space-between;color:#707887;font-size:16px;margin:15px 4px 7px}
+.progress{height:9px;background:#dfe3e9;border-radius:99px;overflow:hidden}
+.progress>span{display:block;height:100%;background:#2b59d4;border-radius:99px;width:4%}
+.flashcard{
+  position:relative;margin-top:15px;background:#fff;border:2px solid #dce1e8;
+  border-radius:40px;min-height:650px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(20,30,50,.04);
+  cursor:pointer;overflow:hidden
+}
+.card-number{position:absolute;left:38px;top:32px;color:#69717d;font-size:28px;font-weight:700}
+.kanji-display{font-family:"Noto Sans JP","Yu Gothic",system-ui,sans-serif;font-size:145px;font-weight:800;line-height:1}
+.card-hint{position:absolute;bottom:34px;color:#707783;font-size:17px}
+.flashcard.flipped .kanji-display{font-size:30px;line-height:1.7;text-align:center;padding:40px}
+.flashcard.flipped .card-hint{display:none}
+.bottom-actions{display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:10px;margin-top:14px}
+.bottom-actions .control{min-height:64px}
+.bottom-actions .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.bottom-actions .primary:hover{background:var(--accent2)}
+footer{text-align:center;color:#89919c;font-size:12px;padding:10px 0 28px}
+.hero-title{font-size:42px;line-height:1.02;margin:20px 0 8px;letter-spacing:-.04em}
+.lead{color:var(--muted);margin:0 0 22px}
+.btn{border:0;border-radius:14px;padding:13px 17px;background:var(--accent);color:#fff;font-weight:850;cursor:pointer}
+.card-list{display:grid;gap:10px;margin-top:14px}
+.part-card{background:#fff;border:2px solid #dce1e8;border-radius:19px;padding:18px;display:flex;justify-content:space-between;align-items:center}
+.part-card p{margin:3px 0 0;color:var(--muted)}
+.auth{min-height:100vh;display:grid;place-items:center;padding:24px}
+.auth-card{width:min(100%,430px);background:#fff;border:2px solid #dce1e8;border-radius:24px;padding:24px}
+.auth-card h1{margin:0 0 20px;font-size:38px}
+.auth-card form{display:grid;gap:15px}
+.auth-card label{display:grid;gap:6px;font-size:13px;font-weight:700;color:#555d68}
+.auth-card input{width:100%;border:2px solid #dce1e8;border-radius:13px;padding:12px;background:#fff;outline:none}
+.result-card{background:#fff;border:2px solid #dce1e8;border-radius:24px;padding:22px}
+.score{font-size:60px;font-weight:950}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.stat{background:#f5f7fa;border-radius:13px;padding:12px}.stat b{display:block;font-size:20px}.stat span{font-size:10px;color:var(--muted)}
+.eyebrow{font-size:11px;letter-spacing:.16em;color:#2859cf;font-weight:900}
+.error{color:#d7263d;font-size:13px}.muted{color:var(--muted)}.hidden{display:none!important}
+.kanji-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.kanji-card{background:#fff;border:2px solid #dce1e8;border-radius:19px;padding:20px;text-align:center}.kanji-char{font-size:62px;font-weight:800}.kanji-info{color:var(--muted);font-size:13px}
+@media(max-width:600px){
+  .topbar{min-height:88px}.brand-main{font-size:27px}.brand-sub{font-size:13px}
+  .page{padding-top:15px}.flashcard{min-height:620px;border-radius:34px}
+  .kanji-display{font-size:128px}.card-number{left:32px;top:28px;font-size:26px}
+  .bottom-actions .control{font-size:14px}.stat-row{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:390px){
+  .brand-main{font-size:23px}.brand-sub{font-size:11px}
+  .control{font-size:14px}.flashcard{min-height:570px}.kanji-display{font-size:112px}
+  .bottom-actions{gap:7px}.bottom-actions .control{padding:10px 6px}
+}
+</style></head>
+<body><header class="topbar"><a class="brand" href="admin_index.html"><div class="brand-main">BELAJAR NIHONGO</div><div class="brand-sub">FLASHCARDS KANJI & LATIHAN</div></a></header>
+<main class="container page"><input id="search" class="search" placeholder="Cari kanji, kana, arti, atau nomor...">
+<div class="control-grid"><a class="control" href="admin_parts.html">📚 Pilih Bagian</a><button id="shuffle" class="control">🔀 Acak</button><a class="control" href="admin_index.html">⌂ Beranda</a><button class="control" onclick="document.documentElement.requestFullscreen?.()">⛶ Full Layar</button></div>
+<div class="progress-meta"><span id="pos">1 / 7</span><span>Kanji</span></div><div class="progress"><span id="bar"></span></div>
+<div id="flash" class="flashcard"></div>
+<div class="bottom-actions"><button id="prev" class="control">← Sebelumnya</button><button id="flip" class="control primary">Balik Kartu</button><button id="next" class="control">Berikutnya →</button></div>
+</main><script>
+const data=[{kanji:"日",reading:"にち / ひ",romaji:"nichi / hi",meaning:"hari, matahari"},{kanji:"月",reading:"げつ / つき",romaji:"getsu / tsuki",meaning:"bulan"},{kanji:"火",reading:"か / ひ",romaji:"ka / hi",meaning:"api"},{kanji:"水",reading:"すい / みず",romaji:"sui / mizu",meaning:"air"},{kanji:"木",reading:"もく / き",romaji:"moku / ki",meaning:"pohon, kayu"},{kanji:"金",reading:"きん / かね",romaji:"kin / kane",meaning:"emas, uang"},{kanji:"土",reading:"ど / つち",romaji:"do / tsuchi",meaning:"tanah"}];
+let i=0,flipped=false;const flash=document.getElementById("flash");
+function draw(){let x=data[i];flipped=false;flash.classList.remove("flipped");flash.innerHTML='<div class="card-number">#'+(i+1)+'</div><div class="kanji-display">'+x.kanji+'</div><div class="card-hint">Klik kartu untuk membalik</div>';document.getElementById("pos").textContent=(i+1)+' / '+data.length;document.getElementById("bar").style.width=((i+1)/data.length*100)+'%'}
+function flip(){flipped=!flipped;flash.classList.toggle("flipped",flipped);let x=data[i];if(flipped)flash.innerHTML='<div class="card-number">#'+(i+1)+'</div><div class="kanji-display">'+x.reading+'<br>'+x.romaji+'<br>'+x.meaning+'</div>'}
+flash.onclick=flip;document.getElementById("flip").onclick=flip;document.getElementById("prev").onclick=()=>{i=(i-1+data.length)%data.length;draw()};document.getElementById("next").onclick=()=>{i=(i+1)%data.length;draw()};document.getElementById("shuffle").onclick=()=>{i=Math.floor(Math.random()*data.length);draw()};document.getElementById("search").oninput=e=>{let q=e.target.value.toLowerCase();let n=data.findIndex(x=>(x.kanji+x.reading+x.romaji+x.meaning).toLowerCase().includes(q));if(n>=0){i=n;draw()}};draw();
+</script></body></html>

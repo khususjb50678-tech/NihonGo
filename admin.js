@@ -1,0 +1,1 @@
+document.getElementById("adminLogin")?.addEventListener("submit",e=>{e.preventDefault();const email=document.getElementById("email").value.trim();const password=document.getElementById("password").value;if(!email||!password){alert("Email dan password wajib diisi.");return}localStorage.setItem("bn_admin_session","1");location.href="index.html";});

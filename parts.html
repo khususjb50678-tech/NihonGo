@@ -1,0 +1,10 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Latihan — Belajar Nihongo</title><link rel="stylesheet" href="main.css"></head><body>
+<header class="topbar"><div class="top-inner"><a class="brand" href="admin_index.html"><div class="brand-mark">日</div><div><div class="brand-title">Belajar Nihongo</div><div class="brand-sub">Latihan Kanji</div></div></a><a class="icon-btn" href="menu.html">☰</a></div></header>
+<main class="container page"><p class="eyebrow">LATIHAN</p><h1>Pilih Part</h1><input id="searchPart" class="search" placeholder="Cari part..."><section id="parts" class="part-list" style="margin-top:12px"></section></main>
+<nav class="bottom-nav"><a href="admin_index.html"><span class="nav-ico">⌂</span>Beranda</a><a href="admin_kanji.html"><span class="nav-ico">字</span>Kanji</a><a class="active" href="admin_parts.html"><span class="nav-ico">✎</span>Latihan</a><a href="menu.html"><span class="nav-ico">☰</span>Menu</a></nav>
+<script>
+const parts=[{id:1,n:"01",title:"Kanji Dasar",desc:"3 soal · timer 30 detik",progress:0,active:true},{id:2,n:"02",title:"Kanji Sehari-hari",desc:"Segera hadir",progress:0,active:false}];
+const box=document.getElementById("parts");
+function draw(q=""){box.innerHTML=parts.filter(p=>p.active&&(p.title+p.n).toLowerCase().includes(q.toLowerCase())).map(p=>`<a class="part-card" href="exercise.html?part=${p.id}"><div class="part-thumb">日</div><div class="part-info"><b>PART ${p.n}</b><h3>${p.title}</h3><p>${p.desc}</p><div class="mini-progress"><span style="width:${p.progress}%"></span></div></div><div class="round-arrow">→</div></a>`).join("")||'<div class="card"><b>Part tidak ditemukan.</b></div>'}
+draw();document.getElementById("searchPart").oninput=e=>draw(e.target.value);
+</script></body></html>
