@@ -87,4 +87,11 @@ display:grid;place-items:center;font-weight:900;font-size:18px}.brand-title{font
   <a class="btn primary" href="admin_branding.html">⚙ Kelola Logo & Creator</a>
 </main>
 </div>
-</body></html>
+<script>
+(function(){
+ const ids={kanji:document.querySelector('.admin-stat:nth-of-type(1) b'),parts:document.querySelector('.admin-stat:nth-of-type(2) b'),questions:document.querySelector('.admin-stat:nth-of-type(3) b')};
+ const u=document.querySelector('.admin-stat:nth-of-type(4) b');
+ if(window.BN){if(ids.kanji)ids.kanji.textContent=BN.get('kanji').filter(x=>x.active).length;if(ids.parts)ids.parts.textContent=BN.get('parts').filter(x=>x.active).length;if(ids.questions)ids.questions.textContent=BN.get('questions').filter(x=>x.active).length}
+ if(u)u.textContent=localStorage.getItem('bn_user')?'1':'0';
+})();
+</script></body></html>
