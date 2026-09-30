@@ -1,24 +1,21 @@
-# Belajar Nihongo
+# Belajar Nihongo — FINAL TERAKHIR
 
-Website learning platform untuk Kanji dan latihan bahasa Jepang.
+Paket final siap di-upload ke repository GitHub Pages.
 
-## Demo awal
-- Home
-- Kanji
-- Part latihan
-- Wajib isi nama sebelum mulai soal
-- Pilihan ganda, isian, benar/salah
-- Timer
-- Hasil pengerjaan
-- Struktur admin
+## Struktur
+- `index.html` = halaman publik utama. Ini yang harus terbuka saat domain dibuka.
+- `admin/` = pintu masuk admin. Jika dibuka, pengguna diarahkan ke login admin.
+- `admin_login.html` = login admin demo.
+- `admin_index.html` = dashboard admin setelah login.
 
-## Tahap berikutnya
-Hubungkan Supabase untuk:
-- Auth user/admin
-- Database Kanji, Part, soal, hasil, progress
-- Role admin
-- Row Level Security
-- CRUD admin
-- Penyimpanan history dan statistik
+## Penting
+Upload **isi ZIP ini langsung ke root repository**, bukan folder `Belajar-Nihongo-FINAL-TERAKHIR`.
+Pastikan `index.html` berada langsung di root repository.
 
-Jangan memasukkan password admin asli ke file JavaScript frontend.
+GitHub Pages akan memakai `index.html` di root sebagai entry file.
+
+## Demo admin
+Email: `admin@belajarnnihongo.my.id`
+Password: `NihongoAdmin!2026`
+
+Login admin ini masih demo berbasis browser/localStorage. Untuk produksi, autentikasi dan database perlu dipindahkan ke backend seperti Supabase.

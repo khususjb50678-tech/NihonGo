@@ -62,11 +62,12 @@ display:grid;place-items:center;font-weight:900;font-size:18px}.brand-title{font
 .admin-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}.admin-stat{background:#f5f7fb;border-radius:13px;padding:14px}.admin-stat b{display:block;font-size:21px}.admin-stat span{font-size:10px;color:#707887}
 @media(max-width:700px){.admin-layout{grid-template-columns:1fr}.admin-side{display:grid;grid-template-columns:1fr 1fr;gap:5px}.admin-side a{font-size:11px}.admin-main-card{padding:17px}}
 </style>
+<script src="admin_guard.js"></script>
 </head>
 <body class="admin-shell">
 <header class="admin-top"><div class="admin-top-inner">
   <div><strong>Belajar Nihongo</strong><div style="font-size:10px;color:#cbd2df">ADMIN PANEL</div></div>
-  <a href="admin_index.html" style="font-size:12px">← Dashboard</a>
+  <div style="display:flex;gap:10px;align-items:center"><a href="admin_index.html" style="font-size:12px">← Dashboard</a><button class="btn" style="padding:7px 10px;font-size:11px" onclick="logoutAdmin()">Keluar</button></div>
 </div></header>
 <div class="admin-layout">
 <aside class="admin-side">
@@ -95,7 +96,7 @@ const logo=document.getElementById("logoUrl"), preview=document.getElementById("
 logo.addEventListener("input",()=>{if(logo.value.trim()) preview.src=logo.value.trim();});
 document.getElementById("brandingForm").addEventListener("submit",e=>{
  e.preventDefault(); fields.forEach(k=>localStorage.setItem("bn_"+k,document.getElementById(k).value.trim()));
- document.getElementById("saved").textContent="Pengaturan branding tersimpan di browser ini.";
+ document.getElementById("saved").textContent="Pengaturan branding tersimpan di browser ini (mode demo). Backend database akan membuatnya berlaku untuk semua perangkat.";
 });
 </script>
 </body></html>
