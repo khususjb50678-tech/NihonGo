@@ -24,3 +24,12 @@ Storage bucket `media` digunakan untuk foto/audio Quick Soal.
 
 ## Deploy
 Upload seluruh isi folder ke GitHub/Vercel. `config.js` berisi URL dan anon key project Supabase.
+
+## PWA + Android
+Versi ini sudah disiapkan sebagai Progressive Web App (PWA). Setelah di-deploy ke HTTPS/Vercel, pengguna Android dapat memasangnya dari Chrome sebagai aplikasi ITCO JAPAN.
+
+- `manifest.webmanifest` — nama, ikon, warna, dan mode aplikasi.
+- `sw.js` — service worker untuk app shell/cache.
+- `icons/` — ikon 192px dan 512px untuk instalasi.
+
+Untuk membuat APK/AAB Android dari PWA, gunakan URL website yang sudah online pada tahap packaging Android (misalnya melalui PWABuilder/Trusted Web Activity). APK/AAB tetap menggunakan backend Supabase dan website yang sama.
