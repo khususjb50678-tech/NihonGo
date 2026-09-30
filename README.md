@@ -1,21 +1,29 @@
-# Belajar Nihongo — FINAL TERAKHIR
+# ITCO JAPAN — Final
 
-Paket final siap di-upload ke repository GitHub Pages.
+Tema: Japanese Night — hitam, putih, aksen merah; Torii + Fuji realistis; animasi ringan.
 
-## Struktur
-- `index.html` = halaman publik utama. Ini yang harus terbuka saat domain dibuka.
-- `admin/` = pintu masuk admin. Jika dibuka, pengguna diarahkan ke login admin.
-- `admin_login.html` = login admin demo.
-- `admin_index.html` = dashboard admin setelah login.
+## Yang sudah ada
+- Public: Beranda, Kanji, Latihan.
+- Tanpa login/register user.
+- Nama wajib sebelum latihan.
+- Maksimal 20 Part, limit soal, acak soal/pilihan.
+- Tipe soal: pilihan ganda, ketik, isian Kanji, benar/salah, matching.
+- Quick Soal: `Pertanyaan|Jawaban|Tipe`.
+- Hasil tersimpan online berdasarkan nama.
+- Admin login menggunakan Supabase Auth, bukan password hard-coded frontend.
+- Struktur database dan RLS ada di `schema.sql`.
 
-## Penting
-Upload **isi ZIP ini langsung ke root repository**, bukan folder `Belajar-Nihongo-FINAL-TERAKHIR`.
-Pastikan `index.html` berada langsung di root repository.
+## Setup sebelum dipakai online
+1. Buat project Supabase.
+2. Buka SQL Editor, jalankan `schema.sql`.
+3. Di Authentication → Users, buat akun Admin.
+4. Isi `config.js` dengan Supabase Project URL dan anon public key.
+5. Buat Storage bucket untuk media soal jika ingin foto/audio online, lalu tambahkan URL file ke editor soal. Untuk produksi, buat policy Storage yang membatasi upload pada authenticated admin.
+6. Upload seluruh folder ini ke GitHub Pages dari branch `main` root.
+7. Untuk domain `itcojapanquiz.my.id`, set Custom domain di GitHub Pages setelah DNS domain diarahkan.
 
-GitHub Pages akan memakai `index.html` di root sebagai entry file.
+## Catatan keamanan
+Supabase anon key memang boleh berada di frontend; jangan pernah memasukkan service-role key ke GitHub. RLS wajib aktif. Untuk produksi, policy admin pada `schema.sql` sebaiknya diperketat dengan role/claim khusus admin sebelum data sensitif digunakan.
 
-## Demo admin
-Email: `admin@belajarnnihongo.my.id`
-Password: `NihongoAdmin!2026`
-
-Login admin ini masih demo berbasis browser/localStorage. Untuk produksi, autentikasi dan database perlu dipindahkan ke backend seperti Supabase.
+## Media
+Versi ini menyimpan URL media di `questions.media_url`. Upload file ke Supabase Storage dari Admin dapat dijadikan langkah berikutnya; jangan taruh secret key di frontend.
