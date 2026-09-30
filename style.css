@@ -28,3 +28,7 @@
 .segmented .seg.active{box-shadow:0 0 22px #b7191930}
 .developer-avatar img{object-fit:contain}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
+
+/* Final interaction tuning */
+@media (hover:none){.feature:active,.part-card:active,.seg:active,.btn:active,.cta:active,.social-icon:active{box-shadow:0 0 0 1px #8b303055,0 0 24px #e34a4a22}}
+.developer-avatar-img{object-fit:contain!important}
