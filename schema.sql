@@ -41,6 +41,22 @@ alter table kanji add column if not exists onyomi text;
 alter table questions add column if not exists photo_url text;
 alter table questions add column if not exists audio_url text;
 
+create table if not exists bunpou (
+  id uuid primary key default gen_random_uuid(),
+  category text not null default 'bunpou' check(category in ('partikel','bunpou')),
+  title text not null,
+  pattern text not null,
+  meaning text not null,
+  usage text,
+  before_form text,
+  notes text,
+  examples jsonb default '[]'::jsonb,
+  conversation jsonb default '[]'::jsonb,
+  sort_order int default 100,
+  active boolean default true,
+  created_at timestamptz default now()
+);
+
 create table if not exists timer_settings (
   id int primary key default 1, enabled boolean default false, global_seconds int default 0,
   per_part jsonb default '{}'::jsonb, per_question jsonb default '{}'::jsonb, updated_at timestamptz default now()
@@ -69,6 +85,7 @@ alter table branding enable row level security;
 alter table kanji enable row level security;
 alter table parts enable row level security;
 alter table questions enable row level security;
+alter table bunpou enable row level security;
 alter table timer_settings enable row level security;
 alter table user_names enable row level security;
 alter table results enable row level security;
@@ -78,6 +95,9 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 do $$ begin
   create policy "public active kanji read" on kanji for select using (active=true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "public active bunpou read" on bunpou for select using (active=true);
 exception when duplicate_object then null; end $$;
 do $$ begin
   create policy "public active parts read" on parts for select using (active=true);
@@ -101,6 +121,9 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 do $$ begin
   create policy "auth kanji write" on kanji for all to authenticated using (true) with check (true);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "auth bunpou write" on bunpou for all to authenticated using (true) with check (true);
 exception when duplicate_object then null; end $$;
 do $$ begin
   create policy "auth parts write" on parts for all to authenticated using (true) with check (true);
