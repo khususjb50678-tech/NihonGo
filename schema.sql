@@ -162,3 +162,6 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   create policy "auth media delete" on storage.objects for delete to authenticated using (bucket_id='media');
 exception when duplicate_object then null; end $$;
+
+-- Refresh PostgREST schema cache after creating/updating bunpou.
+notify pgrst, 'reload schema';
