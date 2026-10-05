@@ -15,6 +15,7 @@ create table if not exists branding (
   whatsapp_url text,
   telegram_url text,
   instagram_url text,
+  card_wallpaper_url text,
   updated_at timestamptz default now()
 );
 
@@ -73,6 +74,7 @@ create table if not exists results (
 );
 
 alter table branding add column if not exists logo_url text;
+alter table branding add column if not exists card_wallpaper_url text;
 alter table branding add column if not exists favicon_url text;
 alter table branding add column if not exists hero_image text;
 alter table branding add column if not exists creator_name text default 'Witama Yuliananta';

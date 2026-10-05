@@ -24,3 +24,9 @@ Storage bucket `media` digunakan untuk foto/audio Quick Soal.
 
 ## Deploy
 Upload seluruh isi folder ke GitHub/Vercel. `config.js` berisi URL dan anon key project Supabase.
+
+## Update desain Kana & kartu
+- Kana sekarang memakai animasi stroke-order SVG saat tombol "Lihat cara menulis" ditekan.
+- Data stroke-order Kana diambil dari `kana-svg-data` melalui jsDelivr saat animasi diputar. Sumber data menggunakan data SVG Kana dari AnimeCJK dan berlisensi LGPL. Referensi: https://github.com/hy2k/kana-svg-data
+- Branding Admin memiliki upload `Wallpaper Kolom / Kartu`; gambar disimpan ke Supabase Storage bucket `media` dan URL-nya ke `branding.card_wallpaper_url`.
+- Navigasi publik disederhanakan menjadi Beranda dan Developer.
