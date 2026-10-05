@@ -68,6 +68,14 @@ async function loadBranding(force=false){
 async function q(table,opts={}){ if(!sbReady)return {data:[],error:null}; let x=supabase.from(table).select(opts.select||'*'); if(opts.eq)for(const [k,v] of Object.entries(opts.eq))x=x.eq(k,v); if(opts.order)x=x.order(opts.order,{ascending:opts.asc!==false}); return x; }
 function mountEdgeLights(root=document){ /* Border light is CSS-only; no DOM overlay needed. */ }
 
+function shell(content){
+  const b=state.branding||{};
+  const logo=b.logo_url?`<img class="mark-img" src="${esc(b.logo_url)}" alt="logo" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'mark-fallback',textContent:'⛩'}))">`:'⛩';
+  const cardWallpaper=b.card_wallpaper_url?`--card-wallpaper:url("${esc(b.card_wallpaper_url)}")`:'';
+  app.innerHTML=`<div class="shell" style="${cardWallpaper}"><header class="topbar"><div class="topin"><a class="brand" href="#home"><span class="mark logo-glow">${logo}</span><span>${esc(b.site_name||'ITCO JAPAN')}<small>${esc(b.corporate_name||'TOP CORPORATION')} · ${esc(b.creator||'ウィタマ。')}</small></span></a><nav class="nav"><a href="#home">⌂ Beranda</a><a href="#developer">⌘ Developer</a></nav></div></header>${content}</div>`;
+  mountEdgeLights(app);
+}
+
 async function home(){
   const b=await loadBranding();
   const wallpaper=b.card_wallpaper_url?`--card-wallpaper:url("${esc(b.card_wallpaper_url)}")`:'';
