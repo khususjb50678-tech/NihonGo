@@ -384,3 +384,86 @@ body{font-family:var(--font-body);letter-spacing:.01em}.hero h1,.section-title h
   .premium-card,.logo-glow,.shell .card:not(.feature),.shell .developer-panel,.shell .part-card,.shell .bunpou-item,.shell .kanji-flip{animation:none!important}
   .edge-light-glow,.edge-light-core,.logo-glow::after{animation:none!important}
 }
+
+
+/* AKEMI v6 — catalog-style animated perimeter light.
+   Only the border-light technique is borrowed: an animated conic gradient
+   painted in the border box. No other catalog styling is used. */
+@property --akemi-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes akemiBorderSpin{to{--akemi-angle:360deg}}
+
+.premium-card,
+.shell .card:not(.feature),
+.shell .developer-panel,
+.shell .part-card,
+.shell .bunpou-item,
+.shell .kanji-flip,
+.logo-glow{
+  --akemi-run:conic-gradient(from var(--akemi-angle),
+    #ff2438 0%,
+    #ff2438 8%,
+    #ffffff 10%,
+    #238dff 13%,
+    transparent 18%,
+    transparent 58%,
+    #238dff 76%,
+    #ffffff 79%,
+    #ff2438 82%,
+    transparent 88%,
+    #ff2438 100%);
+  border:1.5px solid transparent;
+  background:
+    linear-gradient(145deg,#161616e8,#080808e8) padding-box,
+    var(--card-wallpaper) padding-box,
+    var(--akemi-run) border-box;
+  animation:akemiFloatSmooth 7.2s ease-in-out infinite, akemiBorderSpin 4.6s linear infinite;
+}
+
+/* The glow follows the exact same perimeter instead of becoming a block. */
+.premium-card::before,
+.shell .card:not(.feature)::before,
+.shell .developer-panel::before,
+.shell .part-card::before,
+.shell .bunpou-item::before,
+.shell .kanji-flip::before,
+.logo-glow::before{
+  display:block!important;
+  content:"";
+  position:absolute;
+  inset:-2px;
+  border-radius:inherit;
+  padding:2px;
+  background:var(--akemi-run);
+  filter:blur(7px);
+  opacity:.38;
+  z-index:-1;
+  pointer-events:none;
+  animation:akemiBorderSpin 4.6s linear infinite;
+}
+
+/* Keep the card content above the perimeter light. */
+.premium-card>* ,
+.shell .card:not(.feature)>*,
+.shell .developer-panel>*,
+.shell .part-card>*,
+.shell .bunpou-item>*,
+.shell .kanji-flip>*{position:relative;z-index:2}
+
+/* Smooth, deliberate Kana drawing — one stroke at a time. */
+.kana-stroke-line{
+  stroke-dasharray:3333;
+  stroke-dashoffset:3333;
+  will-change:stroke-dashoffset;
+}
+@keyframes kanaDrawSmooth{
+  0%{stroke-dashoffset:3333}
+  8%{stroke-dashoffset:3260}
+  92%{stroke-dashoffset:90}
+  100%{stroke-dashoffset:0}
+}
+.kana-stroke-number{font-size:18px;stroke-width:6px}
+
+@media(prefers-reduced-motion:reduce){
+  .premium-card,.logo-glow,.shell .card:not(.feature),.shell .developer-panel,.shell .part-card,.shell .bunpou-item,.shell .kanji-flip{animation:none!important}
+  .premium-card::before,.shell .card:not(.feature)::before,.shell .developer-panel::before,.shell .part-card::before,.shell .bunpou-item::before,.shell .kanji-flip::before,.logo-glow::before{animation:none!important}
+}
