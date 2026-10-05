@@ -184,3 +184,15 @@ html[data-sway="off"] .fx-card.fx-on,html[data-sway="off"] .fx-float.fx-on{anima
 
 /* Perbaikan layout Admin di HP/tablet: menu samping tidak lagi melebarkan halaman */
 @media(max-width:900px){.admin-shell{grid-template-columns:minmax(0,1fr)}.admin-side,.admin-main{min-width:0}.admin-side nav{min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}.admin-main{max-width:100%}}
+
+/* JFT-Basic setup + audio */
+.jft-setup-modal{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(10px)}
+.jft-setup-card{position:relative;width:min(520px,100%);padding:28px;border:1px solid rgba(255,255,255,.14);border-radius:24px;background:linear-gradient(180deg,#171717,#0b0b0b);box-shadow:0 24px 80px rgba(0,0,0,.65)}
+.jft-setup-card h2{margin:8px 0 8px;font-size:clamp(25px,6vw,36px)}
+.jft-setup-card>label,.jft-custom-timer label{display:grid;gap:8px;margin-top:16px;font-weight:700}
+.jft-setup-card .input{width:100%;box-sizing:border-box}
+.jft-setup-close{position:absolute;right:16px;top:14px;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:#151515;color:#fff;font-size:25px;cursor:pointer}
+.jft-start{width:100%;margin-top:22px;min-height:50px;font-weight:800}
+.jft-custom-timer{margin-top:2px}
+.jft-audio-btn{min-height:46px;margin-top:4px}
+.audio-media{display:grid;gap:9px}

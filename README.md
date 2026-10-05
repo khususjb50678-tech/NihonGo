@@ -33,10 +33,9 @@ Upload seluruh isi folder ke GitHub/Vercel. `config.js` berisi URL dan anon key 
 - Font baru: Sora, Plus Jakarta Sans, Klee One, Zen Maru Gothic (Google Fonts).
 - Menu atas/bawah hanya Beranda dan Developer. Kanji, Kana, Kaiwa, Latihan diakses lewat kartu di Beranda.
 
+## JFT-Basic Part 1
+Part 1 sekarang dapat diganti menjadi 50 soal JFT-Basic style. Jalankan `JFT-50-SOAL.sql` di Supabase. Saat user memilih Part 1, user diminta nama, jumlah soal (5–50), dan timer (termasuk custom). Soal diacak dari 50 soal. Soal audio menggunakan Web Speech API dengan bahasa Jepang. Aset foto berada di ``.
+
+
 ## JFT-Basic — 50 Soal
-Tambahkan latihan original bergaya JFT-Basic dengan 50 soal pilihan ganda:
-- 20 soal teks
-- 15 soal berbasis gambar/ilustrasi
-- 15 soal audio Jepang menggunakan Web Speech API
-- Jalankan `JFT-50-SOAL.sql` di Supabase SQL Editor setelah schema utama.
-- Audio memakai suara Jepang bawaan browser/HP, sehingga tidak membutuhkan file MP3 eksternal.
+Part 1 diganti menjadi latihan JFT-Basic dengan 50 soal pilihan ganda: 25 soal berbasis gambar dan 25 soal audio Jepang melalui Web Speech API. User memasukkan nama, memilih jumlah soal, lalu memilih timer termasuk custom timer. Soal diacak dari 50 soal. Semua file berada di root ZIP (flat), tanpa folder tambahan.

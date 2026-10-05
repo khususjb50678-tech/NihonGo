@@ -34,7 +34,7 @@ create table if not exists questions (
   id uuid primary key default gen_random_uuid(), part_id uuid references parts(id) on delete cascade,
   prompt text not null, reading text, instruction text, type text not null default 'multiple_choice',
   options jsonb default '[]'::jsonb, answer text not null, media_url text, media_type text,
-  photo_url text, audio_url text, active boolean default true, created_at timestamptz default now()
+  photo_url text, audio_url text, audio_text text, active boolean default true, created_at timestamptz default now()
 );
 
 alter table kanji add column if not exists onyomi text;
