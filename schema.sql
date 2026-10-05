@@ -40,6 +40,7 @@ create table if not exists questions (
 alter table kanji add column if not exists onyomi text;
 alter table questions add column if not exists photo_url text;
 alter table questions add column if not exists audio_url text;
+alter table questions add column if not exists audio_text text;
 
 create table if not exists bunpou (
   id uuid primary key default gen_random_uuid(),

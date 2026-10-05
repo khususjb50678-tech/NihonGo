@@ -32,3 +32,11 @@ Upload seluruh isi folder ke GitHub/Vercel. `config.js` berisi URL dan anon key 
 - Admin > Tampilan Kolom: pilih wallpaper saran atau upload foto sendiri. Disimpan di Storage bucket `media` (file `branding/card-style.json`), tidak perlu mengubah database.
 - Font baru: Sora, Plus Jakarta Sans, Klee One, Zen Maru Gothic (Google Fonts).
 - Menu atas/bawah hanya Beranda dan Developer. Kanji, Kana, Kaiwa, Latihan diakses lewat kartu di Beranda.
+
+## JFT-Basic — 50 Soal
+Tambahkan latihan original bergaya JFT-Basic dengan 50 soal pilihan ganda:
+- 20 soal teks
+- 15 soal berbasis gambar/ilustrasi
+- 15 soal audio Jepang menggunakan Web Speech API
+- Jalankan `JFT-50-SOAL.sql` di Supabase SQL Editor setelah schema utama.
+- Audio memakai suara Jepang bawaan browser/HP, sehingga tidak membutuhkan file MP3 eksternal.
