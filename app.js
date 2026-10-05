@@ -94,16 +94,68 @@ const kanaData={hiragana:hira,katakana:[...kata,...voicedK,...comboK,...smallK,.
 function kanaSlug(ch){ return [...ch].map(c=>c.codePointAt(0).toString(16).padStart(5,'0')).join('-'); }
 function kanaCard(item,kind,index){
   const [char,romaji]=item;
-  return `<div class="kana-flip premium-card" tabindex="0" role="button" data-kana-index="${index}"><span class="kana-inner"><span class="kana-face kana-front"><span class="kana-char">${esc(char)}</span><small>Klik untuk membalik</small></span><span class="kana-face kana-back"><span class="kana-char kana-back-char">${esc(char)}</span><span class="kana-romaji">${esc(romaji)}</span><span class="kana-back-label">Cara baca: ${esc(romaji)}</span><button type="button" class="kana-play" data-kana-play="${esc(char)}" data-kana-kind="${kind}">▶ Lihat cara menulis</button></span></span></div>`;
+  return `<div class="kana-flip premium-card" tabindex="0" role="button" data-kana-index="${index}"><span class="kana-inner"><span class="kana-face kana-front"><span class="kana-char">${esc(char)}</span><small>Klik untuk membalik</small></span><span class="kana-face kana-back"><span class="kana-char kana-back-char">${esc(char)}</span><span class="kana-romaji">${esc(romaji)}</span><button type="button" class="kana-play" aria-label="Putar urutan goresan" data-kana-play="${esc(char)}" data-kana-kind="${kind}">▶</button></span></span></div>`;
+}
+
+// Stroke-order data is fetched once per script and cached in memory.  The modal
+// itself opens immediately; the animation is prepared in the background.
+const kanaStrokeCache={hiragana:null,katakana:null};
+const kanaStrokeLoading={hiragana:null,katakana:null};
+const KANA_DATA_URL={
+  hiragana:'https://cdn.jsdelivr.net/npm/kana-svg-data/dist/allHiragana.json',
+  katakana:'https://cdn.jsdelivr.net/npm/kana-svg-data/dist/allKatakana.json'
+};
+async function loadKanaStrokeData(kind){
+  if(kanaStrokeCache[kind])return kanaStrokeCache[kind];
+  if(kanaStrokeLoading[kind])return kanaStrokeLoading[kind];
+  kanaStrokeLoading[kind]=fetch(KANA_DATA_URL[kind],{cache:'force-cache'}).then(r=>{if(!r.ok)throw new Error('Data stroke tidak tersedia');return r.json();}).then(rows=>{
+    kanaStrokeCache[kind]=rows;
+    return rows;
+  }).finally(()=>{kanaStrokeLoading[kind]=null;});
+  return kanaStrokeLoading[kind];
+}
+function findKanaStroke(rows,char){
+  if(!Array.isArray(rows))return null;
+  return rows.find(x=>Number(x.charCode)===char.codePointAt(0)) || rows.find(x=>x.char===char) || null;
+}
+function escSvgId(v){return String(v).replace(/[^a-zA-Z0-9_-]/g,'_');}
+function naturalStrokeOrder(a,b){
+  const parse=x=>{const m=String(x).match(/^(\d+)([a-z]*)$/i);return m?[Number(m[1]),m[2]]:[999,String(x)];};
+  const A=parse(a),B=parse(b); return A[0]-B[0] || A[1].localeCompare(B[1]);
+}
+function strokeNumber(id){const m=String(id).match(/^(\d+)/);return m?Number(m[1]):null;}
+function strokeStartPoint(d){
+  const m=String(d||'').match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+  return m&&m.length>=2?{x:Number(m[0]),y:Number(m[1])}:null;
+}
+function buildKanaStrokeSvg(data,char){
+  const prefix=`kana_${char.codePointAt(0)}`;
+  const strokes=(data.strokes||[]).filter(x=>x&&x.value).sort((a,b)=>naturalStrokeOrder(a.id,b.id));
+  const clips=(data.clipPaths||[]).filter(x=>x&&x.value).reduce((m,x)=>(m[x.id]=x.value,m),{});
+  const medians=(data.medians||[]).filter(x=>x&&Array.isArray(x.value)&&x.value.length).reduce((m,x)=>(m[x.id]=x.value,m),{});
+  const defs=strokes.map(s=>`<clipPath id="${prefix}_clip_${escSvgId(s.id)}"><path d="${s.value}"/></clipPath>`).join('');
+  const shadows=strokes.map(s=>`<path d="${s.value}"/>`).join('');
+  const animated=strokes.map((s,i)=>{
+    const center=clips[s.id]||'';
+    const med=medians[s.id]||[];
+    const start=med.length?{x:med[0][0],y:med[0][1]}:strokeStartPoint(center);
+    const n=strokeNumber(s.id);
+    return `<g class="kana-stroke-unit" data-stroke-index="${i}" data-stroke-number="${n||i+1}"><path class="kana-stroke-line" d="${center}" clip-path="url(#${prefix}_clip_${escSvgId(s.id)})" pathLength="3333"/><g class="kana-stroke-marker" aria-hidden="true">${start?`<circle cx="${start.x}" cy="${start.y}" r="34"/><text x="${start.x}" y="${start.y+11}">${n||i+1}</text>`:''}</g></g>`;
+  }).join('');
+  return `<svg class="kana-stroke-svg" viewBox="0 0 1024 1024" role="img" aria-label="Urutan penulisan ${esc(char)}"><defs>${defs}</defs><g class="kana-stroke-shadow">${shadows}</g><g class="kana-stroke-animated">${animated}</g></svg>`;
 }
 async function kana(){
   await loadBranding();
   const kind=state.kanaKind||'hiragana'; const data=kanaData[kind];
-  shell(`<section class="section kana-page"><div class="section-title"><div><div class="eyebrow">あ KANA</div><h2>${kind==='hiragana'?'Hiragana':'Katakana'}</h2><p class="muted">Pilih huruf untuk melihat cara baca. Balik kartunya, lalu tekan <b>▶ Lihat cara menulis</b> untuk melihat urutan goresan.</p></div></div><div class="segmented"><button class="seg ${kind==='hiragana'?'active':''}" data-kind="hiragana">Hiragana</button><button class="seg ${kind==='katakana'?'active':''}" data-kind="katakana">Katakana</button></div><div class="kana-grid" id="kanaGrid">${data.map((x,i)=>kanaCard(x,kind,i)).join('')}</div></section>`);
+  shell(`<section class="section kana-page"><div class="section-title"><div><div class="eyebrow">あ KANA</div><h2>${kind==='hiragana'?'Hiragana':'Katakana'}</h2><p class="muted">Pilih huruf untuk melihat cara baca. Balik kartunya, lalu tekan tombol ▶ untuk melihat urutan goresan.</p></div></div><div class="segmented"><button class="seg ${kind==='hiragana'?'active':''}" data-kind="hiragana">Hiragana</button><button class="seg ${kind==='katakana'?'active':''}" data-kind="katakana">Katakana</button></div><div class="kana-grid" id="kanaGrid">${data.map((x,i)=>kanaCard(x,kind,i)).join('')}</div></section>`);
   bindKana();
+  // Warm the cache without blocking the page. Opening a card later is instant
+  // whenever the background request has finished.
+  loadKanaStrokeData('hiragana').catch(()=>{});
+  loadKanaStrokeData('katakana').catch(()=>{});
 }
 function bindKana(){
-  document.querySelectorAll('.seg').forEach(b=>b.onclick=()=>{b.classList.add('interaction-wiggle','click-glow');setTimeout(()=>{state.kanaKind=b.dataset.kind;renderRoute()},220)});
+  document.querySelectorAll('.seg').forEach(b=>b.onclick=()=>{b.classList.add('interaction-wiggle','click-glow');setTimeout(()=>{state.kanaKind=b.dataset.kind;renderRoute()},180)});
   document.querySelectorAll('.kana-grid .kana-flip').forEach(c=>{
     const flip=e=>{if(e.target.closest('.kana-play'))return;c.classList.toggle('flipped');};
     c.onclick=flip; c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();flip(e)}};
@@ -111,19 +163,48 @@ function bindKana(){
   document.querySelectorAll('[data-kana-play]').forEach(b=>b.onclick=e=>{e.stopPropagation();openKanaAnimation(b.dataset.kanaPlay,b.dataset.kanaKind);});
 }
 async function openKanaAnimation(char,kind){
-  document.body.insertAdjacentHTML('beforeend',`<div class="kana-modal-backdrop" id="kanaModal"><div class="kana-modal" role="dialog" aria-modal="true"><button class="kana-modal-close" id="kanaModalClose" aria-label="Tutup">×</button><div class="eyebrow">STROKE ORDER</div><h2>${esc(char)}</h2><p class="kana-modal-reading">Cara baca: <b>${esc((kanaData[kind]||[]).find(x=>x[0]===char)?.[1]||'')}</b></p><div class="kana-stage" id="kanaStage"><div class="kana-loading">Menyiapkan animasi…</div></div><div class="kana-controls"><button class="btn red" id="kanaReplay">▶ Putar ulang</button><button class="btn" id="kanaSlow">Kecepatan lambat</button></div><small class="kana-credit">Urutan goresan mengikuti data stroke-order Kana.</small></div></div>`);
-  const modal=document.querySelector('#kanaModal'); document.querySelector('#kanaModalClose').onclick=()=>modal.remove(); modal.onclick=e=>{if(e.target===modal)modal.remove();};
-  const stage=document.querySelector('#kanaStage'); let animationFn=()=>{};
-  try{
-    const base=`https://cdn.jsdelivr.net/npm/kana-svg-data/dist/${kind}/${encodeURIComponent(char)}.json`;
-    const res=await fetch(base); if(!res.ok)throw new Error('Data tidak tersedia'); const d=await res.json();
-    const uid=`kana-${Date.now()}`;
-    const strokes=d.strokes||[]; const clips=d.clipPaths||[];
-    stage.innerHTML=`<svg class="kana-stroke-svg" viewBox="0 0 1024 1024" aria-label="Animasi urutan penulisan ${esc(char)}"><defs>${clips.map((c,i)=>`<clipPath id="${uid}-c-${i}"><path d="${esc(c.value||'')}"/></clipPath>`).join('')}</defs>${strokes.map((p,i)=>`<path class="kana-stroke-base" d="${esc(p.value||'')}"/><path class="kana-stroke-draw" d="${esc(clips[i]?.value||'')}" clip-path="url(#${uid}-c-${i})" pathLength="1000"/>`).join('')}</svg>`;
-    const paths=[...stage.querySelectorAll('.kana-stroke-draw')];
-    animationFn=(slow=false)=>{paths.forEach((p,i)=>{p.style.animation='none';p.style.strokeDashoffset='1000';void p.getBoundingClientRect();p.style.animation=`kanaDraw ${slow?1.35:0.75}s ease-in-out ${i*(slow?1.4:0.78)}s forwards`;});};
-    document.querySelector('#kanaReplay').onclick=()=>animationFn(false); document.querySelector('#kanaSlow').onclick=()=>animationFn(true); animationFn(false);
-  }catch(err){stage.innerHTML=`<div class="kana-fallback"><div>${esc(char)}</div><p>Animasi belum dapat dimuat. Periksa koneksi internet lalu tekan Putar ulang.</p></div>`;document.querySelector('#kanaReplay').onclick=()=>openKanaAnimation(char,kind);}
+  const reading=(kanaData[kind]||[]).find(x=>x[0]===char)?.[1]||'';
+  const label=kind==='hiragana'?'Hiragana':'Katakana';
+  document.body.insertAdjacentHTML('beforeend',`<div class="kana-modal-backdrop" id="kanaModal"><div class="kana-modal" role="dialog" aria-modal="true"><button class="kana-modal-close" id="kanaModalClose" aria-label="Tutup">×</button><h2>${esc(char)}</h2><div class="kana-modal-name">${esc(reading)}</div><div class="kana-stage" id="kanaStage"><div class="kana-immediate-char">${esc(char)}</div></div><button class="kana-replay-icon" id="kanaReplay" type="button" aria-label="Putar ulang">▶</button></div></div>`);
+  const modal=document.querySelector('#kanaModal');
+  document.querySelector('#kanaModalClose').onclick=()=>modal.remove();
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const stage=document.querySelector('#kanaStage');
+  const replay=document.querySelector('#kanaReplay');
+  let svgReady=null;
+  const render=async()=>{
+    try{
+      const rows=kanaStrokeCache[kind] || await loadKanaStrokeData(kind);
+      const item=findKanaStroke(rows,char);
+      if(!item)throw new Error('Kana tidak ditemukan');
+      stage.innerHTML=buildKanaStrokeSvg(item,char);
+      svgReady=stage.querySelector('.kana-stroke-svg');
+      const units=[...stage.querySelectorAll('.kana-stroke-unit')];
+      units.forEach((unit,i)=>{
+        const paths=[...unit.querySelectorAll('.kana-stroke-line')];
+        paths.forEach(p=>{p.style.strokeDasharray='3333';p.style.strokeDashoffset='3333';p.setAttribute('pathLength','3333');});
+      });
+      return {units,svg:svgReady};
+    }catch(err){
+      console.error('Kana stroke-order:',err);
+      stage.innerHTML=`<div class="kana-immediate-char">${esc(char)}</div>`;
+      return null;
+    }
+  };
+  const play=async()=>{
+    if(!svgReady){const ready=await render(); if(!ready)return;}
+    const units=[...stage.querySelectorAll('.kana-stroke-unit')];
+    units.forEach(unit=>unit.querySelectorAll('.kana-stroke-line').forEach(p=>{p.style.animation='none';p.style.strokeDashoffset='3333';}));
+    void stage.offsetWidth;
+    units.forEach((unit,i)=>unit.querySelectorAll('.kana-stroke-line').forEach(p=>{p.style.animation=`kanaDraw .58s cubic-bezier(.2,.75,.2,1) ${i*.62}s forwards`; }));
+  };
+  // Render from the already-prefetched cache immediately when possible.
+  if(kanaStrokeCache[kind]){await render();play();}
+  else{
+    // No loading screen: the real Kana remains visible while the data arrives.
+    loadKanaStrokeData(kind).then(()=>{if(document.body.contains(modal)){render().then(()=>play());}}).catch(()=>{});
+  }
+  replay.onclick=()=>{if(svgReady)play();else loadKanaStrokeData(kind).then(()=>{if(document.body.contains(modal)){render().then(()=>play());}}).catch(()=>{});};
 }
 async function latihan(){ await loadBranding(); const {data,error}=await q('parts',{eq:{active:true},order:'part_number'}); if(error)console.error(error); shell(`<section class="section"><div class="section-title"><div><div class="eyebrow">✎ LATIHAN</div><h2>Pilih Part</h2><p class="muted">Pilih Part untuk mulai mengerjakan latihan.</p></div></div>${data?.length?`<div class="part-list">${data.map(x=>`<button class="part-card" data-part="${x.id}" type="button"><span class="tag">PART ${String(x.part_number).padStart(2,'0')}</span><h3>${esc(x.name)}</h3><p class="part-desc">${esc(x.description||'Kerjakan latihan pada Part ini.')}</p><b>${x.question_limit?x.question_limit+' soal':'Semua soal'}</b></button>`).join('')}</div>`:`<div class="empty">Belum ada Part latihan yang aktif.</div>`}</section>`); document.querySelectorAll('[data-part]').forEach(b=>b.onclick=()=>{b.classList.add('interaction-wiggle','click-glow');setTimeout(()=>namePrompt(b.dataset.part,data),260)}); }
 function namePrompt(id,parts){const p=parts.find(x=>String(x.id)===String(id));const n=prompt(`Masukkan nama untuk ${p.name}:`);if(!n||!n.trim())return;state.part=p;state.name=n.trim();startExercise();}
