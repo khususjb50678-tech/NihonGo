@@ -25,8 +25,10 @@ Storage bucket `media` digunakan untuk foto/audio Quick Soal.
 ## Deploy
 Upload seluruh isi folder ke GitHub/Vercel. `config.js` berisi URL dan anon key project Supabase.
 
-## Update desain Kana & kartu
-- Kana sekarang memakai animasi stroke-order SVG saat tombol "Lihat cara menulis" ditekan.
-- Data stroke-order Kana diambil dari `kana-svg-data` melalui jsDelivr saat animasi diputar. Sumber data menggunakan data SVG Kana dari AnimeCJK dan berlisensi LGPL. Referensi: https://github.com/hy2k/kana-svg-data
-- Branding Admin memiliki upload `Wallpaper Kolom / Kartu`; gambar disimpan ke Supabase Storage bucket `media` dan URL-nya ke `branding.card_wallpaper_url`.
-- Navigasi publik disederhanakan menjadi Beranda dan Developer.
+
+## Pembaruan V2
+- Animasi urutan goresan Hiragana/Katakana: balik kartu, lalu tekan Play (data KanjiVG, CC BY-SA 3.0, dimuat saat Play dan disimpan di cache browser).
+- Semua kolom goyang seirama + cahaya merah/biru berjalan di tepi (termasuk logo).
+- Admin > Tampilan Kolom: pilih wallpaper saran atau upload foto sendiri. Disimpan di Storage bucket `media` (file `branding/card-style.json`), tidak perlu mengubah database.
+- Font baru: Sora, Plus Jakarta Sans, Klee One, Zen Maru Gothic (Google Fonts).
+- Menu atas/bawah hanya Beranda dan Developer. Kanji, Kana, Kaiwa, Latihan diakses lewat kartu di Beranda.

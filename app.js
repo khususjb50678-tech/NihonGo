@@ -1,5 +1,8 @@
 import { supabase, sbReady } from './supabase.js';
 import { CONFIG } from './config.js';
+import { applyCardStyle, loadCachedStyle, fetchCardStyle, runFx } from './cardstyle.js';
+import { loadKana, buildStage, playStage, stopStage, stopAllStages } from './kanastroke.js';
+import { fixDesc, NEW_DESC } from './copy.js';
 
 const app = document.querySelector('#app');
 const state = { page: location.hash.slice(1) || 'home', branding: null, part: null, name: '', questions: [], index: 0, answers: {}, result: null, timer: null, timerLeft: 0, timerMode: null, timerKey: null, timerSettings: null };
@@ -55,159 +58,89 @@ function normalizeBunpou(row,i=0){
 function bunpouRowsToDefaults(rows){return rows.map((r,i)=>normalizeBunpou({id:`default-${i}`,active:true,...r},i));}
 function renderBunpouExamples(examples){return examples.map(e=>`<div class="bunpou-example"><div class="jp">${esc(e[0]||'')}</div><div class="romaji">${esc(e[1]||'')}</div><div class="meaning">${esc(e[2]||'')}</div></div>`).join('');}
 function renderConversation(rows){return rows.map(r=>`<div class="kaiwa-line"><b>${esc(r[0]||'A')}</b><div><div class="jp">${esc(r[1]||'')}</div><div class="romaji">${esc(r[2]||'')}</div><div class="meaning">${esc(r[3]||'')}</div></div></div>`).join('');}
-function renderBunpouCard(x,i=0){return `<button type="button" class="bunpou-item" data-bunpou-index="${i}"><span class="bunpou-item-tag">${x.category==='partikel'?'PARTIKEL':'BUNPOU'}</span><strong>${esc(x.title||x.pattern||'Materi')}</strong><span class="bunpou-item-pattern">${esc(x.pattern||'')}</span><span class="bunpou-item-arrow">›</span></button>`;}
+function renderBunpouCard(x,i=0){return `<button type="button" class="bunpou-item fx-float fx-ring" data-bunpou-index="${i}"><span class="bunpou-item-tag">${x.category==='partikel'?'PARTIKEL':'BUNPOU'}</span><strong>${esc(x.title||x.pattern||'Materi')}</strong><span class="bunpou-item-pattern">${esc(x.pattern||'')}</span><span class="bunpou-item-arrow">›</span></button>`;}
 function renderBunpouDetail(x){return `<div class="bunpou-modal-backdrop" id="bunpouModal"><div class="bunpou-modal" role="dialog" aria-modal="true"><button type="button" class="bunpou-close" id="bunpouClose" aria-label="Tutup">×</button><div class="bunpou-tag">${x.category==='partikel'?'PARTIKEL':'BUNPOU'}</div><h2>${esc(x.title||x.pattern||'Materi')}</h2><div class="bunpou-pattern">${esc(x.pattern||'')}</div><p class="bunpou-meaning"><b>Arti:</b> ${esc(x.meaning||'')}</p><p class="bunpou-detail-text"><b>Fungsi:</b> ${esc(x.usage||'')}</p><div class="bunpou-block"><b>Bentuk sebelum pola</b><p>${esc(x.before_form||'')}</p></div>${x.notes?`<div class="bunpou-block"><b>Catatan</b><p>${esc(x.notes)}</p></div>`:''}<div class="bunpou-block"><b>Contoh</b>${renderBunpouExamples(x.examples)}</div><div class="bunpou-block"><b>Percakapan KAIWA</b><div class="kaiwa">${renderConversation(x.conversation)}</div></div></div></div>`;}
 async function loadBranding(force=false){
   if(state.branding && !force) return state.branding;
-  let b={site_name:CONFIG.siteName,corporate_name:CONFIG.corporateName,creator:CONFIG.creator,hero_image:CONFIG.heroImage,description:'Belajar bahasa Jepang dengan Kanji dan latihan interaktif.',logo_url:'',favicon_url:'',whatsapp_url:'',telegram_url:'',instagram_url:'',developer_logo_url:'',card_wallpaper_url:''};
-  if(sbReady){ const {data}=await supabase.from('branding').select('*').eq('id',1).maybeSingle(); if(data)b={...b,...data}; }
+  let b={site_name:CONFIG.siteName,corporate_name:CONFIG.corporateName,creator:CONFIG.creator,hero_image:CONFIG.heroImage,description:NEW_DESC,logo_url:'',favicon_url:'',whatsapp_url:'',telegram_url:'',instagram_url:'',developer_logo_url:''};
+  const styleJob=fetchCardStyle();
+  if(sbReady){ try{ const {data}=await supabase.from('branding').select('*').eq('id',1).maybeSingle(); if(data)b={...b,...data}; }catch(err){ console.warn('Branding tidak terbaca:',err); } }
+  fixDesc(b);
   state.branding=b; document.title=b.site_name||CONFIG.siteName;
   if(b.favicon_url) document.querySelector('#favicon')?.setAttribute('href',b.favicon_url);
+  const cs=await styleJob; if(cs) applyCardStyle(cs);
   return b;
 }
 async function q(table,opts={}){ if(!sbReady)return {data:[],error:null}; let x=supabase.from(table).select(opts.select||'*'); if(opts.eq)for(const [k,v] of Object.entries(opts.eq))x=x.eq(k,v); if(opts.order)x=x.order(opts.order,{ascending:opts.asc!==false}); return x; }
-function mountEdgeLights(root=document){ /* Border light is CSS-only; no DOM overlay needed. */ }
-
 function shell(content){
+  stopAllStages();
   const b=state.branding||{};
   const logo=b.logo_url?`<img class="mark-img" src="${esc(b.logo_url)}" alt="logo" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'mark-fallback',textContent:'⛩'}))">`:'⛩';
-  const cardWallpaper=b.card_wallpaper_url?`--card-wallpaper:url("${esc(b.card_wallpaper_url)}")`:'';
-  app.innerHTML=`<div class="shell" style="${cardWallpaper}"><header class="topbar"><div class="topin"><a class="brand" href="#home"><span class="mark logo-glow">${logo}</span><span>${esc(b.site_name||'ITCO JAPAN')}<small>${esc(b.corporate_name||'TOP CORPORATION')} · ${esc(b.creator||'ウィタマ。')}</small></span></a><nav class="nav"><a href="#home">⌂ Beranda</a><a href="#developer">⌘ Developer</a></nav></div></header>${content}</div>`;
-  mountEdgeLights(app);
+  app.innerHTML=`<div class="shell"><header class="topbar"><div class="topin"><a class="brand" href="#home"><span class="mark fx-card fx-ring">${logo}</span><span>${esc(b.site_name||'ITCO JAPAN')}<small>${esc(b.corporate_name||'TOP CORPORATION')} · ${esc(b.creator||'ウィタマ。')}</small></span></a><nav class="nav"><a href="#home">⌂ Beranda</a><a href="#developer">⌘ Developer</a></nav></div></header>${content}<nav class="bottom"><a href="#home">⌂<br>Beranda</a><a href="#developer">⌘<br>Developer</a></nav></div>`;
+  document.querySelectorAll('.nav a,.bottom a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')===`#${state.page}`));
+  runFx();
 }
-
 async function home(){
   const b=await loadBranding();
-  const wallpaper=b.card_wallpaper_url?`--card-wallpaper:url("${esc(b.card_wallpaper_url)}")`:'';
-  shell(`<section class="hero" style="${b.hero_image?`background-image:linear-gradient(90deg,#030303 0%,#030303c9 45%,#03030355),url('${esc(b.hero_image)}')`:''}"><div class="hero-inner"><div class="eyebrow">日本語 · JAPANESE LEARNING SPACE</div><h1>${esc(b.site_name||'ITCO JAPAN')}</h1><h2>${esc(b.corporate_name||'TOP CORPORATION')} · BELAJAR NIHONGO</h2><p>${esc(b.description||'Ruang belajar bahasa Jepang yang rapi, interaktif, dan dibuat untuk membantu kamu memahami Nihongo langkah demi langkah.')}</p><a class="cta" href="#kana">Mulai Belajar →</a></div></section><section class="section home-learning"><div class="section-title"><div><div class="eyebrow">LEARN NIHONGO</div><h2>Pilih materi belajar</h2><p class="muted">Mulai dari Kana, pahami Kanji, pelajari Bunpou, lalu uji kemampuanmu melalui latihan.</p></div></div><div class="cards"><a class="card feature premium-card" style="${wallpaper}" href="#kana"><div class="icon">あ</div><h3>KANA</h3><p>Pelajari Hiragana dan Katakana melalui kartu interaktif lengkap dengan cara baca dan animasi urutan penulisan.</p><span class="card-link">Buka Kana →</span></a><a class="card feature premium-card" style="${wallpaper}" href="#kanji"><div class="icon">字</div><h3>KANJI</h3><p>Kenali Kanji, cara baca, dan arti melalui kartu belajar yang ringkas dan mudah dipahami.</p><span class="card-link">Buka Kanji →</span></a><a class="card feature premium-card" style="${wallpaper}" href="#kaiwa"><div class="icon">会話</div><h3>KAIWA & BUNPOU</h3><p>Pelajari partikel dan pola kalimat dari dasar sampai contoh percakapan sehari-hari.</p><span class="card-link">Buka Kaiwa →</span></a><a class="card feature premium-card" style="${wallpaper}" href="#latihan"><div class="icon">✎</div><h3>LATIHAN</h3><p>Kerjakan soal berdasarkan Part, lihat hasilnya, lalu review jawabanmu untuk mengetahui bagian yang perlu dipelajari lagi.</p><span class="card-link">Mulai Latihan →</span></a></div></section>`);
+  const heroBg=b.hero_image?`background-image:linear-gradient(180deg,#05050500 38%,#050505 100%),linear-gradient(90deg,#030303ec 0%,#030303a8 52%,#03030366),url('${esc(b.hero_image)}')`:'';
+  shell(`<section class="hero" style="${heroBg}"><div class="hero-inner"><div class="eyebrow">日本語 · Belajar Nihongo</div><h1>${esc(b.site_name||'ITCO JAPAN')}</h1><h2>${esc(b.corporate_name||'TOP CORPORATION')}</h2><p>${esc(b.description||NEW_DESC)}</p><a class="cta" href="#latihan">Mulai belajar</a></div></section><section class="section home-section"><div class="section-title"><div><h2>Mau belajar apa hari ini?</h2><p class="muted">Pilih satu materi, lalu belajar sedikit demi sedikit setiap hari.</p></div></div><div class="cards"><a class="card feature fx-card fx-ring" href="#kanji"><div class="icon">字</div><h3>Kanji</h3><p>Hafalkan Kanji lewat kartu yang bisa dibalik, lengkap dengan cara baca dan artinya.</p></a><a class="card feature fx-card fx-ring" href="#kana"><div class="icon">あ</div><h3>Kana</h3><p>Hiragana dan Katakana dalam kartu interaktif, plus animasi urutan goresan.</p></a><a class="card feature fx-card fx-ring" href="#kaiwa"><div class="icon">会話</div><h3>Kaiwa &amp; Bunpou</h3><p>Pahami partikel dan pola kalimat lewat contoh serta percakapan sehari-hari.</p></a><a class="card feature fx-card fx-ring" href="#latihan"><div class="icon">✎</div><h3>Latihan</h3><p>Kerjakan soal per Part, lalu cek nilai dan review jawabanmu.</p></a></div></section>`);
 }
-async function developer(){ const b=await loadBranding(true); const icon=(name,url)=>url?`<a class="social-icon" href="${esc(url)}" target="_blank" rel="noopener" aria-label="${name}"><img src="https://cdn.simpleicons.org/${name.toLowerCase()}/ffffff" alt=""></a>`:''; const links=`${icon('WhatsApp',b.whatsapp_url)}${icon('Telegram',b.telegram_url)}${icon('Instagram',b.instagram_url)}`; const avatar=b.developer_logo_url?`<img class="developer-avatar-img" src="${esc(b.developer_logo_url)}" alt="Logo Developer">`:'⌘'; const appDownloadUrl='https://www.mediafire.com/file/0g1npit59ir4q2v/NihonGoByWitama.apk/file'; shell(`<section class="section developer-page"><div class="developer-panel"><div class="eyebrow">ABOUT THE CREATOR</div><div class="developer-avatar">${avatar}</div><h1>Developer</h1><h2>${esc(b.creator_name||'Witama Yuliananta')}</h2><p>${esc(b.developer_description||'Website ini dibuat dan dikembangkan oleh Witama Yuliananta, sebagai bagian dari pengembangan media pembelajaran bahasa Jepang yang interaktif, modern, dan mudah digunakan.')}</p><div class="socials">${links||'<span class="muted">Kontak belum ditambahkan.</span>'}</div><div class="app-download"><div class="app-download-icon" aria-hidden="true">↓</div><div class="app-download-content"><div class="app-download-label">INGIN DOWNLOAD APLIKASI?</div><h3>NihonGo by Witama</h3><p>Belajar Nihongo dengan lebih praktis melalui aplikasi Android ITCO JAPAN.</p><a class="app-download-btn" href="${appDownloadUrl}" target="_blank" rel="noopener noreferrer">↓ &nbsp; KLIK UNTUK DOWNLOAD</a><small>File aplikasi Android · NihonGo by Witama</small></div></div></div></section>`); }
-async function kanji(){ await loadBranding(); const {data,error}=await q('kanji',{eq:{active:true},order:'created_at'}); if(error)console.error(error); shell(`<section class="section"><div class="section-title"><div><div class="eyebrow">字 KANJI</div><h2>Kanji</h2><p class="muted">Tap kartu untuk membalik dan melihat cara baca serta arti.</p></div></div><input id="search" class="input search" placeholder="Cari Kanji, cara baca, atau arti..."><div id="kanjiGrid" class="grid" style="margin-top:20px">${renderKanji(data||[])}</div></section>`); const s=document.querySelector('#search'); s.oninput=e=>{const v=norm(e.target.value);document.querySelector('#kanjiGrid').innerHTML=renderKanji((data||[]).filter(x=>norm(`${x.kanji} ${x.reading} ${x.meaning}`).includes(v)));bindKanjiFlip();}; bindKanjiFlip(); }
+async function developer(){
+  const b=await loadBranding(true);
+  const icon=(name,url)=>url?`<a class="social-icon" href="${esc(url)}" target="_blank" rel="noopener" aria-label="${name}"><img src="https://cdn.simpleicons.org/${name.toLowerCase()}/ffffff" alt=""></a>`:'';
+  const links=`${icon('WhatsApp',b.whatsapp_url)}${icon('Telegram',b.telegram_url)}${icon('Instagram',b.instagram_url)}`;
+  const avatar=b.developer_logo_url?`<img class="developer-avatar-img" src="${esc(b.developer_logo_url)}" alt="Logo Developer">`:'⌘';
+  const appDownloadUrl='https://www.mediafire.com/file/0g1npit59ir4q2v/NihonGoByWitama.apk/file';
+  shell(`<section class="section developer-page"><div class="developer-panel fx-float fx-ring"><div class="eyebrow">Di balik website ini</div><div class="developer-avatar fx-card fx-ring">${avatar}</div><h1>Developer</h1><h2>${esc(b.creator_name||'Witama Yuliananta')}</h2><p>${esc(b.developer_description)}</p><div class="socials">${links||'<span class="muted">Kontak belum ditambahkan.</span>'}</div><div class="app-download fx-ring"><div class="app-download-icon" aria-hidden="true">↓</div><div class="app-download-content"><div class="app-download-label">Lebih praktis di HP</div><h3>NihonGo by Witama</h3><p>Belajar Nihongo lewat aplikasi Android, tanpa perlu membuka browser.</p><a class="app-download-btn" href="${appDownloadUrl}" target="_blank" rel="noopener noreferrer">↓ &nbsp; Download aplikasi</a><small>File APK · khusus Android</small></div></div></div></section>`);
+}
+async function kanji(){ await loadBranding(); const {data,error}=await q('kanji',{eq:{active:true},order:'created_at'}); if(error)console.error(error); shell(`<section class="section"><div class="section-title"><div><div class="eyebrow">字 Kanji</div><h2>Kanji</h2><p class="muted">Ketuk kartu untuk melihat cara baca dan artinya.</p></div></div><input id="search" class="input search" placeholder="Cari Kanji, cara baca, atau arti…"><div id="kanjiGrid" class="grid" style="margin-top:20px">${renderKanji(data||[])}</div></section>`); const s=document.querySelector('#search'); s.oninput=e=>{const v=norm(e.target.value);document.querySelector('#kanjiGrid').innerHTML=renderKanji((data||[]).filter(x=>norm(`${x.kanji} ${x.reading} ${x.meaning}`).includes(v)));bindKanjiFlip();runFx();}; bindKanjiFlip(); }
 function bindKanjiFlip(){ document.querySelectorAll('.kanji-flip').forEach(c=>c.onclick=()=>c.classList.toggle('flipped')); }
-function renderKanji(rows){ if(!rows.length)return `<div class="empty" style="grid-column:1/-1"><div class="empty-symbol">字</div><h3>Belum ada materi Kanji</h3><p>Materi akan tersedia setelah Admin menambahkannya.</p></div>`; return rows.map(x=>`<button class="kanji-flip" type="button"><span class="flip-inner"><span class="flip-face flip-front"><span class="kanji-char">${esc(x.kanji)}</span><small>Tap untuk lihat jawaban</small></span><span class="flip-face flip-back"><span class="answer-kanji">${esc(x.kanji)}</span><span>${esc(x.reading||'—')}</span><strong>${esc(x.meaning)}</strong></span></span></button>`).join(''); }
+function renderKanji(rows){ if(!rows.length)return `<div class="empty" style="grid-column:1/-1"><div class="empty-symbol">字</div><h3>Belum ada materi Kanji</h3><p>Materi akan muncul di sini setelah Admin menambahkannya.</p></div>`; return rows.map(x=>`<button class="kanji-flip fx-card" type="button"><span class="flip-inner"><span class="flip-face flip-front"><span class="kanji-char">${esc(x.kanji)}</span><small>Ketuk untuk melihat jawaban</small></span><span class="flip-face flip-back"><span class="answer-kanji">${esc(x.kanji)}</span><span>${esc(x.reading||'—')}</span><strong>${esc(x.meaning)}</strong></span></span></button>`).join(''); }
 
 const basicH=[['あ','a'],['い','i'],['う','u'],['え','e'],['お','o'],['か','ka'],['き','ki'],['く','ku'],['け','ke'],['こ','ko'],['さ','sa'],['し','shi'],['す','su'],['せ','se'],['そ','so'],['た','ta'],['ち','chi'],['つ','tsu'],['て','te'],['と','to'],['な','na'],['に','ni'],['ぬ','nu'],['ね','ne'],['の','no'],['は','ha'],['ひ','hi'],['ふ','fu'],['へ','he'],['ほ','ho'],['ま','ma'],['み','mi'],['む','mu'],['め','me'],['も','mo'],['や','ya'],['ゆ','yu'],['よ','yo'],['ら','ra'],['り','ri'],['る','ru'],['れ','re'],['ろ','ro'],['わ','wa'],['を','wo'],['ん','n']];
 const voicedH=[['が','ga'],['ぎ','gi'],['ぐ','gu'],['げ','ge'],['ご','go'],['ざ','za'],['じ','ji'],['ず','zu'],['ぜ','ze'],['ぞ','zo'],['だ','da'],['ぢ','ji'],['づ','zu'],['で','de'],['ど','do'],['ば','ba'],['び','bi'],['ぶ','bu'],['べ','be'],['ぼ','bo'],['ぱ','pa'],['ぴ','pi'],['ぷ','pu'],['ぺ','pe'],['ぽ','po']];
 const combosH=[['きゃ','kya'],['きゅ','kyu'],['きょ','kyo'],['しゃ','sha'],['しゅ','shu'],['しょ','sho'],['ちゃ','cha'],['ちゅ','chu'],['ちょ','cho'],['にゃ','nya'],['にゅ','nyu'],['にょ','nyo'],['ひゃ','hya'],['ひゅ','hyu'],['ひょ','hyo'],['みゃ','mya'],['みゅ','myu'],['みょ','myo'],['りゃ','rya'],['りゅ','ryu'],['りょ','ryo'],['ぎゃ','gya'],['ぎゅ','gyu'],['ぎょ','gyo'],['じゃ','ja'],['じゅ','ju'],['じょ','jo'],['びゃ','bya'],['びゅ','byu'],['びょ','byo'],['ぴゃ','pya'],['ぴゅ','pyu'],['ぴょ','pyo']];
 const smallH=[['ぁ','a'],['ぃ','i'],['ぅ','u'],['ぇ','e'],['ぉ','o'],['ゃ','ya'],['ゅ','yu'],['ょ','yo'],['ゎ','wa'],['っ','small tsu']];
-const hira=[...basicH,...voicedH]; const kata=basicH.map(([a,r])=>[a.replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)),r]); const voicedK=voicedH.map(([a,r])=>[a.replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)),r]); const comboK=combosH.map(([a,r])=>[a.replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)),r]);
-const kanaData={hiragana:hira,katakana:[...kata,...voicedK]};
+const hira=[...basicH,...voicedH,...combosH,...smallH]; const kata=basicH.map(([a,r])=>[a.replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)),r]); const voicedK=voicedH.map(([a,r])=>[a.replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)),r]); const comboK=combosH.map(([a,r])=>[a.replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)),r]);
+const smallK=smallH.map(([a,r])=>[a.replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)),r]);
+const extraK=[['ヴ','vu']];
+const kanaData={hiragana:hira,katakana:[...kata,...voicedK,...comboK,...smallK,...extraK]};
 function kanaSlug(ch){ return [...ch].map(c=>c.codePointAt(0).toString(16).padStart(5,'0')).join('-'); }
-function kanaCard(item,kind,index){
-  const [char,romaji]=item;
-  return `<div class="kana-flip premium-card" tabindex="0" role="button" data-kana-index="${index}"><span class="kana-inner"><span class="kana-face kana-front"><span class="kana-char">${esc(char)}</span><small>Klik untuk membalik</small></span><span class="kana-face kana-back"><span class="kana-char kana-back-char">${esc(char)}</span><span class="kana-romaji">${esc(romaji)}</span><button type="button" class="kana-play" aria-label="Putar urutan goresan" data-kana-play="${esc(char)}" data-kana-kind="${kind}">▶</button></span></span></div>`;
-}
-
-// Stroke-order data is fetched once per script and cached in memory.  The modal
-// itself opens immediately; the animation is prepared in the background.
-const kanaStrokeCache={hiragana:null,katakana:null};
-const kanaStrokeLoading={hiragana:null,katakana:null};
-const KANA_DATA_URL={
-  hiragana:'https://cdn.jsdelivr.net/npm/kana-svg-data/dist/allHiragana.json',
-  katakana:'https://cdn.jsdelivr.net/npm/kana-svg-data/dist/allKatakana.json'
-};
-async function loadKanaStrokeData(kind){
-  if(kanaStrokeCache[kind])return kanaStrokeCache[kind];
-  if(kanaStrokeLoading[kind])return kanaStrokeLoading[kind];
-  kanaStrokeLoading[kind]=fetch(KANA_DATA_URL[kind],{cache:'force-cache'}).then(r=>{if(!r.ok)throw new Error('Data stroke tidak tersedia');return r.json();}).then(rows=>{
-    kanaStrokeCache[kind]=rows;
-    return rows;
-  }).finally(()=>{kanaStrokeLoading[kind]=null;});
-  return kanaStrokeLoading[kind];
-}
-function findKanaStroke(rows,char){
-  if(!Array.isArray(rows))return null;
-  return rows.find(x=>Number(x.charCode)===char.codePointAt(0)) || rows.find(x=>x.char===char) || null;
-}
-function escSvgId(v){return String(v).replace(/[^a-zA-Z0-9_-]/g,'_');}
-function naturalStrokeOrder(a,b){
-  const parse=x=>{const m=String(x).match(/^(\d+)([a-z]*)$/i);return m?[Number(m[1]),m[2]]:[999,String(x)];};
-  const A=parse(a),B=parse(b); return A[0]-B[0] || A[1].localeCompare(B[1]);
-}
-function strokeNumber(id){const m=String(id).match(/^(\d+)/);return m?Number(m[1]):null;}
-function strokeStartPoint(d){
-  const m=String(d||'').match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi);
-  return m&&m.length>=2?{x:Number(m[0]),y:Number(m[1])}:null;
-}
-function buildKanaStrokeSvg(data,char){
-  const prefix=`kana_${char.codePointAt(0)}`;
-  const strokes=(data.strokes||[]).filter(x=>x&&x.value).sort((a,b)=>naturalStrokeOrder(a.id,b.id));
-  const clips=(data.clipPaths||[]).filter(x=>x&&x.value).reduce((m,x)=>(m[x.id]=x.value,m),{});
-  const medians=(data.medians||[]).filter(x=>x&&Array.isArray(x.value)&&x.value.length).reduce((m,x)=>(m[x.id]=x.value,m),{});
-  const defs=strokes.map(s=>`<clipPath id="${prefix}_clip_${escSvgId(s.id)}"><path d="${s.value}"/></clipPath>`).join('');
-  const shadows=strokes.map(s=>`<path d="${s.value}"/>`).join('');
-  const animated=strokes.map((s,i)=>{
-    const center=clips[s.id]||'';
-    const med=medians[s.id]||[];
-    const start=med.length?{x:med[0][0],y:med[0][1]}:strokeStartPoint(center);
-    const n=strokeNumber(s.id);
-    return `<g class="kana-stroke-unit" data-stroke-index="${i}" data-stroke-number="${n||i+1}"><path class="kana-stroke-line" d="${center}" clip-path="url(#${prefix}_clip_${escSvgId(s.id)})" pathLength="3333"/><g class="kana-stroke-marker" aria-hidden="true">${start?`<text class="kana-stroke-number" x="${start.x+20}" y="${start.y-20}">${n||i+1}</text>`:''}</g></g>`;
-  }).join('');
-  return `<svg class="kana-stroke-svg" viewBox="0 0 1024 1024" role="img" aria-label="Urutan penulisan ${esc(char)}"><defs>${defs}</defs><g class="kana-stroke-shadow">${shadows}</g><g class="kana-stroke-animated">${animated}</g></svg>`;
-}
-async function kana(){
-  await loadBranding();
-  const kind=state.kanaKind||'hiragana'; const data=kanaData[kind];
-  shell(`<section class="section kana-page"><div class="section-title"><div><div class="eyebrow">あ KANA</div><h2>${kind==='hiragana'?'Hiragana':'Katakana'}</h2><p class="muted">Pilih huruf untuk melihat cara baca. Balik kartunya, lalu tekan tombol ▶ untuk melihat urutan goresan.</p></div></div><div class="segmented"><button class="seg ${kind==='hiragana'?'active':''}" data-kind="hiragana">Hiragana</button><button class="seg ${kind==='katakana'?'active':''}" data-kind="katakana">Katakana</button></div><div class="kana-grid" id="kanaGrid">${data.map((x,i)=>kanaCard(x,kind,i)).join('')}</div></section>`);
-  bindKana();
-  // Warm the cache without blocking the page. Opening a card later is instant
-  // whenever the background request has finished.
-  loadKanaStrokeData('hiragana').catch(()=>{});
-  loadKanaStrokeData('katakana').catch(()=>{});
+function kanaCard(item,kind,index){ const [char,romaji]=item; return `<div class="kana-flip fx-card" data-kana-index="${index}" tabindex="0" aria-label="Kartu ${esc(char)}, dibaca ${esc(romaji)}"><span class="kana-inner"><span class="kana-face kana-front"><span class="kana-char">${esc(char)}</span><small>Ketuk untuk melihat cara baca</small></span><span class="kana-face kana-back"><span class="kana-stage-wrap"><svg class="kana-stage" viewBox="0 0 109 109" aria-hidden="true"></svg><span class="kana-static">${esc(char)}</span></span><span class="kana-side"><span class="kana-romaji">${esc(romaji)}</span><button type="button" class="kana-play" data-char="${esc(char)}">▶ Play</button><small>Ketuk kartu untuk kembali</small></span></span></span></div>`; }
+async function kana(){ await loadBranding(); const kind=state.kanaKind||'hiragana'; const data=kanaData[kind]; shell(`<section class="section kana-page"><div class="section-title"><div><div class="eyebrow">あ Kana</div><h2>${kind==='hiragana'?'Hiragana':'Katakana'}</h2><p class="muted">Ketuk kartu untuk melihat cara baca, lalu tekan Play untuk melihat urutan goresannya.</p></div></div><div class="segmented"><button class="seg ${kind==='hiragana'?'active':''}" data-kind="hiragana">Hiragana</button><button class="seg ${kind==='katakana'?'active':''}" data-kind="katakana">Katakana</button></div><div class="kana-grid" id="kanaGrid">${data.map((x,i)=>kanaCard(x,kind,i)).join('')}</div></section>`); bindKana(); }
+function resetKanaCard(card){ const svg=card.querySelector('.kana-stage'); const btn=card.querySelector('.kana-play'); if(svg)stopStage(svg); card.querySelector('.kana-stage-wrap')?.classList.remove('drawing'); if(btn){btn.textContent='▶ Play';delete btn.dataset.busy;} }
+async function playKanaCard(btn){
+  const card=btn.closest('.kana-flip'); if(!card||btn.dataset.busy)return;
+  const svg=card.querySelector('.kana-stage'), wrap=card.querySelector('.kana-stage-wrap');
+  btn.dataset.busy='1'; btn.textContent='Memuat…';
+  try{
+    const sets=await loadKana(btn.dataset.char);
+    if(!card.classList.contains('flipped')){ delete btn.dataset.busy; btn.textContent='▶ Play'; return; }
+    buildStage(svg,sets); wrap.classList.add('drawing'); btn.textContent='Menulis…';
+    const done=await playStage(svg);
+    if(done){ btn.textContent='↻ Putar ulang'; delete btn.dataset.busy; }
+  }catch(err){ console.warn('Animasi goresan gagal dimuat:',err); btn.textContent='Gagal memuat · coba lagi'; delete btn.dataset.busy; }
 }
 function bindKana(){
-  document.querySelectorAll('.seg').forEach(b=>b.onclick=()=>{b.classList.add('interaction-wiggle','click-glow');setTimeout(()=>{state.kanaKind=b.dataset.kind;renderRoute()},180)});
-  document.querySelectorAll('.kana-grid .kana-flip').forEach(c=>{
-    const flip=e=>{if(e.target.closest('.kana-play'))return;c.classList.toggle('flipped');};
-    c.onclick=flip; c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();flip(e)}};
-  });
-  document.querySelectorAll('[data-kana-play]').forEach(b=>b.onclick=e=>{e.stopPropagation();openKanaAnimation(b.dataset.kanaPlay,b.dataset.kanaKind);});
+  document.querySelectorAll('.seg').forEach(b=>b.onclick=()=>{b.classList.add('interaction-wiggle','click-glow');setTimeout(()=>{state.kanaKind=b.dataset.kind;renderRoute()},260)});
+  const grid=document.querySelector('#kanaGrid'); if(!grid)return;
+  const toggle=card=>{ const on=card.classList.toggle('flipped'); if(!on)resetKanaCard(card); };
+  grid.onclick=e=>{ const btn=e.target.closest('.kana-play'); if(btn){ e.stopPropagation(); playKanaCard(btn); return; } const card=e.target.closest('.kana-flip'); if(card)toggle(card); };
+  grid.onkeydown=e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('kana-flip')){ e.preventDefault(); toggle(e.target); } };
 }
-async function openKanaAnimation(char,kind){
-  const reading=(kanaData[kind]||[]).find(x=>x[0]===char)?.[1]||'';
-  const label=kind==='hiragana'?'Hiragana':'Katakana';
-  document.body.insertAdjacentHTML('beforeend',`<div class="kana-modal-backdrop" id="kanaModal"><div class="kana-modal" role="dialog" aria-modal="true"><button class="kana-modal-close" id="kanaModalClose" aria-label="Tutup">×</button><h2>${esc(char)}</h2><div class="kana-modal-name">${esc(reading)}</div><div class="kana-stage" id="kanaStage"><div class="kana-immediate-char">${esc(char)}</div></div><button class="kana-replay-icon" id="kanaReplay" type="button" aria-label="Putar ulang">▶</button></div></div>`);
-  const modal=document.querySelector('#kanaModal');
-  document.querySelector('#kanaModalClose').onclick=()=>modal.remove();
-  modal.onclick=e=>{if(e.target===modal)modal.remove();};
-  const stage=document.querySelector('#kanaStage');
-  const replay=document.querySelector('#kanaReplay');
-  let svgReady=null;
-  const render=async()=>{
-    try{
-      const rows=kanaStrokeCache[kind] || await loadKanaStrokeData(kind);
-      const item=findKanaStroke(rows,char);
-      if(!item)throw new Error('Kana tidak ditemukan');
-      stage.innerHTML=buildKanaStrokeSvg(item,char);
-      svgReady=stage.querySelector('.kana-stroke-svg');
-      const units=[...stage.querySelectorAll('.kana-stroke-unit')];
-      units.forEach((unit,i)=>{
-        const paths=[...unit.querySelectorAll('.kana-stroke-line')];
-        paths.forEach(p=>{p.style.strokeDasharray='3333';p.style.strokeDashoffset='3333';p.setAttribute('pathLength','3333');});
-      });
-      return {units,svg:svgReady};
-    }catch(err){
-      console.error('Kana stroke-order:',err);
-      stage.innerHTML=`<div class="kana-immediate-char">${esc(char)}</div>`;
-      return null;
-    }
-  };
-  const play=async()=>{
-    if(!svgReady){const ready=await render(); if(!ready)return;}
-    const units=[...stage.querySelectorAll('.kana-stroke-unit')];
-    units.forEach(unit=>unit.querySelectorAll('.kana-stroke-line').forEach(p=>{p.style.animation='none';p.style.strokeDashoffset='3333';}));
-    void stage.offsetWidth;
-    units.forEach((unit,i)=>unit.querySelectorAll('.kana-stroke-line').forEach(p=>{p.style.animation=`kanaDrawSmooth 1.55s cubic-bezier(.22,.8,.22,1) ${i*1.62}s forwards`; }));
-  };
-  // Render from the already-prefetched cache immediately when possible.
-  if(kanaStrokeCache[kind]){await render();play();}
-  else{
-    // No loading screen: the real Kana remains visible while the data arrives.
-    loadKanaStrokeData(kind).then(()=>{if(document.body.contains(modal)){render().then(()=>play());}}).catch(()=>{});
-  }
-  replay.onclick=()=>{if(svgReady)play();else loadKanaStrokeData(kind).then(()=>{if(document.body.contains(modal)){render().then(()=>play());}}).catch(()=>{});};
+
+
+async function kaiwa(){
+  await loadBranding();
+  let rows=[];
+  if(sbReady){ const r=await supabase.from('bunpou').select('*').eq('active',true).order('sort_order').order('created_at'); if(r.error) console.warn('Bunpou database belum terbaca, memakai materi bawaan:',r.error.message); else rows=r.data||[]; }
+  const mergedBunpou=new Map(bunpouRowsToDefaults(defaultBunpou).map(x=>[`${x.category||'bunpou'}|${x.title||x.pattern}`,x])); (rows||[]).map(normalizeBunpou).forEach(x=>mergedBunpou.set(`${x.category||'bunpou'}|${x.title||x.pattern}`,x)); rows=[...mergedBunpou.values()];
+  shell(`<section class="section kaiwa-page"><div class="section-title"><div><div class="eyebrow">会話 · KAIWA</div><h2>Bunpou & Percakapan</h2><p class="muted">Pelajari partikel dan pola kalimat lengkap dengan contoh dan percakapannya.</p></div></div><div class="bunpou-intro"><b>Cara pakai:</b> ketuk salah satu judul untuk membuka fungsi, bentuk, contoh, dan percakapannya.</div><div class="bunpou-tabs"><button class="bunpou-tab active" data-filter="all">Semua</button><button class="bunpou-tab" data-filter="partikel">Partikel</button><button class="bunpou-tab" data-filter="bunpou">Bunpou</button></div><div id="bunpouList" class="bunpou-list"></div></section>`);
+  const renderFiltered=(filter)=>{ const filtered=rows.filter(x=>filter==='all'||x.category===filter); document.querySelector('#bunpouList').innerHTML=filtered.map((x,i)=>renderBunpouCard(x,rows.indexOf(x))).join(''); runFx(); document.querySelectorAll('[data-bunpou-index]').forEach(b=>b.onclick=()=>{const x=rows[Number(b.dataset.bunpouIndex)]; if(!x)return; document.body.insertAdjacentHTML('beforeend',renderBunpouDetail(x)); const modal=document.querySelector('#bunpouModal'); document.querySelector('#bunpouClose').onclick=()=>modal.remove(); modal.onclick=e=>{if(e.target===modal)modal.remove();}; document.addEventListener('keydown',function close(ev){if(ev.key==='Escape'){modal.remove();document.removeEventListener('keydown',close);}}, {once:true});}); };
+  document.querySelectorAll('.bunpou-tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.bunpou-tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderFiltered(b.dataset.filter);});
+  renderFiltered('all');
 }
-async function latihan(){ await loadBranding(); const {data,error}=await q('parts',{eq:{active:true},order:'part_number'}); if(error)console.error(error); shell(`<section class="section"><div class="section-title"><div><div class="eyebrow">✎ LATIHAN</div><h2>Pilih Part</h2><p class="muted">Pilih Part untuk mulai mengerjakan latihan.</p></div></div>${data?.length?`<div class="part-list">${data.map(x=>`<button class="part-card" data-part="${x.id}" type="button"><span class="tag">PART ${String(x.part_number).padStart(2,'0')}</span><h3>${esc(x.name)}</h3><p class="part-desc">${esc(x.description||'Kerjakan latihan pada Part ini.')}</p><b>${x.question_limit?x.question_limit+' soal':'Semua soal'}</b></button>`).join('')}</div>`:`<div class="empty">Belum ada Part latihan yang aktif.</div>`}</section>`); document.querySelectorAll('[data-part]').forEach(b=>b.onclick=()=>{b.classList.add('interaction-wiggle','click-glow');setTimeout(()=>namePrompt(b.dataset.part,data),260)}); }
+async function latihan(){ await loadBranding(); const {data,error}=await q('parts',{eq:{active:true},order:'part_number'}); if(error)console.error(error); shell(`<section class="section"><div class="section-title"><div><div class="eyebrow">✎ Latihan</div><h2>Pilih Part</h2><p class="muted">Pilih Part yang ingin dikerjakan. Kamu akan diminta mengisi nama sebelum mulai.</p></div></div>${data?.length?`<div class="part-list">${data.map(x=>`<button class="part-card fx-card fx-ring" data-part="${x.id}" type="button"><span class="tag">PART ${String(x.part_number).padStart(2,'0')}</span><h3>${esc(x.name)}</h3><p class="part-desc">${esc(x.description||'Latihan soal untuk Part ini.')}</p><b>${x.question_limit?x.question_limit+' soal':'Semua soal'}</b></button>`).join('')}</div>`:`<div class="empty">Belum ada Part latihan yang aktif. Coba cek lagi nanti ya.</div>`}</section>`); document.querySelectorAll('[data-part]').forEach(b=>b.onclick=()=>{b.classList.add('interaction-wiggle','click-glow');setTimeout(()=>namePrompt(b.dataset.part,data),260)}); }
 function namePrompt(id,parts){const p=parts.find(x=>String(x.id)===String(id));const n=prompt(`Masukkan nama untuk ${p.name}:`);if(!n||!n.trim())return;state.part=p;state.name=n.trim();startExercise();}
 async function startExercise(){ const {data,error}=await q('questions',{eq:{part_id:state.part.id,active:true},order:'created_at'}); if(error){alert(error.message);return} if(!data?.length){alert('Part ini belum memiliki soal aktif.');return} let qs=[...data]; if(state.part.shuffle_questions)qs.sort(()=>Math.random()-.5);if(state.part.question_limit)qs=qs.slice(0,state.part.question_limit);state.questions=qs;state.index=0;state.answers={};await loadTimerSettings();startPartTimer();renderExercise(); }
 async function loadTimerSettings(){ if(!sbReady){state.timerSettings=null;return;} const {data}=await supabase.from('timer_settings').select('*').eq('id',1).maybeSingle();state.timerSettings=data||null; }
@@ -221,7 +154,7 @@ function answerFor(x){return x.answer??'';}
 function matchingPairs(x){return parseJSON(x.options,[]).filter(p=>p&&p.left!==undefined&&p.right!==undefined);}
 function renderExercise(){ stopTimer(); const x=state.questions[state.index]; let opts=parseJSON(x.options,[]);if(!Array.isArray(opts))opts=[];if(state.part.shuffle_options && x.type!=='matching')opts=[...opts].sort(()=>Math.random()-.5);const current=state.answers[x.id];const mediaUrl=x.media_url||'';const mediaType=(x.media_type||'').toLowerCase();const inferredImage=!mediaType&&/\.(?:png|jpe?g|webp|gif|svg)(?:\?|$)/i.test(mediaUrl);const inferredAudio=!mediaType&&/\.(?:mp3|wav|ogg|m4a|aac|flac)(?:\?|$)/i.test(mediaUrl);const photo=x.photo_url||(mediaType==='image'||inferredImage?mediaUrl:'');const audio=x.audio_url||(mediaType==='audio'||inferredAudio?mediaUrl:'');const media=`${photo?`<div class="question-media photo-media"><div class="media-label">📷 Foto</div><img class="media" loading="lazy" src="${esc(photo)}" alt="Foto soal" onerror="this.closest('.photo-media')?.classList.add('media-error')"></div>`:''}${audio?`<div class="question-media audio-media"><div class="media-label">🔊 Audio</div><audio class="media" controls preload="metadata" src="${esc(audio)}"></audio></div>`:''}${(!photo&&!audio)?'':''}`;let instruction=x.instruction||'';if(x.type==='typing')instruction=typingInstruction(x.answer);else if(x.type==='kanji_input')instruction='Masukkan Kanji yang sesuai.';else if(x.type==='multiple_choice'||x.type==='kanji_choice')instruction=x.type==='kanji_choice'?'Pilih Kanji yang sesuai dengan arti tersebut.':'Pilih jawaban yang paling tepat.';else if(x.type==='truefalse')instruction='Tentukan apakah pernyataan berikut benar atau salah.';else if(x.type==='matching')instruction='Pasangkan setiap kata dengan pasangan yang tepat.';let body='';if(x.type==='truefalse')body=`<div class="answers"><button class="btn answer ${norm(current)==='benar'?'selected':''}" data-answer="Benar">Benar</button><button class="btn answer ${norm(current)==='salah'?'selected':''}" data-answer="Salah">Salah</button></div>`;else if(x.type==='typing'||x.type==='kanji_input')body=`<input id="typing" class="input" placeholder="Ketik jawaban..." value="${esc(current||'')}">`;else if(x.type==='matching'){const pairs=matchingPairs(x);const chosen=parseJSON(current,{});body=`<div class="matching-list">${pairs.map(p=>`<div class="matching-row"><span>${esc(p.left)}</span><select class="input match-select" data-left="${esc(p.left)}"><option value="">Pilih...</option>${pairs.map(q=>`<option value="${esc(q.right)}" ${chosen[p.left]===q.right?'selected':''}>${esc(q.right)}</option>`).join('')}</select></div>`).join('')}</div>`;}else body=`<div class="answers">${opts.map((o,i)=>`<button class="btn answer ${norm(current)===norm(o)?'selected':''}" data-answer="${esc(o)}">${i+1}. ${esc(o)}</button>`).join('')}</div>`;shell(`<section class="section exercise"><div class="exercise-head"><div><div class="eyebrow">${esc(state.part.name)} · ${state.index+1}/${state.questions.length}</div><div id="timerText" class="timer-text"></div></div></div><div class="progress"><i style="width:${((state.index+1)/state.questions.length)*100}%"></i></div><div class="question-block">${x.prompt?.length<35?`<div class="question">${esc(x.prompt)}</div>`:`<h2 class="question-long">${esc(x.prompt)}</h2>`}${x.reading?`<div class="reading">${esc(x.reading)}</div>`:''}${media}</div><p class="instruction">${esc(instruction)}</p>${body}<div class="exercise-nav"><button class="btn" id="prev" ${state.index===0?'disabled':''}>← Sebelumnya</button><button class="btn red" id="next">${state.index===state.questions.length-1?'Selesai':'Selanjutnya →'}</button></div></section>`);document.querySelectorAll('.answer').forEach(b=>b.onclick=()=>{state.answers[x.id]=b.dataset.answer;b.classList.add('interaction-wiggle','click-glow');setTimeout(()=>renderExercise(),260)});const inp=document.querySelector('#typing');if(inp)inp.oninput=()=>state.answers[x.id]=inp.value;document.querySelectorAll('.match-select').forEach(s=>s.onchange=()=>{const v={...parseJSON(state.answers[x.id],{})};v[s.dataset.left]=s.value;state.answers[x.id]=JSON.stringify(v);});document.querySelector('#prev').onclick=()=>{if(state.index>0){state.index--;document.querySelector('#prev').classList.add('interaction-wiggle','click-glow');setTimeout(()=>renderExercise(),260)}};document.querySelector('#next').onclick=()=>{if(inp)state.answers[x.id]=inp.value;document.querySelector('#next').classList.add('interaction-wiggle','click-glow');setTimeout(()=>{if(state.index===state.questions.length-1)finish();else{state.index++;renderExercise()}},260)};startQuestionTimer(x); }
 async function finish(){stopTimer();let correct=0;const reviews=state.questions.map(x=>{let user=state.answers[x.id]??'';let ans=answerFor(x);let ok=false;if(x.type==='matching'){const a=parseJSON(user,{}),b=parseJSON(ans,{});ok=matchingPairs(x).every(p=>norm(a[p.left])===norm(p.right));}else ok=norm(user)===norm(ans);if(ok)correct++;return {...x,user,ok};});const total=reviews.length,unanswered=reviews.filter(x=>!String(x.user||'').trim()).length,accuracy=total?Math.round(correct/total*100):0;state.result={correct,total,accuracy,reviews};if(sbReady){await supabase.from('user_names').upsert({name:state.name},{onConflict:'name'});await supabase.from('results').insert({name:state.name,part_id:state.part.id,score:accuracy,correct_count:correct,wrong_count:total-correct-unanswered,unanswered_count:unanswered,details:reviews.map(x=>({question:x.prompt,user_answer:x.user,correct_answer:x.answer,correct:x.ok,type:x.type}))});}renderResult();}
-function renderResult(){const r=state.result; shell(`<section class="section result"><div class="result-card"><div class="eyebrow">HASIL LATIHAN</div><h1>${esc(state.name)}</h1><div class="score">${r.accuracy}<small>/100</small></div><div class="result-stats"><span>Benar <b>${r.correct}</b></span><span>Salah <b>${r.total-r.correct-r.reviews.filter(x=>!String(x.user||'').trim()).length}</b></span><span>Tidak dijawab <b>${r.reviews.filter(x=>!String(x.user||'').trim()).length}</b></span></div></div><div class="review-list"><h2>Review Jawaban</h2>${r.reviews.map((x,i)=>`<article class="review ${x.ok?'ok':'bad'}"><b>${i+1}. ${esc(x.prompt)}</b><span>Jawaban kamu: ${esc(formatAnswer(x.user,x.type))||'—'}</span><span>Jawaban benar: ${esc(formatAnswer(x.answer,x.type))}</span></article>`).join('')}</div><a class="cta" href="#latihan">Kembali ke Latihan</a></section>`);}
+function renderResult(){const r=state.result; shell(`<section class="section result"><div class="result-card fx-float fx-ring"><div class="eyebrow">HASIL LATIHAN</div><h1>${esc(state.name)}</h1><div class="score">${r.accuracy}<small>/100</small></div><div class="result-stats"><span>Benar <b>${r.correct}</b></span><span>Salah <b>${r.total-r.correct-r.reviews.filter(x=>!String(x.user||'').trim()).length}</b></span><span>Tidak dijawab <b>${r.reviews.filter(x=>!String(x.user||'').trim()).length}</b></span></div></div><div class="review-list"><h2>Review Jawaban</h2>${r.reviews.map((x,i)=>`<article class="review ${x.ok?'ok':'bad'}"><b>${i+1}. ${esc(x.prompt)}</b><span>Jawaban kamu: ${esc(formatAnswer(x.user,x.type))||'—'}</span><span>Jawaban benar: ${esc(formatAnswer(x.answer,x.type))}</span></article>`).join('')}</div><a class="cta" href="#latihan">Kembali ke Latihan</a></section>`);}
 function formatAnswer(v,type){if(!v)return '';if(type==='matching'){const o=parseJSON(v,{});return Object.entries(o).map(([a,b])=>`${a} = ${b}`).join(', ');}return String(v);}
 
 async function renderRoute(){state.page=location.hash.slice(1)||'home';if(state.page==='home')return home();if(state.page==='kanji')return kanji();if(state.page==='kana')return kana();if(state.page==='developer')return developer();if(state.page==='kaiwa')return kaiwa();if(state.page==='latihan')return latihan();return home();}
@@ -249,7 +182,7 @@ function bindInteractionEffects(){
   if(window.__itcoInteractionBound)return;
   window.__itcoInteractionBound=true;
   document.addEventListener('click',e=>{
-    const el=e.target.closest('.btn,.cta,.seg,.part-card,.feature,.social-icon,.nav a,.bottom a,.kanji-flip,.kana-flip');
+    const el=e.target.closest('.btn,.cta,.seg,.part-card,.feature,.social-icon,.nav a,.bottom a');
     if(!el)return;
     // Internal navigation needs a short delay so the wiggle/ripple is visible before the new view renders.
     if(el.matches('a[href^="#"]') && !e.defaultPrevented && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey){

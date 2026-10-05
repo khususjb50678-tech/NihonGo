@@ -37,7 +37,3 @@ grant select, insert, update, delete on table public.bunpou to anon, authenticat
 -- Ini bagian penting untuk error:
 -- "Could not find the table 'public.bunpou' in the schema cache"
 notify pgrst, 'reload schema';
-
--- Tampilan kartu
-alter table public.branding add column if not exists card_wallpaper_url text;
-notify pgrst, 'reload schema';
