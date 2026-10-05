@@ -66,11 +66,28 @@ async function loadBranding(force=false){
   return b;
 }
 async function q(table,opts={}){ if(!sbReady)return {data:[],error:null}; let x=supabase.from(table).select(opts.select||'*'); if(opts.eq)for(const [k,v] of Object.entries(opts.eq))x=x.eq(k,v); if(opts.order)x=x.order(opts.order,{ascending:opts.asc!==false}); return x; }
+let edgeLightSeq=0;
+function mountEdgeLights(root=document){
+  const targets=root.querySelectorAll('.premium-card,.shell .card:not(.feature),.shell .developer-panel,.shell .part-card,.shell .bunpou-item,.shell .kanji-flip,.logo-glow');
+  targets.forEach((el)=>{
+    if(el.querySelector(':scope > .edge-light')) return;
+    const id=`akemiEdge${++edgeLightSeq}`;
+    const svg=`<svg class="edge-light" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="${id}" x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#ff1e2f"/><stop offset=".48" stop-color="#fff"/><stop offset=".62" stop-color="#2f8dff"/><stop offset="1" stop-color="#ff1e2f"/>
+      </linearGradient></defs>
+      <rect class="edge-light-glow" x="1.2" y="1.2" width="97.6" height="97.6" rx="9" ry="9" pathLength="400"/>
+      <rect class="edge-light-core" x="1.2" y="1.2" width="97.6" height="97.6" rx="9" ry="9" pathLength="400" stroke="url(#${id})"/>
+    </svg>`;
+    el.insertAdjacentHTML('afterbegin',svg);
+  });
+}
 function shell(content){
   const b=state.branding||{};
   const logo=b.logo_url?`<img class="mark-img" src="${esc(b.logo_url)}" alt="logo" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'mark-fallback',textContent:'⛩'}))">`:'⛩';
   const cardWallpaper=b.card_wallpaper_url?`--card-wallpaper:url("${esc(b.card_wallpaper_url)}")`:'';
   app.innerHTML=`<div class="shell" style="${cardWallpaper}"><header class="topbar"><div class="topin"><a class="brand" href="#home"><span class="mark logo-glow">${logo}</span><span>${esc(b.site_name||'ITCO JAPAN')}<small>${esc(b.corporate_name||'TOP CORPORATION')} · ${esc(b.creator||'ウィタマ。')}</small></span></a><nav class="nav"><a href="#home">⌂ Beranda</a><a href="#developer">⌘ Developer</a></nav></div></header>${content}</div>`;
+  mountEdgeLights(app);
   document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')===`#${state.page}`));
 }
 async function home(){
@@ -140,7 +157,7 @@ function buildKanaStrokeSvg(data,char){
     const med=medians[s.id]||[];
     const start=med.length?{x:med[0][0],y:med[0][1]}:strokeStartPoint(center);
     const n=strokeNumber(s.id);
-    return `<g class="kana-stroke-unit" data-stroke-index="${i}" data-stroke-number="${n||i+1}"><path class="kana-stroke-line" d="${center}" clip-path="url(#${prefix}_clip_${escSvgId(s.id)})" pathLength="3333"/><g class="kana-stroke-marker" aria-hidden="true">${start?`<circle cx="${start.x}" cy="${start.y}" r="34"/><text x="${start.x}" y="${start.y+11}">${n||i+1}</text>`:''}</g></g>`;
+    return `<g class="kana-stroke-unit" data-stroke-index="${i}" data-stroke-number="${n||i+1}"><path class="kana-stroke-line" d="${center}" clip-path="url(#${prefix}_clip_${escSvgId(s.id)})" pathLength="3333"/><g class="kana-stroke-marker" aria-hidden="true">${start?`<text class="kana-stroke-number" x="${start.x+20}" y="${start.y-20}">${n||i+1}</text>`:''}</g></g>`;
   }).join('');
   return `<svg class="kana-stroke-svg" viewBox="0 0 1024 1024" role="img" aria-label="Urutan penulisan ${esc(char)}"><defs>${defs}</defs><g class="kana-stroke-shadow">${shadows}</g><g class="kana-stroke-animated">${animated}</g></svg>`;
 }
@@ -196,7 +213,7 @@ async function openKanaAnimation(char,kind){
     const units=[...stage.querySelectorAll('.kana-stroke-unit')];
     units.forEach(unit=>unit.querySelectorAll('.kana-stroke-line').forEach(p=>{p.style.animation='none';p.style.strokeDashoffset='3333';}));
     void stage.offsetWidth;
-    units.forEach((unit,i)=>unit.querySelectorAll('.kana-stroke-line').forEach(p=>{p.style.animation=`kanaDraw .58s cubic-bezier(.2,.75,.2,1) ${i*.62}s forwards`; }));
+    units.forEach((unit,i)=>unit.querySelectorAll('.kana-stroke-line').forEach(p=>{p.style.animation=`kanaDraw 1.15s cubic-bezier(.42,0,.2,1) ${i*.82}s forwards`; }));
   };
   // Render from the already-prefetched cache immediately when possible.
   if(kanaStrokeCache[kind]){await render();play();}
