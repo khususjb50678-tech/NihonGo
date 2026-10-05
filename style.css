@@ -196,3 +196,9 @@ html[data-sway="off"] .fx-card.fx-on,html[data-sway="off"] .fx-float.fx-on{anima
 .jft-custom-timer{margin-top:2px}
 .jft-audio-btn{min-height:46px;margin-top:4px}
 .audio-media{display:grid;gap:9px}
+/* Final JFT/JLPT media + custom controls */
+.jft-custom-timer{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.jft-custom-timer label{margin-top:0}
+.photo-media .media{width:100%;max-height:520px;object-fit:contain;background:#111;border-radius:14px}
+.question-media.photo-media{padding:14px}
+@media(max-width:560px){.jft-custom-timer{grid-template-columns:1fr}.jft-custom-timer label{margin-top:8px}}

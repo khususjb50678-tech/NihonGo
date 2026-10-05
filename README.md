@@ -1,41 +1,58 @@
-# ITCO JAPAN — Final
+# Website Nihon — JFT + JLPT FINAL (600 SOAL)
 
-Website pembelajaran Nihongo dengan Kanji, Kana, Latihan, Quick Soal, Timer, Hasil, dan Developer profile.
+Versi ini berisi **12 Part × 50 soal = 600 soal**.
 
-## Isi versi final
-- Beranda Japanese Night
-- Kanji flashcard: Kanji / Cara Baca / Arti
-- Import Kanji format `Kanji|Cara Baca|Arti`
-- Kana bawaan: Hiragana + Katakana, voiced sounds, handakuten, kombinasi
-- Flashcard Kana bolak-balik + Play stroke order via KanjiVG
-- Latihan 6 tipe: Ganda, Ketik, Kanji, B/S, Pilih Kanji, Pasangan
-- Instruksi Ketik otomatis dari jawaban benar
-- Quick Soal + foto/audio per soal
-- Timer Global / Part / Soal
-- Hasil online berdasarkan nama
-- Admin Supabase Auth
-- Branding + kontak Developer WhatsApp/Telegram/Instagram
-- Developer: Witama Yuliananta
+## Urutan Part
+1. JFT Basic
+2. JFT N5
+3. JFT N4
+4. JFT N3
+5. JFT N2
+6. JFT N1
+7. JLPT Basic
+8. JLPT N5
+9. JLPT N4
+10. JLPT N3
+11. JLPT N2
+12. JLPT N1
 
-## Supabase
-Gunakan project Supabase yang sama. Jika kolom Branding baru belum ada, jalankan `schema.sql` atau jalankan bagian `alter table branding ...` dari file tersebut. Jangan gunakan service_role key di frontend.
+## Media
+Setiap soal memiliki **1 gambar situasi unik** (`q001.jpg` sampai `q600.jpg`) dan audio berbasis `audio_text`/SpeechSynthesis Jepang. Gambar dibuat sebagai **ilustrasi situasi pembelajaran yang jelas dan kontekstual**, bukan foto kamera nyata. Foto dan audio dapat tampil bersamaan pada soal yang sama.
 
-Storage bucket `media` digunakan untuk foto/audio Quick Soal.
+## Cara menjalankan di Supabase
+1. Buka project Supabase kamu.
+2. Masuk **SQL Editor**.
+3. Buat query baru.
+4. Buka file `FINAL-JFT-JLPT-ALL.sql` dari ZIP ini.
+5. Copy seluruh isinya ke SQL Editor.
+6. Klik **Run**.
+7. Pastikan selesai tanpa error.
 
-## Deploy
-Upload seluruh isi folder ke GitHub/Vercel. `config.js` berisi URL dan anon key project Supabase.
+SQL tersebut membuat/memperbarui Part 1–12 dan mengisi **600 soal (50 per Part)**.
 
+> Jalankan SQL ini setelah schema utama (`schema.sql`) sudah pernah dijalankan pada project.
 
-## Pembaruan V2
-- Animasi urutan goresan Hiragana/Katakana: balik kartu, lalu tekan Play (data KanjiVG, CC BY-SA 3.0, dimuat saat Play dan disimpan di cache browser).
-- Semua kolom goyang seirama + cahaya merah/biru berjalan di tepi (termasuk logo).
-- Admin > Tampilan Kolom: pilih wallpaper saran atau upload foto sendiri. Disimpan di Storage bucket `media` (file `branding/card-style.json`), tidak perlu mengubah database.
-- Font baru: Sora, Plus Jakarta Sans, Klee One, Zen Maru Gothic (Google Fonts).
-- Menu atas/bawah hanya Beranda dan Developer. Kanji, Kana, Kaiwa, Latihan diakses lewat kartu di Beranda.
+## Cara deploy ke Vercel
+1. Extract ZIP.
+2. Upload semua file ke repository GitHub kamu **di root repository**. Jangan masukkan file `q001.jpg`–`q600.jpg` ke folder lain.
+3. Pastikan `index.html`, `app.js`, `style.css`, `config.js`, dan `supabase.js` berada di root.
+4. Push/commit ke GitHub.
+5. Vercel akan melakukan deployment otomatis jika repository sudah terhubung.
+6. Buka website setelah deployment selesai.
+7. Jika masih melihat versi lama, lakukan hard refresh / hapus cache browser.
 
-## JFT-Basic Part 1
-Part 1 sekarang dapat diganti menjadi 50 soal JFT-Basic style. Jalankan `JFT-50-SOAL.sql` di Supabase. Saat user memilih Part 1, user diminta nama, jumlah soal (5–50), dan timer (termasuk custom). Soal diacak dari 50 soal. Soal audio menggunakan Web Speech API dengan bahasa Jepang. Aset foto berada di ``.
+## Konfigurasi Supabase
+Pastikan `config.js` berisi URL project dan anon/publishable key Supabase yang benar.
 
+## Pengaturan latihan
+- Jumlah soal bisa preset atau **Custom**.
+- Custom jumlah soal dapat melebihi 50 selama bank soal Part mencukupi.
+- Timer dapat tanpa batas atau **Custom jam + menit + detik**.
+- Foto + audio dapat tampil bersamaan.
+- Tombol **Kembali ke Latihan** pada halaman hasil kembali ke daftar latihan.
 
-## JFT-Basic — 50 Soal
-Part 1 diganti menjadi latihan JFT-Basic dengan 50 soal pilihan ganda: 25 soal berbasis gambar dan 25 soal audio Jepang melalui Web Speech API. User memasukkan nama, memilih jumlah soal, lalu memilih timer termasuk custom timer. Soal diacak dari 50 soal. Semua file berada di root ZIP (flat), tanpa folder tambahan.
+## Struktur penting
+Semua aset gambar berada di root:
+`q001.jpg` … `q600.jpg`
+
+Jangan hapus atau memindahkan file-file tersebut setelah SQL dijalankan, karena URL soal mengarah ke nama file tersebut.
