@@ -46,8 +46,26 @@ async function loadChar(ch) {
   throw lastErr;
 }
 
-// "きゃ" -> dua huruf, masing-masing dimuat sendiri. Hasil: array goresan per huruf.
-export function loadKana(text) { return Promise.all([...text].map(loadChar)); }
+// Hanya karakter Kana/Kanji yang dianimasikan. Spasi, angka, huruf latin, dll. dilewati.
+const DRAWABLE = /[\u3041-\u3096\u30a1-\u30fa\u30fc\u3005\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+export const drawableChars = text => [...String(text ?? '')].filter(c => DRAWABLE.test(c));
+
+// Susunan kotak: maksimal 4 karakter per baris, sisanya turun ke baris berikutnya.
+export function layout(n) {
+  const cols = Math.max(1, Math.min(n, 4));
+  return { cols, rows: Math.max(1, Math.ceil(n / cols)) };
+}
+
+// "きゃ" / "食べる" / "学校" -> tiap huruf dimuat sendiri.
+// Hasil: [{ ch, paths }]. paths = null bila data goresan huruf itu tidak tersedia (huruf tetap ditampilkan diam).
+export async function loadKana(text) {
+  const chars = drawableChars(text);
+  if (!chars.length) throw new Error('Tidak ada karakter yang bisa dianimasikan');
+  const res = await Promise.allSettled(chars.map(loadChar));
+  const sets = res.map((r, i) => ({ ch: chars[i], paths: r.status === 'fulfilled' ? r.value : null }));
+  if (sets.every(x => !x.paths)) throw res.find(r => r.status === 'rejected')?.reason || new Error('Data goresan tidak ditemukan');
+  return sets;
+}
 
 function mk(tag, attrs, parent) {
   const e = document.createElementNS(NS, tag);
@@ -58,18 +76,23 @@ function mk(tag, attrs, parent) {
 
 export function buildStage(svg, sets) {
   stopStage(svg);
-  const n = sets.length;
-  svg.setAttribute('viewBox', `0 0 ${109 * n} 109`);
+  const n = sets.length, { cols, rows } = layout(n);
+  const pos = i => ({ x: (i % cols) * 109, y: Math.floor(i / cols) * 109 });
+  svg.setAttribute('viewBox', `0 0 ${109 * cols} ${109 * rows}`);
   svg.textContent = '';
-  for (let i = 0; i < n; i++) mk('path', { class: 'ks-guide', d: `M${i * 109 + 54.5} 4V105M${i * 109 + 4} 54.5H${i * 109 + 105}` }, svg);
-  sets.forEach((paths, i) => {
-    const g = mk('g', { transform: `translate(${i * 109} 0)` }, svg);
-    paths.forEach(d => mk('path', { class: 'ks-ghost', d }, g));
+  sets.forEach((_, i) => { const { x, y } = pos(i); mk('path', { class: 'ks-guide', d: `M${x + 54.5} ${y + 4}V${y + 105}M${x + 4} ${y + 54.5}H${x + 105}` }, svg); });
+  sets.forEach((set, i) => {
+    const { x, y } = pos(i);
+    if (!set.paths) { mk('text', { class: 'ks-fallback', x: x + 54.5, y: y + 56 }, svg).textContent = set.ch; return; }
+    const g = mk('g', { transform: `translate(${x} ${y})` }, svg);
+    set.paths.forEach(d => mk('path', { class: 'ks-ghost', d }, g));
   });
   const strokes = [];
-  sets.forEach((paths, i) => {
-    const g = mk('g', { transform: `translate(${i * 109} 0)` }, svg);
-    paths.forEach(d => {
+  sets.forEach((set, i) => {
+    if (!set.paths) return;
+    const { x, y } = pos(i);
+    const g = mk('g', { transform: `translate(${x} ${y})` }, svg);
+    set.paths.forEach((d, k) => {
       const p = mk('path', { class: 'ks-ink', d, pathLength: 1 }, g);
       p.style.strokeDasharray = '1 3';
       p.style.strokeDashoffset = '1';
@@ -78,7 +101,7 @@ export function buildStage(svg, sets) {
       const m = mk('g', { class: 'ks-mark' }, g);
       mk('circle', { cx: start.x, cy: start.y, r: 5.5 }, m);
       const t = mk('text', { x: start.x, y: start.y }, m);
-      t.textContent = String(strokes.length + 1);
+      t.textContent = String(k + 1);
       strokes.push({ p, m, len });
     });
   });
