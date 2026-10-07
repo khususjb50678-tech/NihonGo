@@ -209,7 +209,102 @@ async function partQuestions(partId){
   document.querySelectorAll('[data-part-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini dari Part?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.partQdel);if(error)alert(error.message);else partQuestions(partId);}});
 }
 async function uploadMediaAndRefresh(input,kind,partId){await uploadMedia(input,kind);partQuestions(partId);}
-async function questions(){const {data:parts}=await supabase.from('parts').select('*').order('part_number');const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1></div></div><div class="card admin-card"><form id="qForm" class="form-grid"><label>Part<select class="input" name="part_id" required>${(parts||[]).map(p=>`<option value="${p.id}">Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label><label>Tipe<select class="input" name="type"><option value="multiple_choice">Ganda</option><option value="typing">Ketik</option><option value="kanji_input">Kanji</option><option value="truefalse">B/S</option><option value="kanji_choice">Pilih Kanji</option><option value="matching">Pasangan</option></select></label><label class="full">Pertanyaan<textarea class="textarea" name="prompt" required></textarea></label><label>Jawaban benar<input class="input" name="answer" required></label><label>Pilihan<input class="input" name="options" placeholder="Makan;Minum;Tidur"></label><label>Reading (opsional)<input class="input" name="reading"></label><label class="full">Penjelasan (opsional)<input class="input" name="instruction" placeholder="Untuk Ketik, instruksi otomatis. field ini untuk tipe lain."></label><button class="btn red full" type="submit">Tambah Soal</button></form></div><div class="card admin-card table-list">${(qs||[]).map(x=>`<div class="list-row"><div><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span></div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal.</p>'}</div>`);document.querySelector('#qForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target),o=Object.fromEntries(fd.entries());let options=[];if(o.type==='matching'){options=o.options.split(';').map(s=>{const [left,right]=s.split('=').map(v=>v?.trim());return left&&right?{left,right}:null}).filter(Boolean);o.answer=JSON.stringify(Object.fromEntries(options.map(x=>[x.left,x.right])));}else options=o.options.split(';').map(s=>s.trim()).filter(Boolean);const row={part_id:o.part_id,prompt:o.prompt,reading:o.reading||'',instruction:o.type==='typing'?'':o.instruction||'',type:o.type,options,answer:o.answer,active:true};const {error}=await supabase.from('questions').insert(row);if(error)alert(error.message);else render();};document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){await supabase.from('questions').delete().eq('id',b.dataset.qdel);render();}});}
+async function questions(){
+  const {data:parts,error:partError}=await supabase.from('parts').select('*').order('part_number');
+  if(partError)return app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1></div></div><div class="card admin-card"><p class="muted">Gagal memuat Part: ${esc(partError.message)}</p></div>`);
+  const partList=parts||[];
+  if(!partList.length){
+    app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Buat Part terlebih dahulu sebelum menambahkan soal.</p></div></div>`);
+    return;
+  }
+
+  app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part untuk melihat hanya soal dari Part tersebut.</p></div></div>
+  <div class="card admin-card">
+    <form id="qForm" class="form-grid">
+      <label>Part<select class="input" name="part_id" id="qPart">${partList.map((p,i)=>`<option value="${p.id}" ${i===0?'selected':''}>Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label>
+      <label>Tipe<select class="input" name="type" id="qType"><option value="multiple_choice">Ganda</option><option value="typing">Ketik jawaban sendiri</option></select></label>
+      <label class="full">Pertanyaan<textarea class="textarea" name="prompt" placeholder="Opsional"></textarea></label>
+      <label>Jawaban benar<input class="input" name="answer" placeholder="Opsional"></label>
+      <label id="qOptionsWrap">Pilihan<input class="input" name="options" placeholder="Makan;Minum;Tidur"></label>
+      <label>Reading (opsional)<input class="input" name="reading" placeholder="Opsional"></label>
+      <label class="full">Penjelasan (opsional)<input class="input" name="instruction" placeholder="Opsional"></label>
+      <label class="full">Foto soal (opsional)<input class="input" id="qPhoto" name="photo" type="file" accept="image/*"></label>
+      <label class="full">Audio soal (opsional)<input class="input" id="qAudio" name="audio" type="file" accept="audio/*"></label>
+      <div class="full muted" id="qMediaNote">Foto dan audio boleh dikosongkan.</div>
+      <button class="btn red full" type="submit">Tambah Soal</button>
+    </form>
+  </div>
+  <div id="questionList" class="card admin-card table-list"></div>`);
+
+  const form=document.querySelector('#qForm');
+  const partSelect=document.querySelector('#qPart');
+  const typeSelect=document.querySelector('#qType');
+  const optionsWrap=document.querySelector('#qOptionsWrap');
+  const list=document.querySelector('#questionList');
+  const syncType=()=>{optionsWrap.hidden=typeSelect.value==='typing';};
+  typeSelect.onchange=syncType;
+  syncType();
+
+  async function loadQuestions(){
+    const partId=partSelect.value;
+    list.innerHTML='<p class="muted">Memuat soal…</p>';
+    const {data,error}=await supabase.from('questions').select('*').eq('part_id',partId).order('created_at',{ascending:false});
+    if(error){list.innerHTML=`<p class="muted">Gagal memuat soal: ${esc(error.message)}</p>`;return;}
+    list.innerHTML=(data||[]).map(x=>`<div class="list-row"><div><b>${esc(x.prompt||'(Pertanyaan kosong)')}</b><span>${esc(x.type||'')} · jawaban: ${esc(x.answer||'')}${x.photo_url?' · 📷':''}${x.audio_url?' · 🔊':''}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}</div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal di Part ini.</p>';
+    list.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Hapus soal ini?'))return;
+      const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);
+      if(error)alert(error.message);else loadQuestions();
+    });
+  }
+
+  partSelect.onchange=loadQuestions;
+  await loadQuestions();
+
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const fd=new FormData(form);
+    const type=fd.get('type');
+    const options=type==='multiple_choice'
+      ? String(fd.get('options')||'').split(';').map(s=>s.trim()).filter(Boolean)
+      : [];
+    const row={
+      part_id:String(fd.get('part_id')||''),
+      prompt:String(fd.get('prompt')||''),
+      reading:String(fd.get('reading')||''),
+      instruction:String(fd.get('instruction')||''),
+      type,
+      options,
+      answer:String(fd.get('answer')||''),
+      active:true
+    };
+    const {data,error}=await supabase.from('questions').insert(row).select().single();
+    if(error){alert(error.message);return;}
+
+    const photo=document.querySelector('#qPhoto')?.files?.[0];
+    const audio=document.querySelector('#qAudio')?.files?.[0];
+    const media=[photo?['photo',photo]:null,audio?['audio',audio]:null].filter(Boolean);
+    for(const [kind,file] of media){
+      const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path=`questions/${row.id}/${Date.now()}-${kind}-${safe}`;
+      const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type||undefined});
+      if(uploadError){alert(`Soal tersimpan, tetapi upload ${kind==='photo'?'foto':'audio'} gagal: ${uploadError.message}`);continue;}
+      const {data:urlData}=supabase.storage.from('media').getPublicUrl(path);
+      const publicUrl=urlData?.publicUrl||'';
+      if(!publicUrl)continue;
+      const patch=kind==='photo'
+        ?{photo_url:publicUrl,media_url:publicUrl,media_type:'image'}
+        :{audio_url:publicUrl,media_url:publicUrl,media_type:'audio'};
+      const {error:updateError}=await supabase.from('questions').update(patch).eq('id',row.id);
+      if(updateError)alert(`Soal tersimpan, tetapi URL ${kind==='photo'?'foto':'audio'} gagal disimpan: ${updateError.message}`);
+    }
+    form.reset();
+    partSelect.value=row.part_id;
+    typeSelect.value='multiple_choice';
+    syncType();
+    await loadQuestions();
+  };
+}
 async function quick(){
   const {data:parts}=await supabase.from('parts').select('*').order('part_number');
   app(`<div class="admin-header"><div><div class="eyebrow">QUICK SOAL</div><h1>Import Cepat</h1><p class="muted">Import teks dulu. Setelah masuk, pilih Part untuk melihat dan mengelola semua soalnya.</p></div></div>
