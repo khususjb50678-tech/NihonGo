@@ -53,11 +53,10 @@ async function parts(){
     <button class="btn red full" type="submit">Tambah Part</button>
   </form></div>
   <div class="card admin-card table-list">${(data||[]).map(x=>`<div class="list-row part-admin-row" data-part-open="${x.id}" role="button" tabindex="0">
-    <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${esc(x.description||'')} · <strong>${x.active?'Aktif':'Nonaktif'}</strong></span></div>
-    <div class="media-actions"><button class="btn ${x.active?'':'danger'}" type="button" data-part-toggle="${x.id}">${x.active?'✓ Aktif':'✕ Nonaktif'}</button><button class="btn" type="button" data-part-open-btn="${x.id}">Kelola Soal →</button><button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button></div>
+    <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${esc(x.description||'')} · ${x.active?'Aktif':'Nonaktif'}</span></div>
+    <div class="media-actions"><button class="btn" type="button" data-part-open-btn="${x.id}">Kelola Soal →</button><button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button></div>
   </div>`).join('')||'<p class="muted">Belum ada Part.</p>'}</div>`);
   document.querySelector('#pForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const o=Object.fromEntries(fd.entries());const row={part_number:Number(o.part_number),name:o.name,description:o.description||'',question_limit:o.question_limit?Number(o.question_limit):null,shuffle_questions:fd.has('shuffle_questions'),shuffle_options:fd.has('shuffle_options'),active:fd.has('active')};const {error}=await supabase.from('parts').insert(row);if(error)alert(error.message);else render();};
-  document.querySelectorAll('[data-part-toggle]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const id=b.dataset.partToggle;const currentRow=(data||[]).find(x=>String(x.id)===String(id));if(!currentRow)return;const {error}=await supabase.from('parts').update({active:!currentRow.active}).eq('id',id);if(error)alert(error.message);else render();});
   document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm('Hapus Part dan seluruh soal di dalamnya?')){await supabase.from('parts').delete().eq('id',b.dataset.pdel);render();}});
   document.querySelectorAll('[data-part-open-btn]').forEach(b=>b.onclick=e=>{e.stopPropagation();partQuestions(b.dataset.partOpenBtn);});
   document.querySelectorAll('[data-part-open]').forEach(row=>{row.onclick=()=>partQuestions(row.dataset.partOpen);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();partQuestions(row.dataset.partOpen)}}});
