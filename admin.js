@@ -209,6 +209,73 @@ async function partQuestions(partId){
   document.querySelectorAll('[data-part-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini dari Part?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.partQdel);if(error)alert(error.message);else partQuestions(partId);}});
 }
 async function uploadMediaAndRefresh(input,kind,partId){const result=await uploadMedia(input,kind);if(!result?.error)partQuestions(partId);}
+function setupQuestionEditor(){
+  const editor=document.querySelector('#qPromptEditor');
+  const hidden=document.querySelector('#qPromptValue');
+  const toolbar=document.querySelector('#qFormatToolbar');
+  if(!editor||!hidden||!toolbar)return;
+  if(!document.querySelector('#questionEditorStyles')){
+    const st=document.createElement('style');st.id='questionEditorStyles';st.textContent=`
+      .question-editor-wrap{position:relative;width:100%;}
+      .question-editor{min-height:110px;white-space:pre-wrap;overflow-wrap:anywhere;outline:none;cursor:text;}
+      .question-editor:empty::before{content:attr(data-placeholder);color:rgba(255,255,255,.42);pointer-events:none;}
+      .question-format-toolbar{position:fixed;z-index:99999;display:flex;gap:5px;align-items:center;padding:6px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:#171719;box-shadow:0 10px 30px rgba(0,0,0,.45);}
+      .question-format-toolbar button{min-width:38px;height:34px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:#222;color:#fff;font-weight:700;cursor:pointer;}
+      .question-format-toolbar button:hover{background:#b9151b;}
+      .question-format-toolbar button:first-child{font-size:17px;}
+    `;document.head.appendChild(st);
+  }
+  const cleanPasteHtml=(html)=>{
+    const doc=new DOMParser().parseFromString(`<div>${html}</div>`,'text/html');
+    const root=doc.body.firstElementChild||doc.body;
+    const walk=(node)=>{
+      if(node.nodeType===Node.TEXT_NODE)return document.createTextNode(node.nodeValue||'');
+      if(node.nodeType!==Node.ELEMENT_NODE)return document.createTextNode('');
+      const tag=node.tagName.toLowerCase();
+      if(tag==='br')return document.createElement('br');
+      const out=document.createDocumentFragment();
+      const isUnderline=tag==='u'||tag==='ins'||/underline/i.test(node.getAttribute('style')||'')||node.querySelector?.('u,ins');
+      const inner=[...node.childNodes].map(walk);
+      if(isUnderline){const u=document.createElement('u');inner.forEach(n=>u.appendChild(n));out.appendChild(u);}else inner.forEach(n=>out.appendChild(n));
+      return out;
+    };
+    const frag=document.createDocumentFragment();[...root.childNodes].forEach(n=>frag.appendChild(walk(n)));return frag;
+  };
+  const sync=()=>{hidden.value=editor.innerHTML.trim();};
+  const hide=()=>{toolbar.hidden=true;};
+  const show=()=>{
+    const sel=window.getSelection();
+    if(!sel||sel.rangeCount===0||sel.isCollapsed||!editor.contains(sel.anchorNode)||!editor.contains(sel.focusNode)){hide();return;}
+    const text=sel.toString();if(!text.trim()){hide();return;}
+    const rect=sel.getRangeAt(0).getBoundingClientRect();
+    toolbar.hidden=false;
+    const tw=toolbar.offsetWidth||120,th=toolbar.offsetHeight||42;
+    let left=rect.left+(rect.width/2)-(tw/2);let top=rect.top-th-8;
+    left=Math.max(8,Math.min(left,window.innerWidth-tw-8));if(top<8)top=Math.min(window.innerHeight-th-8,rect.bottom+8);
+    toolbar.style.left=`${left}px`;toolbar.style.top=`${Math.max(8,top)}px`;
+  };
+  editor.addEventListener('input',sync);
+  editor.addEventListener('keyup',()=>{sync();setTimeout(show,0)});
+  editor.addEventListener('mouseup',()=>setTimeout(show,0));
+  editor.addEventListener('touchend',()=>setTimeout(show,80));
+  editor.addEventListener('focus',()=>setTimeout(show,0));
+  document.addEventListener('selectionchange',()=>{if(editor.contains(window.getSelection()?.anchorNode))setTimeout(show,0);else hide();});
+  editor.addEventListener('paste',e=>{
+    e.preventDefault();
+    const html=e.clipboardData?.getData('text/html');
+    const text=e.clipboardData?.getData('text/plain')||'';
+    const frag=html?cleanPasteHtml(html):document.createTextNode(text);
+    const sel=window.getSelection();
+    if(!sel||sel.rangeCount===0||!editor.contains(sel.anchorNode)){editor.appendChild(frag);sync();return;}
+    const range=sel.getRangeAt(0);range.deleteContents();range.insertNode(frag);range.collapse(false);sel.removeAllRanges();sel.addRange(range);sync();setTimeout(show,0);
+  });
+  toolbar.addEventListener('mousedown',e=>e.preventDefault());
+  toolbar.querySelector('[data-format="underline"]').onclick=()=>{document.execCommand('underline',false,null);sync();setTimeout(show,0);};
+  toolbar.querySelector('[data-format="clear"]').onclick=()=>{document.execCommand('removeFormat',false,null);sync();setTimeout(show,0);};
+  document.addEventListener('scroll',hide,true);window.addEventListener('resize',hide);
+  return {sync,setValue(v){editor.innerHTML=String(v||'');sync();}};
+}
+
 async function questions(){
   const {data:parts,error:partError}=await supabase.from('parts').select('*').order('part_number');
   if(partError)return app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1></div></div><div class="card admin-card"><p class="muted">Gagal memuat Part: ${esc(partError.message)}</p></div>`);
@@ -219,7 +286,16 @@ async function questions(){
   <div class="card admin-card"><form id="qForm" class="form-grid">
     <label>Part<select class="input" name="part_id" id="qPart" required>${parts.map((p,i)=>`<option value="${p.id}" ${i===0?'selected':''}>Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label>
     <label>Tipe<select class="input" name="type" id="qType" required><option value="multiple_choice">Ganda</option><option value="typing">Ketik jawaban sendiri</option></select></label>
-    <label class="full">Pertanyaan<textarea class="textarea" name="prompt" placeholder="Opsional"></textarea></label>
+    <label class="full question-editor-label">Pertanyaan
+      <div class="question-editor-wrap">
+        <div id="qPromptEditor" class="textarea question-editor" contenteditable="true" data-placeholder="Opsional" role="textbox" aria-multiline="true"></div>
+        <div id="qFormatToolbar" class="question-format-toolbar" hidden>
+          <button type="button" data-format="underline" aria-label="Garis bawah"><u>U</u></button>
+          <button type="button" data-format="clear" aria-label="Hapus format">Tx</button>
+        </div>
+      </div>
+      <input type="hidden" name="prompt" id="qPromptValue" value="">
+    </label>
     <label>Jawaban benar<input class="input" name="answer" placeholder="Opsional"></label>
     <label id="qOptionsWrap">Pilihan<input class="input" name="options" placeholder="Contoh: Makan;Minum;Tidur"></label>
     <label>Reading (opsional)<input class="input" name="reading" placeholder="Opsional"></label>
@@ -235,6 +311,7 @@ async function questions(){
   const partSelect=document.querySelector('#qPart');
   const typeSelect=document.querySelector('#qType');
   const optionsWrap=document.querySelector('#qOptionsWrap');
+  const promptEditor=setupQuestionEditor();
   const refreshList=async()=>{
     const partId=partSelect.value;
     const {data,error}=await supabase.from('questions').select('*').eq('part_id',partId).order('created_at',{ascending:true});
