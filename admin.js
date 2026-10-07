@@ -6,6 +6,61 @@ import { NEW_DESC, NEW_DEV, OLD_DESC, OLD_DEV } from './copy.js';
 const root=document.querySelector('#admin-app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const parse=v=>{try{return JSON.parse(v)}catch{return v}};
+const sanitizePromptHTML=html=>{
+  const t=document.createElement('template'); t.innerHTML=String(html||'');
+  const walk=n=>{
+    [...n.childNodes].forEach(ch=>{
+      if(ch.nodeType===1){
+        const tag=ch.tagName.toLowerCase();
+        if(!['u','br'].includes(tag)){
+          const parent=ch.parentNode;
+          while(ch.firstChild) parent.insertBefore(ch.firstChild,ch);
+          parent.removeChild(ch); return;
+        }
+        [...ch.attributes].forEach(a=>ch.removeAttribute(a.name));
+        walk(ch);
+      } else if(ch.nodeType!==3) ch.remove();
+    });
+  };
+  walk(t.content); return t.innerHTML;
+};
+function bindPromptToolbar(editor){
+  if(!editor)return;
+  const toolbar=document.createElement('div');
+  toolbar.className='prompt-selection-toolbar';
+  toolbar.innerHTML='<button type="button" data-cmd="underline" aria-label="Garis bawah"><u>U</u></button><button type="button" data-cmd="remove" aria-label="Hapus tanda">T</button>';
+  document.body.appendChild(toolbar);
+  let savedRange=null;
+  const hide=()=>{toolbar.classList.remove('show');};
+  const show=()=>{
+    const sel=window.getSelection();
+    if(!sel || sel.rangeCount===0 || sel.isCollapsed || !editor.contains(sel.anchorNode) || !editor.contains(sel.focusNode)){hide();return;}
+    savedRange=sel.getRangeAt(0).cloneRange();
+    const r=sel.getRangeAt(0).getBoundingClientRect();
+    toolbar.style.left=Math.max(8,Math.min(window.innerWidth-toolbar.offsetWidth-8,r.left+r.width/2-toolbar.offsetWidth/2))+'px';
+    let top=r.bottom+8;
+    if(top+toolbar.offsetHeight>window.innerHeight-8) top=Math.max(8,r.top-toolbar.offsetHeight-8);
+    toolbar.style.top=top+'px'; toolbar.classList.add('show');
+  };
+  editor.addEventListener('mouseup',()=>setTimeout(show,20));
+  editor.addEventListener('touchend',()=>setTimeout(show,60));
+  editor.addEventListener('keyup',show);
+  document.addEventListener('selectionchange',()=>{ if(document.activeElement===editor) setTimeout(show,0);});
+  toolbar.addEventListener('mousedown',e=>e.preventDefault());
+  toolbar.addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b||!savedRange)return;
+    editor.focus(); const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(savedRange);
+    if(b.dataset.cmd==='underline') document.execCommand('underline',false,null);
+    else {
+      document.execCommand('removeFormat',false,null);
+      document.execCommand('unlink',false,null);
+    }
+    editor.innerHTML=sanitizePromptHTML(editor.innerHTML);
+    hide();
+  });
+  editor.addEventListener('blur',()=>setTimeout(()=>{if(!toolbar.matches(':hover'))hide();},200));
+}
+
 const typeMap={ganda:'multiple_choice',ketik:'typing',kanji:'kanji_input',bs:'truefalse',benar_salah:'truefalse',pilih:'kanji_choice',pilih_kanji:'kanji_choice',pasangan:'matching',matching:'matching'};
 let current='dashboard', user=null, imported=[];
 // ===== Update database (sekali saja) =====
@@ -177,9 +232,15 @@ async function parts(){
   </form></div>
   <div class="card admin-card table-list">${(data||[]).map(x=>`<div class="list-row part-admin-row" data-part-open="${x.id}" role="button" tabindex="0">
     <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${partModeBadge(x)}${esc(x.description||'')} · ${x.active?'Aktif':'Nonaktif'}</span></div>
-    <div class="media-actions"><button class="btn" type="button" data-part-open-btn="${x.id}">Kelola Soal →</button><button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button></div>
+    <div class="media-actions">
+      <button class="btn" type="button" data-part-toggle="${x.id}" data-active="${x.active?'1':'0'}">${x.active?'✓ Aktif':'✕ Nonaktif'}</button>
+      <button class="btn" type="button" data-part-open-btn="${x.id}">Kelola Soal →</button>
+      <button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button>
+    </div>
   </div>`).join('')||'<p class="muted">Belum ada Part.</p>'}</div>`);
-  bindPartSetup(document.querySelector('#pForm'));document.querySelector('#pForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const o=Object.fromEntries(fd.entries());const row={part_number:Number(o.part_number),name:o.name,description:o.description||'',...readPartSetup(e.target),shuffle_questions:fd.has('shuffle_questions'),shuffle_options:fd.has('shuffle_options'),active:fd.has('active')};const {error}=await saveOptional(r=>supabase.from('parts').insert(r),row,PART_OPT);if(error)alert(error.message);else render();};
+  bindPartSetup(document.querySelector('#pForm'));
+  document.querySelector('#pForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const o=Object.fromEntries(fd.entries());const row={part_number:Number(o.part_number),name:o.name,description:o.description||'',...readPartSetup(e.target),shuffle_questions:fd.has('shuffle_questions'),shuffle_options:fd.has('shuffle_options'),active:fd.has('active')};const {error}=await saveOptional(r=>supabase.from('parts').insert(r),row,PART_OPT);if(error)alert(error.message);else render();};
+  document.querySelectorAll('[data-part-toggle]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const next=b.dataset.active!=='1';const {error}=await supabase.from('parts').update({active:next}).eq('id',b.dataset.partToggle);if(error)alert(error.message);else render();});
   document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm('Hapus Part dan seluruh soal di dalamnya?')){await supabase.from('parts').delete().eq('id',b.dataset.pdel);render();}});
   document.querySelectorAll('[data-part-open-btn]').forEach(b=>b.onclick=e=>{e.stopPropagation();partQuestions(b.dataset.partOpenBtn);});
   document.querySelectorAll('[data-part-open]').forEach(row=>{row.onclick=()=>partQuestions(row.dataset.partOpen);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();partQuestions(row.dataset.partOpen)}}});
@@ -209,7 +270,60 @@ async function partQuestions(partId){
   document.querySelectorAll('[data-part-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini dari Part?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.partQdel);if(error)alert(error.message);else partQuestions(partId);}});
 }
 async function uploadMediaAndRefresh(input,kind,partId){await uploadMedia(input,kind);partQuestions(partId);}
-async function questions(){const {data:parts}=await supabase.from('parts').select('*').order('part_number');const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1></div></div><div class="card admin-card"><form id="qForm" class="form-grid"><label>Part<select class="input" name="part_id" required>${(parts||[]).map(p=>`<option value="${p.id}">Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label><label>Tipe<select class="input" name="type"><option value="multiple_choice">Ganda</option><option value="typing">Ketik</option><option value="kanji_input">Kanji</option><option value="truefalse">B/S</option><option value="kanji_choice">Pilih Kanji</option><option value="matching">Pasangan</option></select></label><label class="full">Pertanyaan<textarea class="textarea" name="prompt" required></textarea></label><label>Jawaban benar<input class="input" name="answer" required></label><label>Pilihan<input class="input" name="options" placeholder="Makan;Minum;Tidur"></label><label>Reading (opsional)<input class="input" name="reading"></label><label class="full">Penjelasan (opsional)<input class="input" name="instruction" placeholder="Untuk Ketik, instruksi otomatis. field ini untuk tipe lain."></label><button class="btn red full" type="submit">Tambah Soal</button></form></div><div class="card admin-card table-list">${(qs||[]).map(x=>`<div class="list-row"><div><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span></div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal.</p>'}</div>`);document.querySelector('#qForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target),o=Object.fromEntries(fd.entries());let options=[];if(o.type==='matching'){options=o.options.split(';').map(s=>{const [left,right]=s.split('=').map(v=>v?.trim());return left&&right?{left,right}:null}).filter(Boolean);o.answer=JSON.stringify(Object.fromEntries(options.map(x=>[x.left,x.right])));}else options=o.options.split(';').map(s=>s.trim()).filter(Boolean);const row={part_id:o.part_id,prompt:o.prompt,reading:o.reading||'',instruction:o.type==='typing'?'':o.instruction||'',type:o.type,options,answer:o.answer,active:true};const {error}=await supabase.from('questions').insert(row);if(error)alert(error.message);else render();};document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){await supabase.from('questions').delete().eq('id',b.dataset.qdel);render();}});}
+async function questions(){
+  const {data:parts}=await supabase.from('parts').select('*').order('part_number');
+  const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
+  const renderList=(partId)=>{
+    const rows=(qs||[]).filter(x=>!partId || String(x.part_id)===String(partId));
+    const el=document.querySelector('#qList');
+    if(el)el.innerHTML=rows.map(x=>`<div class="list-row"><div><b>${sanitizePromptHTML(x.prompt||'')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
+    document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else render();}});
+  };
+  app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part untuk melihat soal dari Part tersebut saja.</p></div></div>
+  <div class="card admin-card"><form id="qForm" class="form-grid">
+    <label>Part<select class="input" name="part_id" id="qPart" required>${(parts||[]).map(p=>`<option value="${p.id}">Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label>
+    <label>Tipe<select class="input" name="type" id="qType"><option value="multiple_choice">Ganda</option><option value="typing">Ketik jawaban sendiri</option></select></label>
+    <label class="full">Pertanyaan <small>(opsional)</small><div class="prompt-editor-wrap"><div id="promptEditor" class="textarea prompt-editor" contenteditable="true" data-placeholder="Tulis pertanyaan..."></div></div><input type="hidden" name="prompt" id="promptValue"></label>
+    <label>Jawaban benar <small>(opsional)</small><input class="input" name="answer"></label>
+    <label id="optionsField">Pilihan <small>(opsional)</small><input class="input" name="options" placeholder="Makan;Minum;Tidur"></label>
+    <label>Reading <small>(opsional)</small><input class="input" name="reading"></label>
+    <label class="full">Penjelasan <small>(opsional)</small><input class="input" name="instruction"></label>
+    <label>Foto soal <small>(opsional)</small><input class="input" type="file" name="photo" accept="image/*"></label>
+    <label>Audio soal <small>(opsional)</small><input class="input" type="file" name="audio" accept="audio/*"></label>
+    <button class="btn red full" type="submit">Tambah Soal</button>
+  </form></div>
+  <div class="card admin-card table-list" id="qList"></div>`);
+  const editor=document.querySelector('#promptEditor'); bindPromptToolbar(editor);
+  const typeEl=document.querySelector('#qType'), optField=document.querySelector('#optionsField');
+  const syncType=()=>{optField.style.display=typeEl.value==='multiple_choice'?'':'none';};
+  typeEl.onchange=syncType; syncType();
+  document.querySelector('#qPart').onchange=e=>renderList(e.target.value);
+  renderList(document.querySelector('#qPart').value);
+  document.querySelector('#qForm').onsubmit=async e=>{
+    e.preventDefault();
+    const fd=new FormData(e.target), type=fd.get('type'), prompt=sanitizePromptHTML(editor.innerHTML.trim());
+    const id=(crypto?.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    let options=[];
+    if(type==='multiple_choice') options=String(fd.get('options')||'').split(';').map(s=>s.trim()).filter(Boolean);
+    const row={id,part_id:fd.get('part_id'),prompt,reading:String(fd.get('reading')||''),instruction:String(fd.get('instruction')||''),type,options,answer:String(fd.get('answer')||'')};
+    const {error}=await supabase.from('questions').insert(row);
+    if(error){alert(error.message);return;}
+    for(const [field,kind,col] of [['photo','photo','photo_url'],['audio','audio','audio_url']]){
+      const file=fd.get(field);
+      if(file instanceof File && file.size){
+        const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+        const path=`questions/${id}/${Date.now()}-${safe}`;
+        const up=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type||undefined});
+        if(up.error){alert(`${kind==='photo'?'Foto':'Audio'} gagal diupload: ${up.error.message}`);continue;}
+        const {data:urlData}=supabase.storage.from('media').getPublicUrl(path);
+        const patch=kind==='photo'?{photo_url:urlData?.publicUrl||'',media_url:urlData?.publicUrl||'',media_type:'image'}:{audio_url:urlData?.publicUrl||'',media_url:urlData?.publicUrl||'',media_type:'audio'};
+        const up2=await supabase.from('questions').update(patch).eq('id',id);
+        if(up2.error)alert(`Media ter-upload tetapi gagal ditautkan: ${up2.error.message}`);
+      }
+    }
+    render();
+  };
+}
 async function quick(){
   const {data:parts}=await supabase.from('parts').select('*').order('part_number');
   app(`<div class="admin-header"><div><div class="eyebrow">QUICK SOAL</div><h1>Import Cepat</h1><p class="muted">Import teks dulu. Setelah masuk, pilih Part untuk melihat dan mengelola semua soalnya.</p></div></div>
@@ -228,7 +342,7 @@ function renderQuickList(rows,title='Soal yang berhasil diimport'){
 async function uploadMedia(input,kind){
   const file=input.files?.[0];
   if(!file)return;
-  const id=input.dataset[kind];
+  const id=input.dataset[kind]||input.dataset[`part${kind[0].toUpperCase()}${kind.slice(1)}`];
   const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   const path=`questions/${id}/${Date.now()}-${safe}`;
   const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type||undefined});
@@ -243,7 +357,7 @@ async function uploadMedia(input,kind){
   if(updateError)return alert(`Media ter-upload, tetapi data soal gagal disimpan: ${updateError.message}`);
   const ok=kind==='photo'?saved?.photo_url===publicUrl:saved?.audio_url===publicUrl;
   if(!ok)return alert('Media sudah ter-upload tetapi URL belum tersimpan pada soal. Coba upload ulang.');
-  input.closest('.media-row').querySelector('small').textContent=`${kind==='photo'?'📷 Foto':'🔊 Audio'} tersimpan dan terhubung ke soal.`;
+  const note=input.closest('.media-row')?.querySelector('small'); if(note)note.textContent=`${kind==='photo'?'📷 Foto':'🔊 Audio'} tersimpan dan terhubung ke soal.`;
   input.value='';
 }
 async function timer(){const {data}=await supabase.from('timer_settings').select('*').eq('id',1).maybeSingle();const t=data||{enabled:false,global_seconds:0,per_part:{},per_question:{}};app(`<div class="admin-header"><div><div class="eyebrow">TIME CONTROL</div><h1>Kelola Timer</h1><p class="muted">Timer total Part berjalan terus selama latihan; Timer Soal (opsional) mulai ulang di tiap soal. Part yang diatur User tidak memakai timer ini. Timer Part juga bisa diisi langsung di halaman Part.</p></div></div><div class="card admin-card"><form id="tForm"><label><input type="checkbox" name="enabled" ${t.enabled?'checked':''}> Aktifkan timer</label><label>Global (detik)<input class="input" type="number" name="global_seconds" value="${Number(t.global_seconds||0)}"></label><label>Timer Part JSON<textarea class="textarea" name="per_part">${esc(JSON.stringify(parse(t.per_part||'{}'),null,2))}</textarea></label><label>Timer Soal JSON<textarea class="textarea" name="per_question">${esc(JSON.stringify(parse(t.per_question||'{}'),null,2))}</textarea></label><button class="btn red" type="submit">Simpan Timer</button></form></div><div class="card admin-card"><p>Contoh Part: <code>{"1":1800,"2":1200}</code></p><p>Contoh Soal: gunakan ID soal sebagai key, atau nomor soal seperti <code>{"1":30,"2":45}</code>.</p></div>`);document.querySelector('#tForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);let pp,pq;try{pp=JSON.parse(fd.get('per_part')||'{}');pq=JSON.parse(fd.get('per_question')||'{}');}catch{return alert('JSON timer tidak valid.');}const {error}=await supabase.from('timer_settings').upsert({id:1,enabled:fd.has('enabled'),global_seconds:Number(fd.get('global_seconds')||0),per_part:pp,per_question:pq});alert(error?error.message:'Timer tersimpan.');};}

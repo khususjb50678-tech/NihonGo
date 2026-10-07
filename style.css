@@ -242,3 +242,13 @@ html.study-open body{overflow:hidden}
 @media(max-width:650px){.install-card{padding:20px 14px}.part-setup .time-row{grid-template-columns:1fr 1fr}}
 [hidden]{display:none!important}
 .mode-pill{font-style:normal}
+
+/* Targeted additions: question underline toolbar + inactive Part state */
+.prompt-editor{min-height:120px;white-space:pre-wrap;outline:none;cursor:text;position:relative}
+.prompt-editor:empty:before{content:attr(data-placeholder);color:rgba(255,255,255,.42);pointer-events:none}
+.prompt-selection-toolbar{position:fixed;z-index:99999;display:none;gap:4px;padding:5px;border-radius:10px;background:#111;box-shadow:0 8px 24px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12)}
+.prompt-selection-toolbar.show{display:flex}
+.prompt-selection-toolbar button{min-width:36px;height:34px;border:0;border-radius:7px;background:#222;color:#fff;font-weight:700}
+.prompt-selection-toolbar button:active{transform:scale(.96)}
+.part-card.part-disabled{opacity:.38;filter:grayscale(.45);cursor:not-allowed;pointer-events:none}
+.part-status-off{display:block;margin-top:8px;opacity:.7}
