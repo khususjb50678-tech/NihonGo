@@ -32,7 +32,7 @@
 /* Final interaction tuning */
 @media (hover:none){.feature:active,.part-card:active,.seg:active,.btn:active,.cta:active,.social-icon:active{box-shadow:0 0 0 1px #8b303055,0 0 24px #e34a4a22}}
 .developer-avatar-img{object-fit:contain!important}
-.app-download{margin:32px auto 0;padding:20px;display:flex;align-items:center;gap:16px;text-align:left;border:1px solid #432020;border-radius:18px;background:linear-gradient(145deg,#171010,#0b0b0b);box-shadow:0 16px 40px #0006}.app-download-icon{width:56px;height:56px;flex:0 0 56px;border-radius:16px;display:grid;place-items:center;background:#a91515;border:1px solid #d03a3a;color:#fff;font-size:30px;font-weight:900;box-shadow:0 8px 24px #a9151533}.app-download-content{min-width:0;flex:1}.app-download-label{font-size:10px;letter-spacing:1.8px;color:#e34a4a;font-weight:900}.app-download h3{margin:5px 0 5px;font-size:19px}.app-download p{margin:0 0 14px;max-width:none;font-size:13px;line-height:1.65;color:#aaa}.app-download-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:11px 15px;border-radius:11px;background:#b71919;border:1px solid #d03a3a;color:#fff;font-size:13px;font-weight:900;letter-spacing:.3px;transition:.2s}.app-download-btn:hover{background:#d02222;transform:translateY(-2px);box-shadow:0 8px 22px #a9151544}.app-download small{display:block;margin-top:9px;color:#666;font-size:11px}@media(max-width:600px){.app-download{align-items:flex-start;padding:16px}.app-download-icon{width:48px;height:48px;flex-basis:48px;font-size:26px}.app-download-btn{width:100%}}
+
 
 
 /* Part question manager */
@@ -62,18 +62,208 @@
 .bunpou-detail-text{line-height:1.7;color:#aaa}
 @media(max-width:650px){.bunpou-item{grid-template-columns:auto 1fr auto;gap:9px;padding:13px}.bunpou-item-pattern{grid-column:2;font-size:12px}.bunpou-item-arrow{grid-column:3;grid-row:1 / span 2}.bunpou-item strong{font-size:16px}.bunpou-modal-backdrop{padding:10px;align-items:end}.bunpou-modal{max-height:90vh;border-radius:18px 18px 0 0;padding:17px}.bunpou-modal h2{font-size:22px}}
 
-.part-card-disabled{opacity:.42;filter:grayscale(.8);cursor:not-allowed!important;pointer-events:none}.part-card-disabled .tag{opacity:.7}.part-card-disabled b{color:#777}
-.question u,.question-long u{ text-decoration-thickness:2px; text-underline-offset:3px }
+/* =====================================================================
+   V2 — font baru, kolom goyang seirama, cahaya merah-biru, wallpaper kolom
+   ===================================================================== */
+:root{--cw-bg:linear-gradient(145deg,#171717,#0b0b0b);--cw-dim:.3;--fx-red:#ff2d55;--fx-blue:#2d7bff;
+--f-body:"Plus Jakarta Sans","Zen Maru Gothic","Noto Sans JP",system-ui,-apple-system,"Segoe UI",sans-serif;
+--f-head:"Sora","Plus Jakarta Sans","Zen Maru Gothic","Noto Sans JP",system-ui,sans-serif;
+--f-kana:"Klee One","Zen Maru Gothic","Hiragino Maru Gothic ProN","Noto Sans JP",sans-serif}
+@property --ang{syntax:'<angle>';inherits:false;initial-value:0deg}
 
-/* Pesan & Maintenance */
-.message-top{margin-left:auto;flex:0 0 auto;border:1px solid #3a2525;background:#111;color:#fff;border-radius:10px;padding:8px 11px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 6px 18px #0004}
-.message-top:hover{border-color:#8b3030;background:#171010}
-.site-message-backdrop{position:fixed;inset:0;z-index:2000;background:#000b;display:grid;place-items:center;padding:16px;backdrop-filter:blur(6px)}
-.site-message-card{position:relative;width:min(560px,100%);max-height:82vh;overflow:auto;border:1px solid #492626;border-radius:20px;background:linear-gradient(145deg,#171010,#0b0b0b);padding:24px;box-shadow:0 25px 80px #000d}
-.site-message-close{position:absolute;right:14px;top:14px;width:36px;height:36px;border:1px solid #333;border-radius:50%;background:#171717;color:#fff;font-size:23px;line-height:1;cursor:pointer}
-.site-message-card h2{margin:10px 45px 14px 0;font-size:24px}.site-message-body{padding:15px;border:1px solid #302020;border-radius:14px;background:#0a0a0a;color:#ddd;line-height:1.8;white-space:normal}.site-message-card>small{display:block;margin-top:12px;color:#666}
-.maintenance-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#261010,#050505 62%)}
-.maintenance-card{width:min(620px,100%);text-align:center;border:1px solid #482525;border-radius:24px;background:linear-gradient(145deg,#171010,#090909);padding:34px 24px;box-shadow:0 25px 80px #0009}
-.maintenance-mark{width:72px;height:72px;margin:0 auto 18px;border-radius:18px;display:grid;place-items:center;background:#111;border:1px solid #3b2929;overflow:hidden;font-size:34px}.maintenance-mark .mark-img{width:100%;height:100%;object-fit:contain}.maintenance-card h1{margin:10px 0 18px;font-size:30px}.maintenance-message{padding:18px;border:1px solid #3a2222;border-radius:16px;background:#0b0b0b;color:#ddd;line-height:1.85;font-size:15px}.maintenance-note{margin-top:16px;color:#888;line-height:1.7}
-.site-setting-box{padding:20px;border:1px solid #2e2222;border-radius:16px;background:linear-gradient(145deg,#111,#0a0a0a)}.site-setting-box h2{margin:0 0 7px}.maintenance-setting-box{border-color:#482626}.site-setting-box label{margin-top:12px}
-@media(max-width:650px){.message-top{padding:7px 9px;font-size:11px}.topin{gap:8px}.message-top{display:block}.maintenance-page{padding:16px}.maintenance-card{padding:28px 17px;border-radius:20px}.maintenance-card h1{font-size:25px}.site-message-card{padding:20px}.site-message-card h2{font-size:21px}}
+/* Font */
+body{font-family:var(--f-body);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,.brand,.eyebrow,.tag,.cta,.seg,.bunpou-tab,.score,.question,.question-long,.bunpou-item strong{font-family:var(--f-head)}
+.brand{font-weight:800;letter-spacing:.2px}
+.brand small{font-family:var(--f-body);letter-spacing:.6px}
+.eyebrow{font-weight:700;letter-spacing:1.4px;font-size:12px}
+.hero h1{font-weight:800;letter-spacing:-2px}
+.hero h2{font-weight:600;letter-spacing:2.5px;font-size:16px}
+.hero p,.muted,.feature p{line-height:1.75}
+.kana-char,.kanji-char,.answer-kanji,.kana-static,.kana-back-char{font-family:var(--f-kana);font-weight:600}
+.jp,.bunpou-pattern,.kaiwa-line .jp{font-family:"Zen Maru Gothic",var(--f-body)}
+.feature .icon{font-family:var(--f-kana);font-weight:600}
+
+/* Posisi: hero rata kiri-bawah, kartu menumpuk sedikit di atas hero */
+.hero{min-height:540px;align-items:flex-end}
+.hero-inner{padding:90px 20px 112px}
+.home-section{margin-top:-66px;position:relative;z-index:2;padding-top:0}
+.home-section .section-title{margin-bottom:18px}
+.cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+.feature{min-height:190px;padding:20px;justify-content:flex-start}
+.feature h3{margin:14px 0 8px;font-size:17px;letter-spacing:.6px}
+.feature p{font-size:13.5px}
+.nav a{display:flex;align-items:center;gap:4px;font-weight:600}
+.bottom a{flex:1;font-weight:600}
+@media(max-width:900px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){
+  .hero{min-height:420px}
+  .hero-inner{padding:48px 18px 96px}
+  .hero h1{letter-spacing:-1px}
+  .hero p{font-size:14.5px;line-height:1.7}
+  .home-section{margin-top:-62px}
+  .home-section .section-title h2{font-size:25px;line-height:1.25}
+  .home-section .section-title .muted{font-size:13.5px;line-height:1.6;margin:4px 0 0}
+  .feature{min-height:176px;padding:15px}
+  .feature h3{font-size:15px;letter-spacing:.4px}
+  .feature p{font-size:12px}
+  .shell{padding-bottom:calc(70px + env(safe-area-inset-bottom,0px))}
+  .bottom{padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}
+}
+
+/* Wallpaper kolom (diatur dari Admin → Tampilan Kolom) */
+.shell .feature,.shell .part-card,.shell .bunpou-item,.shell .developer-panel,.shell .result-card,
+.shell .kanji-flip .flip-face,.shell .kana-flip .kana-face{
+  background:linear-gradient(rgba(5,6,10,var(--cw-dim)),rgba(5,6,10,var(--cw-dim))),var(--cw-bg);
+  text-shadow:0 1px 8px rgba(0,0,0,.55)}
+.shell .kanji-flip .flip-face,.shell .kana-flip .kana-face{
+  box-shadow:-5px -3px 20px rgba(255,45,85,.14),5px 3px 20px rgba(45,123,255,.14),0 18px 40px rgba(0,0,0,.5)}
+.shell .feature,.shell .part-card,.shell .bunpou-item,.shell .developer-panel,.shell .result-card{
+  box-shadow:-4px -3px 18px rgba(255,45,85,.1),4px 3px 18px rgba(45,123,255,.1)}
+.kanji-flip,.kana-flip{overflow:visible;min-width:0}
+.kana-grid,.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:650px){.kana-grid,.grid{grid-template-columns:minmax(0,1fr)}}
+@media(min-width:901px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.kana-flip{display:block}
+.kana-flip:focus-visible,.kanji-flip:focus-visible{outline:2px solid var(--fx-blue);outline-offset:4px;border-radius:20px}
+
+/* Cahaya merah & biru yang berjalan di tepi garis */
+.fx-ring{position:relative}
+.fx-ring::before,.kanji-flip .flip-face::before,.kana-flip .kana-face::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;pointer-events:none;z-index:4;
+  background:conic-gradient(from var(--ang),transparent 0%,var(--fx-red) 13%,#ff9bb0 17%,transparent 31%,transparent 50%,var(--fx-blue) 63%,#9cc3ff 67%,transparent 81%,transparent 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite:exclude}
+.fx-ring.fx-on::before,.kanji-flip.fx-on .flip-face::before,.kana-flip.fx-on .kana-face::before{
+  animation:fxSpin 4s linear var(--fxd,0s) infinite}
+@keyframes fxSpin{to{--ang:360deg}}
+html[data-glow="off"] .fx-ring::before,html[data-glow="off"] .kanji-flip .flip-face::before,html[data-glow="off"] .kana-flip .kana-face::before{display:none}
+
+/* Goyang seirama: semua kolom memakai jam yang sama (diatur di cardstyle.js) */
+.fx-card.fx-on{animation:fxSway 5s ease-in-out var(--fxd,0s) infinite}
+.fx-float.fx-on{animation:fxFloat 5s ease-in-out var(--fxd,0s) infinite}
+@keyframes fxSway{0%,100%{translate:0 0;rotate:0deg}25%{translate:0 -5px;rotate:-.6deg}50%{translate:0 0;rotate:0deg}75%{translate:0 5px;rotate:.6deg}}
+@keyframes fxFloat{0%,100%{translate:0 0}50%{translate:0 -4px}}
+html[data-sway="off"] .fx-card.fx-on,html[data-sway="off"] .fx-float.fx-on{animation:none}
+.mark.fx-card,.developer-avatar.fx-card{overflow:hidden}
+.mark.fx-card{border-color:transparent}
+
+/* Animasi goresan (dipakai di panel besar Kana & Kanji) */
+.ks-guide{fill:none;stroke:rgba(255,255,255,.14);stroke-width:.6;stroke-dasharray:3 3}
+.ks-ghost,.ks-ink{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:4.6}
+.ks-ghost{stroke:rgba(255,255,255,.14)}
+.ks-ink{stroke:#fff}
+.ks-mark{opacity:0;transition:opacity .2s}
+.ks-mark circle{fill:#14090b;stroke:#ff5a6a;stroke-width:.9}
+.ks-mark text{fill:#ffc2c8;font:700 6.5px var(--f-head);text-anchor:middle;dominant-baseline:central}
+
+/* Admin: pilihan wallpaper kolom */
+.wp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:12px;margin-top:12px}
+.wp-tile{border:1px solid #2f2f2f;background:#0d0d0d;color:#ddd;border-radius:14px;padding:8px;cursor:pointer;text-align:left;display:grid;gap:8px}
+.wp-tile b{font-size:12.5px;font-weight:600}
+.wp-swatch{height:78px;border-radius:10px;border:1px solid #333;display:grid;place-items:center;font-size:26px;background-color:#0b0b0b}
+.wp-tile.sel{border-color:#ff2d55;box-shadow:0 0 0 2px rgba(255,45,85,.35)}
+.wp-range{display:flex;align-items:center;gap:12px;margin-top:10px}.wp-range input{flex:1}
+.wp-checks{display:grid;gap:10px;margin-top:14px}
+.wp-preview{max-width:360px;margin:16px auto 6px}
+.admin-brand,.admin-main h1,.admin-main h2,.admin-main h3{font-family:var(--f-head)}
+
+/* Perbaikan layout Admin di HP/tablet: menu samping tidak lagi melebarkan halaman */
+@media(max-width:900px){.admin-shell{grid-template-columns:minmax(0,1fr)}.admin-side,.admin-main{min-width:0}.admin-side nav{min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}.admin-main{max-width:100%}}
+
+/* =====================================================================
+   V3 — panel besar Kana/Kanji, form mulai latihan, panduan install
+   ===================================================================== */
+.ks-fallback{fill:rgba(255,255,255,.5);font:600 78px var(--f-kana);text-anchor:middle;dominant-baseline:central}
+html.study-open body{overflow:hidden}
+.study-backdrop{position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);display:grid;place-items:center;padding:12px;overflow:auto}
+.study-modal{position:relative;width:min(560px,100%);max-height:calc(100dvh - 24px);overflow:auto;border:1px solid #343434;border-radius:22px;padding:16px 16px 14px;
+  background:linear-gradient(rgba(5,6,10,var(--cw-dim)),rgba(5,6,10,var(--cw-dim))),var(--cw-bg);
+  box-shadow:-5px -3px 24px rgba(255,45,85,.16),5px 3px 24px rgba(45,123,255,.16),0 25px 80px #000c;
+  text-shadow:0 1px 8px rgba(0,0,0,.55);animation:studyFlip .5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes studyFlip{from{opacity:0;transform:perspective(900px) rotateY(-80deg) scale(.88)}to{opacity:1;transform:perspective(900px) rotateY(0) scale(1)}}
+.study-close{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;border:1px solid #3a3a3a;background:#171717cc;color:#fff;font-size:26px;line-height:1;cursor:pointer;z-index:3}
+.study-head{display:flex;align-items:center;gap:16px;padding:4px 52px 12px 4px;min-height:84px}
+.study-glyph{font-family:var(--f-kana);font-weight:600;line-height:1.05;white-space:nowrap;flex:0 0 auto}
+.study-info{min-width:0;display:grid;gap:4px}
+.study-reading{font-family:var(--f-head);font-size:clamp(34px,10vw,52px);font-weight:800;line-height:1.1;word-break:break-word}
+.study-meaning{font-size:clamp(16px,4.4vw,20px);color:#e6e6ee;font-weight:600;line-height:1.35}
+.study-stage-wrap{position:relative;width:100%;margin:0 auto;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;overflow:hidden}
+.study-stage{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .25s}
+.study-stage-wrap.drawing .study-stage{opacity:1}
+.study-static{font-family:var(--f-kana);font-weight:600;line-height:1;color:rgba(255,255,255,.2);white-space:nowrap;transition:opacity .2s}
+.study-stage-wrap.drawing .study-static{opacity:0}
+.study-stage-wrap.no-anim .study-static{color:#fff}
+.study-msg{position:absolute;left:12px;right:12px;bottom:10px;text-align:center;font-size:13px;color:#c9c9d4}
+.study-stage-wrap.failed .study-msg{color:#ffb7b7}
+.study-actions{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px}
+.study-play{min-width:156px;border:1px solid #e0455a;background:linear-gradient(145deg,#d1263b,#8f1219);color:#fff;border-radius:999px;padding:12px 20px;font-weight:700;font-size:15px;cursor:pointer;font-family:var(--f-head);box-shadow:0 6px 18px rgba(209,38,59,.35);transition:transform .15s}
+.study-play:active{transform:scale(.95)}
+.study-play:disabled{opacity:.7;cursor:default}
+.study-nav{width:48px;height:48px;border-radius:50%;border:1px solid #3a3a3a;background:#141414cc;color:#fff;font-size:28px;line-height:1;cursor:pointer}
+.study-nav:disabled{opacity:.3;cursor:default}
+.study-close:focus-visible,.study-play:focus-visible,.study-nav:focus-visible{outline:2px solid var(--fx-blue);outline-offset:2px}
+.study-count{text-align:center;color:#9a9aa6;font-size:12px;margin-top:10px}
+@media(max-width:650px){.study-backdrop{padding:8px}.study-modal{padding:14px 12px 12px;border-radius:20px;max-height:calc(100dvh - 16px)}}
+
+/* Form mulai latihan */
+.setup-modal{width:min(460px,100%)}
+.setup-info{margin:2px 0 6px;line-height:1.6}
+.setup-field{display:grid;gap:7px;margin-top:12px;color:#ccc}
+.setup-field small{color:#888;font-weight:400}
+.setup-time{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.setup-time label{display:grid;gap:4px}
+.setup-error{min-height:20px;margin-top:10px;color:#ffb0b0;font-size:13.5px;line-height:1.5}
+.setup-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
+.setup-actions .btn{min-width:96px}
+.timer-text.low{color:#ff6b6b}
+
+/* Panduan install aplikasi (halaman Developer) */
+.install-card{max-width:760px;margin:22px auto 0;padding:26px 22px;border:1px solid #292929;border-radius:24px;text-align:left}
+.shell .install-card{background:linear-gradient(rgba(5,6,10,var(--cw-dim)),rgba(5,6,10,var(--cw-dim))),var(--cw-bg);box-shadow:-4px -3px 18px rgba(255,45,85,.1),4px 3px 18px rgba(45,123,255,.1)}
+.install-card h2{margin:6px 0 8px;font-size:22px;font-family:var(--f-head)}
+.install-steps{list-style:none;counter-reset:step;margin:18px 0 8px;padding:0;display:grid;gap:10px}
+.install-steps li{counter-increment:step;display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:center;padding:12px;border:1px solid #282828;border-radius:14px;background:#0b0b0bcc;line-height:1.55}
+.install-steps li::before{content:counter(step);width:34px;height:34px;border-radius:10px;background:#8f1717;display:grid;place-items:center;font-weight:800;font-family:var(--f-head)}
+.install-note{margin:14px 0 0;color:#9a9aa6;font-size:13px;line-height:1.6}
+#installBtn{margin-top:12px}
+
+/* Admin: pengaturan Part & Kanji */
+.mode-pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid #3b2929;background:#171010;color:#ddd;margin-right:6px}
+.mode-pill.user{border-color:#27405f;background:#0f1722;color:#a9c8ff}
+.part-setup{border:1px solid #2b2b2b;border-radius:14px;background:#0a0a0a;padding:14px;display:grid;gap:12px}
+.part-setup .hint{color:#8f8f8f;font-size:13px;line-height:1.6;margin:0}
+.part-setup .time-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.part-setup label{display:grid;gap:7px;color:#ccc}
+.admin-main .db-notice{border-color:#6b4a1f;background:#17120a}
+.db-notice pre{white-space:pre-wrap;background:#070707;border:1px solid #292929;border-radius:12px;padding:13px;line-height:1.6;font-size:12.5px;overflow:auto;color:#eee}
+.check-line{display:flex!important;grid-template-columns:none!important;align-items:center;gap:9px}
+@media(max-width:650px){.install-card{padding:20px 14px}.part-setup .time-row{grid-template-columns:1fr 1fr}}
+[hidden]{display:none!important}
+.mode-pill{font-style:normal}
+
+/* Targeted additions: question underline toolbar + inactive Part state */
+.prompt-editor{min-height:120px;white-space:pre-wrap;outline:none;cursor:text;position:relative}
+.prompt-editor:empty:before{content:attr(data-placeholder);color:rgba(255,255,255,.42);pointer-events:none}
+.prompt-selection-toolbar{position:fixed;z-index:99999;display:none;gap:4px;padding:5px;border-radius:10px;background:#111;box-shadow:0 8px 24px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12)}
+.prompt-selection-toolbar.show{display:flex}
+.prompt-selection-toolbar button{min-width:36px;height:34px;border:0;border-radius:7px;background:#222;color:#fff;font-weight:700}
+.prompt-selection-toolbar button:active{transform:scale(.96)}
+.part-card.part-disabled{opacity:.38;filter:grayscale(.45);cursor:not-allowed;pointer-events:none}
+.part-status-off{display:block;margin-top:8px;opacity:.7}
+
+/* ===== Pesan & Maintenance ===== */
+.nav-message{appearance:none;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;border-radius:9px;padding:7px 10px;font:inherit;font-size:.78rem;cursor:pointer;white-space:nowrap}
+.nav-message:hover{background:rgba(255,255,255,.08)}
+.site-message-backdrop{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.76);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(7px)}
+.site-message-card{position:relative;width:min(520px,100%);max-height:82vh;overflow:auto;border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:26px;background:linear-gradient(145deg,rgba(25,8,10,.98),rgba(8,8,10,.98));box-shadow:0 20px 70px rgba(0,0,0,.6)}
+.site-message-card h2{margin:8px 0 14px}.site-message-body{line-height:1.75;color:rgba(255,255,255,.82);white-space:normal}
+.maintenance-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 50% 20%,rgba(160,18,24,.18),transparent 42%),#050505}
+.maintenance-card{width:min(560px,100%);text-align:center;padding:34px 24px;border:1px solid rgba(255,255,255,.12);border-radius:22px;background:linear-gradient(145deg,rgba(24,7,9,.96),rgba(7,7,9,.98));box-shadow:0 24px 80px rgba(0,0,0,.65)}
+.maintenance-logo{width:72px;height:72px;margin:0 auto 14px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);overflow:hidden;font-size:34px}.maintenance-logo img{max-width:100%;max-height:100%;object-fit:contain}.maintenance-card h1{margin:10px 0 0}.maintenance-divider{width:72px;height:3px;border-radius:99px;background:#c71e26;margin:18px auto}.maintenance-card>p{line-height:1.8;color:rgba(255,255,255,.76)}
+.maintenance-box{margin-top:22px;display:flex;gap:12px;text-align:left;align-items:center;padding:14px 16px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(255,255,255,.035)}.maintenance-box>span{font-size:24px}.maintenance-box b,.maintenance-box small{display:block}.maintenance-box small{margin-top:4px;color:rgba(255,255,255,.58);line-height:1.5}
+.part-disabled{opacity:.34!important;filter:grayscale(.65)!important;cursor:not-allowed!important}.part-disabled *{cursor:not-allowed!important}
+.review b u,.question u,.question-long u{ text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:3px}
+.notice-section{padding:18px;border:1px solid rgba(255,255,255,.1);border-radius:15px;background:rgba(255,255,255,.025)}.notice-section h2{margin:0 0 8px}.notice-section+.notice-section{margin-top:4px}
+@media(max-width:640px){.nav-message{padding:6px 8px;font-size:.7rem}.site-message-card{padding:22px 18px}.maintenance-card{padding:28px 18px}}
