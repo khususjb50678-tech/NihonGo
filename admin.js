@@ -1,142 +1,19 @@
 import { supabase, sbReady, requireSupabase } from './supabase.js';
 import { CONFIG } from './config.js';
 import { defaultBunpou } from './default-bunpou.js';
-import { PRESETS, DEFAULT_STYLE, cleanStyle, applyCardStyle, saveCardStyle, fetchCardStyle, loadCachedStyle, runFx } from './cardstyle.js';
-import { NEW_DESC, NEW_DEV, OLD_DESC, OLD_DEV } from './copy.js';
 const root=document.querySelector('#admin-app');
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const parse=v=>{try{return JSON.parse(v)}catch{return v}};
 const typeMap={ganda:'multiple_choice',ketik:'typing',kanji:'kanji_input',bs:'truefalse',benar_salah:'truefalse',pilih:'kanji_choice',pilih_kanji:'kanji_choice',pasangan:'matching',matching:'matching'};
 let current='dashboard', user=null, imported=[];
-// ===== Update database (sekali saja) =====
-const DB_SQL=`alter table public.parts add column if not exists setup_mode text not null default 'admin';
-alter table public.parts add column if not exists timer_seconds integer;
-alter table public.kanji add column if not exists animate boolean not null default true;
-notify pgrst, 'reload schema';`;
-const DB_NOTE='Database belum diupdate, jadi pengaturan baru belum bisa disimpan. Buka menu Dashboard, salin SQL yang tampil, lalu jalankan di Supabase → SQL Editor.';
-const PART_OPT=['setup_mode','timer_seconds'], KANJI_OPT=['animate'];
-async function dbStatus(){const [a,b]=await Promise.all([supabase.from('parts').select('setup_mode,timer_seconds').limit(1),supabase.from('kanji').select('animate').limit(1)]);return !a.error&&!b.error;}
-function dbNoticeHTML(){return `<div class="card admin-card db-notice"><h2>⚠ Update database diperlukan</h2><p class="muted">Fitur baru (pengaturan soal &amp; timer per Part, dan pilihan animasi Kanji) butuh 3 kolom baru. Salin SQL di bawah, buka Supabase → SQL Editor, tempel, lalu klik Run. Cukup dilakukan sekali.</p><pre id="dbSql">${esc(DB_SQL)}</pre><button id="copySql" class="btn" type="button">Salin SQL</button></div>`;}
-async function copySql(){try{await navigator.clipboard.writeText(DB_SQL);alert('SQL tersalin. Tempel di Supabase → SQL Editor, lalu Run.');}catch{alert('Salin manual SQL yang tampil di layar.');}}
-// Simpan; kalau kolom baru belum ada di database, simpan bagian lainnya saja dan beri tahu.
-async function saveOptional(run,row,optKeys){
-  let r=await run(row);
-  if(r.error&&optKeys.some(k=>String(r.error.message||'').includes(k))){
-    const strip=x=>{if(Array.isArray(x))return x.map(strip);const c={...x};optKeys.forEach(k=>delete c[k]);return c;};
-    const slim=strip(row);
-    if(!Array.isArray(slim)&&!Object.keys(slim).length)return {error:{message:DB_NOTE}};
-    r=await run(slim);
-    if(!r.error){r.degraded=true;alert('Data tersimpan, tetapi pengaturan baru belum ikut tersimpan. '+DB_NOTE);}
-  }
-  return r;
-}
-const fmtDur=n=>{n=Math.floor(Number(n)||0);const m=Math.floor(n/60),r=n%60;return [m?`${m} menit`:'',r?`${r} detik`:''].filter(Boolean).join(' ')||'0 detik';};
-// ===== Pengaturan Part: soal & timer diatur Admin atau User =====
-function partSetupHTML(x={}){
-  const user=x.setup_mode==='user',t=Number(x.timer_seconds||0);
-  return `<div class="part-setup" data-part-setup><label>Soal &amp; timer diatur oleh siapa?<select class="input" name="setup_mode"><option value="admin" ${user?'':'selected'}>Diatur Admin</option><option value="user" ${user?'selected':''}>Diatur User</option></select></label>
-  <p class="hint" data-hint-admin>Admin menentukan jumlah soal dan timer. User cukup mengisi nama lalu mengerjakan.</p>
-  <p class="hint" data-hint-user hidden>Setiap mau mengerjakan, user mengisi sendiri nama, jumlah soal, dan waktunya. Tidak ada batas minimum.</p>
-  <div data-admin-opts class="form-grid"><label class="full">Jumlah soal<input class="input" name="question_limit" type="number" min="1" value="${x.question_limit||''}" placeholder="Kosongkan = semua soal"></label><label>Timer (menit)<input class="input" name="timer_min" type="number" min="0" value="${t?Math.floor(t/60):''}" placeholder="0"></label><label>Timer (detik)<input class="input" name="timer_sec" type="number" min="0" value="${t?t%60:''}" placeholder="0"></label><p class="hint full">Kosongkan timer jika tidak ingin memakai batas waktu.</p></div></div>`;
-}
-function bindPartSetup(root){
-  const sel=root.querySelector('[name="setup_mode"]');
-  const sync=()=>{const u=sel.value==='user';root.querySelector('[data-admin-opts]').hidden=u;root.querySelector('[data-hint-admin]').hidden=u;root.querySelector('[data-hint-user]').hidden=!u;};
-  sel.onchange=sync;sync();
-}
-function readPartSetup(root){
-  const g=n=>root.querySelector(`[name="${n}"]`);
-  if(g('setup_mode').value==='user')return {setup_mode:'user',question_limit:null,timer_seconds:null};
-  const lim=Math.floor(Number(g('question_limit').value)),m=Number(g('timer_min').value||0),sc=Number(g('timer_sec').value||0);
-  const total=Math.round((m>0?m:0)*60+(sc>0?sc:0));
-  return {setup_mode:'admin',question_limit:lim>0?lim:null,timer_seconds:total>0?total:null};
-}
-function partModeBadge(x){
-  if(x.setup_mode==='user')return '<i class="mode-pill user">Diatur User</i>';
-  const bits=[x.question_limit?`${x.question_limit} soal`:'semua soal'];if(Number(x.timer_seconds)>0)bits.push(fmtDur(x.timer_seconds));
-  return `<i class="mode-pill">Diatur Admin · ${esc(bits.join(' · '))}</i>`;
-}
-
-function app(html){root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL</small></div></div><nav>${[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['parts','Part'],['questions','Soal'],['quick','Quick Soal'],['timer','Kelola Timer'],['results','Hasil'],['guide','Cara Penggunaan Admin']].map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}</nav><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};}
+function app(html){root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL</small></div></div><nav>${[['dashboard','Dashboard'],['branding','Branding'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['parts','Part'],['questions','Soal'],['quick','Quick Soal'],['timer','Kelola Timer'],['results','Hasil'],['guide','Cara Penggunaan Admin']].map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}</nav><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};}
 async function boot(){if(!sbReady)return login('Supabase belum dikonfigurasi.');const {data}=await supabase.auth.getSession();user=data.session?.user||null;if(!user)return login();render();}
 function login(msg=''){root.innerHTML=`<div class="login-wrap"><div class="login-card"><div class="admin-logo">⛩</div><div class="eyebrow">ITCO JAPAN</div><h1>Admin Panel</h1><p class="muted">Masuk menggunakan akun Admin Supabase.</p>${msg?`<div class="alert">${esc(msg)}</div>`:''}<input id="email" class="input" type="email" placeholder="Email"><input id="password" class="input" type="password" placeholder="Password"><button id="login" class="btn red fullbtn">Masuk</button></div></div>`;document.querySelector('#login').onclick=async()=>{const {error}=await supabase.auth.signInWithPassword({email:document.querySelector('#email').value,password:document.querySelector('#password').value});if(error)return login(error.message);user=(await supabase.auth.getUser()).data.user;render();};}
-async function render(){if(current==='dashboard')return dashboard();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='quick')return quick();if(current==='timer')return timer();if(current==='results')return results();if(current==='guide')return guide();}
-
-async function tampilan(){
-  let st=cleanStyle(await fetchCardStyle()||loadCachedStyle()||DEFAULT_STYLE);
-  const tile=(id,name,inner,sw)=>`<button type="button" class="wp-tile ${st.preset===id?'sel':''}" data-wp="${id}"><span class="wp-swatch" style="${sw}">${inner}</span><b>${esc(name)}</b></button>`;
-  app(`<div class="admin-header"><div><div class="eyebrow">TAMPILAN</div><h1>Tampilan Kolom</h1><p class="muted">Atur wallpaper semua kolom (kartu) di website: pilih dari saran di bawah atau pakai fotomu sendiri. Perubahan langsung terlihat di pratinjau.</p></div></div>
-  <div class="card admin-card"><h3>1. Pilih wallpaper</h3><div class="wp-grid">${PRESETS.map(p=>tile(p.id,p.name,'',`background:${esc(p.css)}`)).join('')}${tile('foto','Foto Sendiri','📷',st.preset==='foto'&&st.url?`background:url(&quot;${esc(st.url)}&quot;) center/cover no-repeat`:'')}</div></div>
-  <div class="card admin-card upload-box"><label>2. Upload foto wallpaper sendiri</label><p class="muted">Pilih foto dari galeri HP. Foto otomatis dikecilkan agar website tetap ringan, lalu langsung dipakai dan tersimpan.</p><div class="upload-row"><input id="cwFile" class="input" type="file" accept="image/png,image/jpeg,image/webp"><button id="cwUpload" class="btn" type="button">📁 Upload Foto</button></div><div id="cwStatus" class="upload-status">${st.preset==='foto'&&st.url?'Foto sendiri sedang dipakai.':'Belum ada foto sendiri.'}</div></div>
-  <div class="card admin-card"><h3>3. Atur tampilan</h3><div class="wp-range"><span>Terang</span><input id="cwDim" type="range" min="0" max="85" step="5" value="${Math.round(st.dim*100)}"><span>Gelap</span><b id="cwDimVal">${Math.round(st.dim*100)}%</b></div><p class="muted">Makin gelap, tulisan di kolom makin mudah dibaca. Untuk foto sendiri, 50–65% biasanya pas.</p><div class="wp-checks"><label><input type="checkbox" id="cwGlow" ${st.glow?'checked':''}> Cahaya merah &amp; biru di tepi kolom</label><label><input type="checkbox" id="cwSway" ${st.sway?'checked':''}> Kolom bergerak / goyang seirama</label></div></div>
-  <div class="card admin-card"><h3>Pratinjau</h3><div class="wp-preview"><a class="card feature fx-card fx-ring" href="javascript:void(0)"><div class="icon">あ</div><h3>Kana</h3><p>Seperti inilah tampilan kolom di website.</p></a></div></div>
-  <button id="cwSave" class="btn red fullbtn" type="button">Simpan Tampilan Kolom</button>`);
-  const $=i=>document.querySelector(i);
-  document.documentElement.classList.add('admin-preview');
-  const refresh=()=>{st=applyCardStyle(st);document.querySelectorAll('.wp-tile').forEach(t=>t.classList.toggle('sel',t.dataset.wp===st.preset));};
-  refresh();
-  const prev=document.querySelector('.wp-preview .feature');if(prev)prev.style.cssText='background:linear-gradient(rgba(5,6,10,var(--cw-dim)),rgba(5,6,10,var(--cw-dim))),var(--cw-bg)';
-  runFx();
-  document.querySelectorAll('.wp-tile').forEach(t=>t.onclick=()=>{
-    const id=t.dataset.wp;
-    if(id==='foto'&&!st.url){alert('Upload foto dulu di langkah 2.');return;}
-    st={...st,preset:id};
-    if(id==='foto'&&st.dim<.5)st.dim=.55; $('#cwDim').value=Math.round(st.dim*100);$('#cwDimVal').textContent=Math.round(st.dim*100)+'%';
-    refresh();
-  });
-  $('#cwDim').oninput=e=>{st={...st,dim:Number(e.target.value)/100};$('#cwDimVal').textContent=e.target.value+'%';refresh();};
-  $('#cwGlow').onchange=e=>{st={...st,glow:e.target.checked};refresh();};
-  $('#cwSway').onchange=e=>{st={...st,sway:e.target.checked};refresh();};
-  const shrink=async file=>{
-    try{
-      const bmp=await createImageBitmap(file);const k=Math.min(1,1280/Math.max(bmp.width,bmp.height));
-      const c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);
-      c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
-      const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.82));
-      return blob&&blob.size>0?{blob,ext:'jpg',type:'image/jpeg'}:null;
-    }catch{return null;}
-  };
-  $('#cwUpload').onclick=async()=>{
-    const file=$('#cwFile').files?.[0],status=$('#cwStatus'),btn=$('#cwUpload');
-    if(!file)return alert('Pilih foto dari galeri terlebih dahulu.');
-    if(!file.type.startsWith('image/'))return alert('File harus berupa gambar.');
-    if(file.size>15*1024*1024)return alert('Ukuran foto maksimal 15 MB.');
-    btn.disabled=true;status.textContent='Memproses dan mengupload foto...';
-    try{
-      const small=await shrink(file);
-      const body=small?small.blob:file,type=small?small.type:file.type;
-      const ext=small?small.ext:((file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg');
-      const path=`branding/card-wallpaper-${Date.now()}.${ext}`;
-      const {error}=await supabase.storage.from('media').upload(path,body,{upsert:true,contentType:type,cacheControl:'31536000'});
-      if(error)throw error;
-      const {data:pub}=supabase.storage.from('media').getPublicUrl(path);
-      st={...st,preset:'foto',url:pub.publicUrl,dim:Math.max(st.dim,.55)};
-      $('#cwDim').value=Math.round(st.dim*100);$('#cwDimVal').textContent=Math.round(st.dim*100)+'%';
-      refresh();
-      const sw=document.querySelector('[data-wp="foto"] .wp-swatch');if(sw){sw.style.background=`url("${pub.publicUrl}") center/cover no-repeat`;sw.textContent='';}
-      await saveCardStyle(st);
-      status.textContent='Foto berhasil di-upload dan sudah dipakai di website.';
-    }catch(err){status.textContent='Upload gagal.';alert('Upload foto gagal: '+(err.message||err));}
-    finally{btn.disabled=false;$('#cwFile').value='';}
-  };
-  $('#cwSave').onclick=async()=>{
-    try{await saveCardStyle(st);alert('Tampilan kolom tersimpan. Buka ulang website untuk melihatnya.');}
-    catch(err){alert('Gagal menyimpan: '+(err.message||err));}
-  };
-}
-
+async function render(){if(current==='dashboard')return dashboard();if(current==='branding')return branding();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='quick')return quick();if(current==='timer')return timer();if(current==='results')return results();if(current==='guide')return guide();}
 async function count(table){const {count,error}=await supabase.from(table).select('*',{count:'exact',head:true});return error?0:count||0;}
-async function dashboard(){const [k,b,p,q,r]=await Promise.all(['kanji','bunpou','parts','questions','results'].map(count));const dbOk=await dbStatus();app(`<div class="admin-header"><div><div class="eyebrow">CONTROL CENTER</div><h1>Dashboard</h1><p class="muted">Kelola seluruh materi dan latihan ITCO JAPAN.</p></div></div>${dbOk?'':dbNoticeHTML()}<div class="stat-grid"><div class="stat-card"><b>${k}</b><span>Kanji</span></div><div class="stat-card"><b>${b}</b><span>Bunpou</span></div><div class="stat-card"><b>${p}</b><span>Part</span></div><div class="stat-card"><b>${q}</b><span>Soal</span></div><div class="stat-card"><b>${r}</b><span>Hasil</span></div></div><div class="card admin-card"><h2>Alur cepat</h2><p>Isi Branding → tambah Kanji → buat Part → masukkan soal lewat Soal atau Quick Soal → atur Timer → lihat Hasil.</p></div>`);const cb=document.querySelector('#copySql');if(cb)cb.onclick=copySql;}
-async function branding(){let {data}=await supabase.from('branding').select('*').eq('id',1).maybeSingle();data=data||{};app(`<div class="admin-header"><div><div class="eyebrow">SITE IDENTITY</div><h1>Branding</h1></div></div><form id="brandForm" class="card admin-card form-grid"><label>Nama utama<input class="input" name="site_name" value="${esc(data.site_name||CONFIG.siteName)}"></label><label>Nama alternatif<input class="input" name="corporate_name" value="${esc(data.corporate_name||CONFIG.corporateName)}"></label><label>Creator header<input class="input" name="creator" value="${esc(data.creator||CONFIG.creator)}"></label><label>Nama Developer<input class="input" name="creator_name" value="${esc(data.creator_name||'Witama Yuliananta')}"></label><label class="full">Deskripsi website<textarea class="textarea" name="description">${esc((!data.description||data.description.trim()===OLD_DESC)?NEW_DESC:data.description)}</textarea></label><label class="full">Deskripsi Developer<textarea class="textarea" name="developer_description">${esc((!data.developer_description||data.developer_description.trim()===OLD_DEV)?NEW_DEV:data.developer_description)}</textarea></label><div class="full upload-box"><label>Logo Developer</label><p class="muted">Pilih langsung dari File Manager HP. Logo akan di-upload ke Supabase Storage dan otomatis dipakai di halaman Developer.</p><div class="upload-row"><input id="developerLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"><button id="uploadDeveloperLogo" class="btn" type="button">📁 Upload Logo</button></div><input type="hidden" name="developer_logo_url" id="developerLogoUrl" value="${esc(data.developer_logo_url||'')}"><div id="developerLogoStatus" class="upload-status">${data.developer_logo_url?`Logo tersimpan.`:'Belum ada logo Developer.'}</div>${data.developer_logo_url?`<img class="upload-preview" src="${esc(data.developer_logo_url)}" alt="Logo Developer">`:''}</div><div class="full upload-box"><label>Logo Header</label><p class="muted">Pilih logo langsung dari File Manager HP. Setelah upload, URL logo otomatis tersimpan.</p><div class="upload-row"><input id="headerLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"><button id="uploadHeaderLogo" class="btn" type="button">📁 Upload Logo Header</button></div><input type="hidden" name="logo_url" id="headerLogoUrl" value="${esc(data.logo_url||'')}"><div id="headerLogoStatus" class="upload-status">${data.logo_url?'Logo header tersimpan.':'Belum ada logo header.'}</div>${data.logo_url?`<img class="upload-preview" src="${esc(data.logo_url)}" alt="Logo Header">`:''}</div><label>Favicon URL<input class="input" name="favicon_url" value="${esc(data.favicon_url||'')}"></label><label class="full">Hero Image URL<input class="input" name="hero_image" value="${esc(data.hero_image||CONFIG.heroImage)}"></label><div class="full contact-box"><h3>Kontak Developer</h3><p class="muted">Isi link saja. Di halaman publik yang tampil hanya ikon.</p><label>WhatsApp Link<input class="input" name="whatsapp_url" value="${esc(data.whatsapp_url||'')}"></label><label>Telegram Link<input class="input" name="telegram_url" value="${esc(data.telegram_url||'')}"></label><label>Instagram Link<input class="input" name="instagram_url" value="${esc(data.instagram_url||'')}"></label></div><button class="btn red full" type="submit">Simpan Branding</button></form>`);const fileInput=document.querySelector('#developerLogoFile');const uploadBtn=document.querySelector('#uploadDeveloperLogo');const status=document.querySelector('#developerLogoStatus');uploadBtn.onclick=async()=>{const file=fileInput.files?.[0];if(!file)return alert('Pilih logo dari File Manager terlebih dahulu.');if(!file.type.startsWith('image/'))return alert('File harus berupa gambar.');if(file.size>5*1024*1024)return alert('Ukuran logo maksimal 5 MB.');uploadBtn.disabled=true;status.textContent='Mengupload logo...';try{const ext=(file.name.split('.').pop()||'png').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`branding/developer-logo-${Date.now()}.${ext}`;const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type,cacheControl:'3600'});if(uploadError)throw uploadError;const {data:pub}=supabase.storage.from('media').getPublicUrl(path);document.querySelector('#developerLogoUrl').value=pub.publicUrl;const {error:saveLogoError}=await supabase.from('branding').upsert({id:1,developer_logo_url:pub.publicUrl});if(saveLogoError)throw saveLogoError;status.textContent='Logo berhasil di-upload dan langsung disimpan.';let preview=document.querySelector('.upload-preview');if(!preview){preview=document.createElement('img');preview.className='upload-preview';document.querySelector('.upload-box').appendChild(preview)}preview.src=pub.publicUrl;}catch(err){status.textContent='Upload gagal.';alert('Upload logo gagal: '+err.message)}finally{uploadBtn.disabled=false}};const headerFile=document.querySelector('#headerLogoFile');const headerBtn=document.querySelector('#uploadHeaderLogo');const headerStatus=document.querySelector('#headerLogoStatus');headerBtn.onclick=async()=>{const file=headerFile.files?.[0];if(!file)return alert('Pilih logo header terlebih dahulu.');if(!file.type.startsWith('image/'))return alert('File harus berupa gambar.');if(file.size>5*1024*1024)return alert('Ukuran logo maksimal 5 MB.');headerBtn.disabled=true;headerStatus.textContent='Mengupload logo header...';try{const ext=(file.name.split('.').pop()||'png').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`branding/header-logo-${Date.now()}.${ext}`;const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type,cacheControl:'3600'});if(uploadError)throw uploadError;const {data:pub}=supabase.storage.from('media').getPublicUrl(path);const {error:saveError}=await supabase.from('branding').upsert({id:1,logo_url:pub.publicUrl});if(saveError)throw saveError;document.querySelector('#headerLogoUrl').value=pub.publicUrl;headerStatus.textContent='Logo header berhasil di-upload dan disimpan.';let preview=document.querySelector('#headerLogoStatus').parentElement.querySelector('.upload-preview');if(!preview){preview=document.createElement('img');preview.className='upload-preview';document.querySelector('#headerLogoStatus').parentElement.appendChild(preview)}preview.src=pub.publicUrl;}catch(err){headerStatus.textContent='Upload gagal.';alert('Upload logo header gagal: '+err.message)}finally{headerBtn.disabled=false}};document.querySelector('#brandForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const obj=Object.fromEntries(fd.entries());obj.id=1;const {error}=await supabase.from('branding').upsert(obj);alert(error?error.message:'Branding berhasil disimpan.');};}
-async function kanji(){
-  const {data}=await supabase.from('kanji').select('*').order('created_at',{ascending:false});
-  app(`<div class="admin-header"><div><div class="eyebrow">字 KANJI</div><h1>Kelola Kanji</h1><p class="muted">Isi Kanji, Cara Baca, dan Arti. Untuk tiap Kanji kamu bisa memilih mau diberi animasi urutan goresan atau tidak.</p></div></div><div class="card admin-card"><form id="kForm" class="form-grid"><label>Kanji<input class="input" name="kanji" required placeholder="食べる"></label><label>Cara Baca<input class="input" name="reading" required placeholder="たべる"></label><label class="full">Arti<input class="input" name="meaning" required placeholder="Makan"></label><label class="full check-line"><input type="checkbox" name="animate" checked> Buat animasi urutan goresan untuk Kanji ini</label><button class="btn red full" type="submit">Tambah Kanji</button></form></div><div class="card admin-card"><div class="toolbar"><button id="delAll" class="btn danger">Hapus Semua</button></div><div class="table-list">${(data||[]).map(x=>{const on=x.animate!==false;return `<div class="list-row"><div><b>${esc(x.kanji)}</b><span>${esc(x.reading||'')} · ${esc(x.meaning)}</span><span><i class="mode-pill ${on?'user':''}">${on?'Animasi aktif':'Tanpa animasi'}</i></span></div><div class="media-actions"><button class="btn" data-ktoggle="${x.id}" data-on="${on?1:0}">${on?'Matikan animasi':'Aktifkan animasi'}</button><button class="btn danger" data-del="${x.id}">Hapus</button></div></div>`;}).join('')||'<p class="muted">Belum ada Kanji.</p>'}</div></div><div class="card admin-card"><h3>Import Kanji</h3><p class="muted">Format: Kanji|Cara Baca|Arti. Baris kosong dan nomor di awal baris boleh digunakan.</p><textarea id="kImport" class="textarea" rows="8" placeholder="1. 食べる|たべる|Makan\n\n2. 飲む|のむ|Minum"></textarea><label class="check-line" style="margin:12px 0"><input type="checkbox" id="kImportAnim" checked> Buat animasi urutan goresan untuk semua Kanji yang diimport</label><button id="importK" class="btn red">Import</button></div>`);
-  document.querySelector('#kForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const row={kanji:fd.get('kanji'),reading:fd.get('reading'),meaning:fd.get('meaning'),active:true,animate:fd.has('animate')};const {error}=await saveOptional(r=>supabase.from('kanji').insert(r),row,KANJI_OPT);if(error)alert(error.message);else render();};
-  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus Kanji ini?')){await supabase.from('kanji').delete().eq('id',b.dataset.del);render();}});
-  document.querySelectorAll('[data-ktoggle]').forEach(b=>b.onclick=async()=>{const {error}=await supabase.from('kanji').update({animate:b.dataset.on!=='1'}).eq('id',b.dataset.ktoggle);if(error)alert(String(error.message||'').includes('animate')?DB_NOTE:error.message);else render();});
-  document.querySelector('#delAll').onclick=async()=>{if(confirm('Hapus semua Kanji?')){await supabase.from('kanji').delete().neq('id','00000000-0000-0000-0000-000000000000');render();}};
-  document.querySelector('#importK').onclick=async()=>{const anim=document.querySelector('#kImportAnim').checked;const lines=document.querySelector('#kImport').value.split(/\n/).map(s=>s.trim()).filter(Boolean);const rows=[];for(let line of lines){line=line.replace(/^\s*\d+[.)]\s*/,'');const [kanji,reading,meaning]=line.split('|').map(s=>s.trim());if(kanji&&reading&&meaning)rows.push({kanji,reading,meaning,active:true,animate:anim});}if(rows.length){const {error}=await saveOptional(r=>supabase.from('kanji').insert(r),rows,KANJI_OPT);if(error)alert(error.message);else render();}else alert('Tidak ada baris valid.');};
-}
+async function dashboard(){const [k,b,p,q,r]=await Promise.all(['kanji','bunpou','parts','questions','results'].map(count));app(`<div class="admin-header"><div><div class="eyebrow">CONTROL CENTER</div><h1>Dashboard</h1><p class="muted">Kelola seluruh materi dan latihan ITCO JAPAN.</p></div></div><div class="stat-grid"><div class="stat-card"><b>${k}</b><span>Kanji</span></div><div class="stat-card"><b>${b}</b><span>Bunpou</span></div><div class="stat-card"><b>${p}</b><span>Part</span></div><div class="stat-card"><b>${q}</b><span>Soal</span></div><div class="stat-card"><b>${r}</b><span>Hasil</span></div></div><div class="card admin-card"><h2>Alur cepat</h2><p>Isi Branding → tambah Kanji → buat Part → masukkan soal lewat Soal atau Quick Soal → atur Timer → lihat Hasil.</p></div>`);}
+async function branding(){let {data}=await supabase.from('branding').select('*').eq('id',1).maybeSingle();data=data||{};app(`<div class="admin-header"><div><div class="eyebrow">SITE IDENTITY</div><h1>Branding</h1></div></div><form id="brandForm" class="card admin-card form-grid"><label>Nama utama<input class="input" name="site_name" value="${esc(data.site_name||CONFIG.siteName)}"></label><label>Nama alternatif<input class="input" name="corporate_name" value="${esc(data.corporate_name||CONFIG.corporateName)}"></label><label>Creator header<input class="input" name="creator" value="${esc(data.creator||CONFIG.creator)}"></label><label>Nama Developer<input class="input" name="creator_name" value="${esc(data.creator_name||'Witama Yuliananta')}"></label><label class="full">Deskripsi website<textarea class="textarea" name="description">${esc(data.description||'Belajar bahasa Jepang dengan Kanji dan latihan interaktif.')}</textarea></label><label class="full">Deskripsi Developer<textarea class="textarea" name="developer_description">${esc(data.developer_description||'Website ini dibuat dan dikembangkan oleh Witama Yuliananta, sebagai bagian dari pengembangan media pembelajaran bahasa Jepang yang interaktif, modern, dan mudah digunakan.')}</textarea></label><div class="full upload-box"><label>Logo Developer</label><p class="muted">Pilih langsung dari File Manager HP. Logo akan di-upload ke Supabase Storage dan otomatis dipakai di halaman Developer.</p><div class="upload-row"><input id="developerLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"><button id="uploadDeveloperLogo" class="btn" type="button">📁 Upload Logo</button></div><input type="hidden" name="developer_logo_url" id="developerLogoUrl" value="${esc(data.developer_logo_url||'')}"><div id="developerLogoStatus" class="upload-status">${data.developer_logo_url?`Logo tersimpan.`:'Belum ada logo Developer.'}</div>${data.developer_logo_url?`<img class="upload-preview" src="${esc(data.developer_logo_url)}" alt="Logo Developer">`:''}</div><div class="full upload-box"><label>Logo Header</label><p class="muted">Pilih logo langsung dari File Manager HP. Setelah upload, URL logo otomatis tersimpan.</p><div class="upload-row"><input id="headerLogoFile" class="input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"><button id="uploadHeaderLogo" class="btn" type="button">📁 Upload Logo Header</button></div><input type="hidden" name="logo_url" id="headerLogoUrl" value="${esc(data.logo_url||'')}"><div id="headerLogoStatus" class="upload-status">${data.logo_url?'Logo header tersimpan.':'Belum ada logo header.'}</div>${data.logo_url?`<img class="upload-preview" src="${esc(data.logo_url)}" alt="Logo Header">`:''}</div><label>Favicon URL<input class="input" name="favicon_url" value="${esc(data.favicon_url||'')}"></label><label class="full">Hero Image URL<input class="input" name="hero_image" value="${esc(data.hero_image||CONFIG.heroImage)}"></label><div class="full contact-box"><h3>Kontak Developer</h3><p class="muted">Isi link saja. Di halaman publik yang tampil hanya ikon.</p><label>WhatsApp Link<input class="input" name="whatsapp_url" value="${esc(data.whatsapp_url||'')}"></label><label>Telegram Link<input class="input" name="telegram_url" value="${esc(data.telegram_url||'')}"></label><label>Instagram Link<input class="input" name="instagram_url" value="${esc(data.instagram_url||'')}"></label></div><button class="btn red full" type="submit">Simpan Branding</button></form>`);const fileInput=document.querySelector('#developerLogoFile');const uploadBtn=document.querySelector('#uploadDeveloperLogo');const status=document.querySelector('#developerLogoStatus');uploadBtn.onclick=async()=>{const file=fileInput.files?.[0];if(!file)return alert('Pilih logo dari File Manager terlebih dahulu.');if(!file.type.startsWith('image/'))return alert('File harus berupa gambar.');if(file.size>5*1024*1024)return alert('Ukuran logo maksimal 5 MB.');uploadBtn.disabled=true;status.textContent='Mengupload logo...';try{const ext=(file.name.split('.').pop()||'png').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`branding/developer-logo-${Date.now()}.${ext}`;const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type,cacheControl:'3600'});if(uploadError)throw uploadError;const {data:pub}=supabase.storage.from('media').getPublicUrl(path);document.querySelector('#developerLogoUrl').value=pub.publicUrl;const {error:saveLogoError}=await supabase.from('branding').upsert({id:1,developer_logo_url:pub.publicUrl});if(saveLogoError)throw saveLogoError;status.textContent='Logo berhasil di-upload dan langsung disimpan.';let preview=document.querySelector('.upload-preview');if(!preview){preview=document.createElement('img');preview.className='upload-preview';document.querySelector('.upload-box').appendChild(preview)}preview.src=pub.publicUrl;}catch(err){status.textContent='Upload gagal.';alert('Upload logo gagal: '+err.message)}finally{uploadBtn.disabled=false}};const headerFile=document.querySelector('#headerLogoFile');const headerBtn=document.querySelector('#uploadHeaderLogo');const headerStatus=document.querySelector('#headerLogoStatus');headerBtn.onclick=async()=>{const file=headerFile.files?.[0];if(!file)return alert('Pilih logo header terlebih dahulu.');if(!file.type.startsWith('image/'))return alert('File harus berupa gambar.');if(file.size>5*1024*1024)return alert('Ukuran logo maksimal 5 MB.');headerBtn.disabled=true;headerStatus.textContent='Mengupload logo header...';try{const ext=(file.name.split('.').pop()||'png').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`branding/header-logo-${Date.now()}.${ext}`;const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type,cacheControl:'3600'});if(uploadError)throw uploadError;const {data:pub}=supabase.storage.from('media').getPublicUrl(path);const {error:saveError}=await supabase.from('branding').upsert({id:1,logo_url:pub.publicUrl});if(saveError)throw saveError;document.querySelector('#headerLogoUrl').value=pub.publicUrl;headerStatus.textContent='Logo header berhasil di-upload dan disimpan.';let preview=document.querySelector('#headerLogoStatus').parentElement.querySelector('.upload-preview');if(!preview){preview=document.createElement('img');preview.className='upload-preview';document.querySelector('#headerLogoStatus').parentElement.appendChild(preview)}preview.src=pub.publicUrl;}catch(err){headerStatus.textContent='Upload gagal.';alert('Upload logo header gagal: '+err.message)}finally{headerBtn.disabled=false}};document.querySelector('#brandForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const obj=Object.fromEntries(fd.entries());obj.id=1;const {error}=await supabase.from('branding').upsert(obj);alert(error?error.message:'Branding berhasil disimpan.');};}
+async function kanji(){const {data}=await supabase.from('kanji').select('*').order('created_at',{ascending:false});app(`<div class="admin-header"><div><div class="eyebrow">字 KANJI</div><h1>Kelola Kanji</h1><p class="muted">Hanya 3 field: Kanji, Cara Baca, Arti.</p></div></div><div class="card admin-card"><form id="kForm" class="form-grid"><label>Kanji<input class="input" name="kanji" required placeholder="食べる"></label><label>Cara Baca<input class="input" name="reading" required placeholder="たべる"></label><label class="full">Arti<input class="input" name="meaning" required placeholder="Makan"></label><button class="btn red full" type="submit">Tambah Kanji</button></form></div><div class="card admin-card"><div class="toolbar"><button id="delAll" class="btn danger">Hapus Semua</button></div><div class="table-list">${(data||[]).map(x=>`<div class="list-row"><div><b>${esc(x.kanji)}</b><span>${esc(x.reading||'')} · ${esc(x.meaning)}</span></div><button class="btn danger" data-del="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada Kanji.</p>'}</div></div><div class="card admin-card"><h3>Import Kanji</h3><p class="muted">Format: Kanji|Cara Baca|Arti. Baris kosong dan nomor di awal baris boleh digunakan.</p><textarea id="kImport" class="textarea" rows="8" placeholder="1. 食べる|たべる|Makan\n\n2. 飲む|のむ|Minum"></textarea><button id="importK" class="btn red">Import</button></div>`);document.querySelector('#kForm').onsubmit=async e=>{e.preventDefault();const o=Object.fromEntries(new FormData(e.target));const {error}=await supabase.from('kanji').insert({kanji:o.kanji,reading:o.reading,meaning:o.meaning,active:true});if(error)alert(error.message);else render();};document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus Kanji ini?')){await supabase.from('kanji').delete().eq('id',b.dataset.del);render();}});document.querySelector('#delAll').onclick=async()=>{if(confirm('Hapus semua Kanji?')){await supabase.from('kanji').delete().neq('id','00000000-0000-0000-0000-000000000000');render();}};document.querySelector('#importK').onclick=async()=>{const lines=document.querySelector('#kImport').value.split(/\n/).map(s=>s.trim()).filter(Boolean);const rows=[];for(let line of lines){line=line.replace(/^\s*\d+[.)]\s*/,'');const [kanji,reading,meaning]=line.split('|').map(s=>s.trim());if(kanji&&reading&&meaning)rows.push({kanji,reading,meaning,active:true});}if(rows.length){const {error}=await supabase.from('kanji').insert(rows);if(error)alert(error.message);else render();}else alert('Tidak ada baris valid.');};}
 
 function parseLessonLines(text, conversation=false){
   return text.split(/\n/).map(s=>s.trim()).filter(Boolean).map(line=>{
@@ -164,22 +41,22 @@ async function kaiwa(){
 }
 async function parts(){
   const {data}=await supabase.from('parts').select('*').order('part_number');
-  app(`<div class="admin-header"><div><div class="eyebrow">LATIHAN</div><h1>Part</h1><p class="muted">Pilih siapa yang mengatur jumlah soal &amp; timer: Admin atau User. Klik Part untuk melihat soalnya, mengubah pengaturan, dan mengelola foto/audio.</p></div></div>
+  app(`<div class="admin-header"><div><div class="eyebrow">LATIHAN</div><h1>Part</h1><p class="muted">Klik Part untuk melihat semua soal di dalamnya, lalu kelola foto, audio, dan soal.</p></div></div>
   <div class="card admin-card"><form id="pForm" class="form-grid">
     <label>Nomor Part<input class="input" name="part_number" type="number" min="1" max="20" required></label>
     <label>Nama Part<input class="input" name="name" required placeholder="Part 01"></label>
     <label class="full">Deskripsi<input class="input" name="description"></label>
-    <div class="full">${partSetupHTML({})}</div>
+    <label>Batas Soal<input class="input" name="question_limit" type="number" min="1"></label>
     <label><input type="checkbox" name="shuffle_questions" checked> Acak soal</label>
     <label><input type="checkbox" name="shuffle_options" checked> Acak pilihan</label>
     <label><input type="checkbox" name="active" checked> Aktif</label>
     <button class="btn red full" type="submit">Tambah Part</button>
   </form></div>
   <div class="card admin-card table-list">${(data||[]).map(x=>`<div class="list-row part-admin-row" data-part-open="${x.id}" role="button" tabindex="0">
-    <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${partModeBadge(x)}${esc(x.description||'')} · ${x.active?'Aktif':'Nonaktif'}</span></div>
+    <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${esc(x.description||'')} · ${x.active?'Aktif':'Nonaktif'}</span></div>
     <div class="media-actions"><button class="btn" type="button" data-part-open-btn="${x.id}">Kelola Soal →</button><button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button></div>
   </div>`).join('')||'<p class="muted">Belum ada Part.</p>'}</div>`);
-  bindPartSetup(document.querySelector('#pForm'));document.querySelector('#pForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const o=Object.fromEntries(fd.entries());const row={part_number:Number(o.part_number),name:o.name,description:o.description||'',...readPartSetup(e.target),shuffle_questions:fd.has('shuffle_questions'),shuffle_options:fd.has('shuffle_options'),active:fd.has('active')};const {error}=await saveOptional(r=>supabase.from('parts').insert(r),row,PART_OPT);if(error)alert(error.message);else render();};
+  document.querySelector('#pForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const o=Object.fromEntries(fd.entries());const row={part_number:Number(o.part_number),name:o.name,description:o.description||'',question_limit:o.question_limit?Number(o.question_limit):null,shuffle_questions:fd.has('shuffle_questions'),shuffle_options:fd.has('shuffle_options'),active:fd.has('active')};const {error}=await supabase.from('parts').insert(row);if(error)alert(error.message);else render();};
   document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm('Hapus Part dan seluruh soal di dalamnya?')){await supabase.from('parts').delete().eq('id',b.dataset.pdel);render();}});
   document.querySelectorAll('[data-part-open-btn]').forEach(b=>b.onclick=e=>{e.stopPropagation();partQuestions(b.dataset.partOpenBtn);});
   document.querySelectorAll('[data-part-open]').forEach(row=>{row.onclick=()=>partQuestions(row.dataset.partOpen);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();partQuestions(row.dataset.partOpen)}}});
@@ -192,7 +69,6 @@ async function partQuestions(partId){
   if(error)return alert(error.message);
   const rows=qs||[];
   app(`<div class="admin-header"><div><div class="eyebrow">PART ${String(part?.part_number||'').padStart(2,'0')}</div><h1>${esc(part?.name||'Part')}</h1><p class="muted">${rows.length} soal · Kelola soal, foto, dan audio langsung dari Part ini.</p></div><div class="toolbar"><button id="backParts" class="btn">← Kembali ke Part</button><button id="goQuick" class="btn red">＋ Tambah Soal</button></div></div>
-  <div class="card admin-card"><h3>Pengaturan Soal &amp; Timer</h3><form id="partSetupForm">${partSetupHTML(part||{})}<button class="btn red fullbtn" type="submit">Simpan Pengaturan</button></form></div>
   <div class="card admin-card"><div class="part-question-list">${rows.map((x,i)=>`<article class="part-question-card" data-qcard="${x.id}">
     <div class="part-question-main"><div class="question-number">${i+1}</div><div class="part-question-copy"><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}</div></div>
     <div class="part-media-status">${x.photo_url?'<span class="media-pill">📷 Foto tersimpan</span>':'<span class="media-pill muted-pill">📷 Belum ada foto</span>'}${x.audio_url?'<span class="media-pill">🔊 Audio tersimpan</span>':'<span class="media-pill muted-pill">🔊 Belum ada audio</span>'}</div>
@@ -201,215 +77,116 @@ async function partQuestions(partId){
     ${x.audio_url?`<div class="part-audio-preview"><audio controls preload="metadata" src="${esc(x.audio_url)}"></audio></div>`:''}
   </article>`).join('')||'<div class="empty-state">Belum ada soal di Part ini.</div>'}</div></div>`);
   document.querySelector('#backParts').onclick=()=>{current='parts';render();};
-  bindPartSetup(document.querySelector('#partSetupForm'));
-  document.querySelector('#partSetupForm').onsubmit=async e=>{e.preventDefault();const {error,degraded}=await saveOptional(r=>supabase.from('parts').update(r).eq('id',partId),readPartSetup(e.target),PART_OPT);if(error)alert(error.message);else if(!degraded){alert('Pengaturan Part tersimpan.');partQuestions(partId);}};
   document.querySelector('#goQuick').onclick=()=>{current='quick';render();setTimeout(()=>{const sel=document.querySelector('#quickPart');if(sel){sel.value=partId;}},0)};
   document.querySelectorAll('[data-part-photo]').forEach(i=>i.onchange=()=>uploadMediaAndRefresh(i,'photo',partId));
   document.querySelectorAll('[data-part-audio]').forEach(i=>i.onchange=()=>uploadMediaAndRefresh(i,'audio',partId));
   document.querySelectorAll('[data-part-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini dari Part?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.partQdel);if(error)alert(error.message);else partQuestions(partId);}});
 }
-async function uploadMediaAndRefresh(input,kind,partId){const result=await uploadMedia(input,kind);if(!result?.error)partQuestions(partId);}
-function setupQuestionEditor(){
-  const editor=document.querySelector('#qPromptEditor');
-  const hidden=document.querySelector('#qPromptValue');
-  const toolbar=document.querySelector('#qFormatToolbar');
-  if(!editor||!hidden||!toolbar)return;
-  if(!document.querySelector('#questionEditorStyles')){
-    const st=document.createElement('style');st.id='questionEditorStyles';st.textContent=`
-      .question-editor-wrap{position:relative;width:100%;}
-      .question-editor{min-height:110px;white-space:pre-wrap;overflow-wrap:anywhere;outline:none;cursor:text;}
-      .question-editor:empty::before{content:attr(data-placeholder);color:rgba(255,255,255,.42);pointer-events:none;}
-      .question-format-toolbar{position:fixed;z-index:99999;display:flex;gap:5px;align-items:center;padding:6px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:#171719;box-shadow:0 10px 30px rgba(0,0,0,.45);}
-      .question-format-toolbar button{min-width:38px;height:34px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:#222;color:#fff;font-weight:700;cursor:pointer;}
-      .question-format-toolbar button:hover{background:#b9151b;}
-      .question-format-toolbar button:first-child{font-size:17px;}
-    `;document.head.appendChild(st);
-  }
-  const cleanPasteHtml=(html)=>{
-    const doc=new DOMParser().parseFromString(`<div>${html}</div>`,'text/html');
-    const root=doc.body.firstElementChild||doc.body;
-    const walk=(node)=>{
-      if(node.nodeType===Node.TEXT_NODE)return document.createTextNode(node.nodeValue||'');
-      if(node.nodeType!==Node.ELEMENT_NODE)return document.createTextNode('');
-      const tag=node.tagName.toLowerCase();
-      if(tag==='br')return document.createElement('br');
-      const out=document.createDocumentFragment();
-      const isUnderline=tag==='u'||tag==='ins'||/underline/i.test(node.getAttribute('style')||'')||node.querySelector?.('u,ins');
-      const inner=[...node.childNodes].map(walk);
-      if(isUnderline){const u=document.createElement('u');inner.forEach(n=>u.appendChild(n));out.appendChild(u);}else inner.forEach(n=>out.appendChild(n));
-      return out;
-    };
-    const frag=document.createDocumentFragment();[...root.childNodes].forEach(n=>frag.appendChild(walk(n)));return frag;
-  };
-  const sync=()=>{hidden.value=editor.innerHTML.trim();};
-  const hide=()=>{toolbar.hidden=true;};
-  const show=()=>{
-    const sel=window.getSelection();
-    if(!sel||sel.rangeCount===0||sel.isCollapsed||!editor.contains(sel.anchorNode)||!editor.contains(sel.focusNode)){hide();return;}
-    const text=sel.toString();if(!text.trim()){hide();return;}
-    const rect=sel.getRangeAt(0).getBoundingClientRect();
-    toolbar.hidden=false;
-    const tw=toolbar.offsetWidth||120,th=toolbar.offsetHeight||42;
-    let left=rect.left+(rect.width/2)-(tw/2);
-    // Let Chrome/Android's native selection toolbar stay above the text.
-    // Put our formatting toolbar below the selected text so it isn't covered.
-    let top=rect.bottom+10;
-    if(top+th>window.innerHeight-8) top=rect.top-th-10;
-    left=Math.max(8,Math.min(left,window.innerWidth-tw-8));
-    top=Math.max(8,Math.min(top,window.innerHeight-th-8));
-    toolbar.style.left=`${left}px`;toolbar.style.top=`${Math.max(8,top)}px`;
-  };
-  editor.addEventListener('input',sync);
-  editor.addEventListener('keyup',()=>{sync();setTimeout(show,0)});
-  editor.addEventListener('mouseup',()=>setTimeout(show,0));
-  editor.addEventListener('touchend',()=>setTimeout(show,80));
-  editor.addEventListener('focus',()=>setTimeout(show,0));
-  document.addEventListener('selectionchange',()=>{
-    const sel=window.getSelection();
-    if(sel && sel.rangeCount && !sel.isCollapsed && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)){
-      clearTimeout(editor._toolbarTimer);
-      editor._toolbarTimer=setTimeout(show,120);
-    }
-  });
-  editor.addEventListener('paste',e=>{
-    e.preventDefault();
-    const html=e.clipboardData?.getData('text/html');
-    const text=e.clipboardData?.getData('text/plain')||'';
-    const frag=html?cleanPasteHtml(html):document.createTextNode(text);
-    const sel=window.getSelection();
-    if(!sel||sel.rangeCount===0||!editor.contains(sel.anchorNode)){editor.appendChild(frag);sync();return;}
-    const range=sel.getRangeAt(0);range.deleteContents();range.insertNode(frag);range.collapse(false);sel.removeAllRanges();sel.addRange(range);sync();setTimeout(show,0);
-  });
-  toolbar.addEventListener('mousedown',e=>e.preventDefault());
-  toolbar.querySelector('[data-format="underline"]').onclick=()=>{document.execCommand('underline',false,null);sync();setTimeout(show,0);};
-  toolbar.querySelector('[data-format="clear"]').onclick=()=>{document.execCommand('removeFormat',false,null);sync();setTimeout(show,0);};
-  document.addEventListener('scroll',()=>{
-    const sel=window.getSelection();
-    if(sel && sel.rangeCount && !sel.isCollapsed && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)) setTimeout(show,0);
-  },true);
-  window.addEventListener('resize',()=>{
-    const sel=window.getSelection();
-    if(sel && sel.rangeCount && !sel.isCollapsed && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)) setTimeout(show,0);
-  });
-  return {sync,setValue(v){editor.innerHTML=String(v||'');sync();}};
+async function uploadMediaAndRefresh(input,kind,partId){await uploadMedia(input,kind);partQuestions(partId);}
+function installQuestionEditorStyle(){
+  if(document.getElementById('question-editor-style'))return;
+  const st=document.createElement('style');st.id='question-editor-style';st.textContent=`
+    .question-editor-wrap{position:relative}.question-editor{min-height:120px;width:100%;background:#0d0d0d;border:1px solid #303030;color:#fff;border-radius:11px;padding:12px 14px;outline:none;line-height:1.7;white-space:pre-wrap;word-break:break-word}.question-editor:focus{border-color:#8d3030}.question-editor:empty:before{content:attr(data-placeholder);color:#666;pointer-events:none}.selection-toolbar{position:fixed;z-index:9999;display:none;align-items:center;gap:4px;padding:6px;background:#202124;border:1px solid #3b3b3b;border-radius:10px;box-shadow:0 8px 28px #0009}.selection-toolbar button{min-width:36px;height:34px;border:0;border-radius:7px;background:#303134;color:#fff;font-weight:800;cursor:pointer}.selection-toolbar button:hover{background:#4a4a4a}.selection-toolbar .u-btn{text-decoration:underline}.question-active{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;font-size:11px;border:1px solid #294b2d;background:#102014;color:#8fe39a}.question-active.off{border-color:#4a2626;background:#241313;color:#e58a8a}.question-row-off{opacity:.58}.question-row-off .question-active{opacity:1}.question-media-admin{display:flex;gap:8px;flex-wrap:wrap}.question-status-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.question-toggle{min-width:84px}
+  `;document.head.appendChild(st);
 }
-
+function sanitizeQuestionHtml(html){
+  const box=document.createElement('div');box.innerHTML=html||'';
+  box.querySelectorAll('*').forEach(el=>{
+    const tag=el.tagName.toLowerCase();
+    if(!['u','br','b','strong','i','em'].includes(tag)){
+      el.replaceWith(document.createTextNode(el.textContent||''));
+      return;
+    }
+    [...el.attributes].forEach(a=>el.removeAttribute(a.name));
+  });
+  return box.innerHTML.replace(/^(?:<br>)+|(?:<br>)+$/g,'');
+}
+function plainQuestionText(html){const d=document.createElement('div');d.innerHTML=html||'';return (d.textContent||'').trim();}
+function selectionInsideEditor(editor){const sel=window.getSelection();return !!sel && sel.rangeCount && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode) && !sel.isCollapsed;}
+function setupQuestionEditor(editor,toolbar){
+  let savedRange=null;
+  const saveSelection=()=>{const sel=window.getSelection();if(selectionInsideEditor(editor))savedRange=sel.getRangeAt(0).cloneRange();};
+  const positionToolbar=()=>{if(!selectionInsideEditor(editor))return;saveSelection();const r=window.getSelection().getRangeAt(0).getBoundingClientRect();const w=toolbar.offsetWidth||92;let left=r.left+(r.width/2)-(w/2);left=Math.max(8,Math.min(left,innerWidth-w-8));let top=r.bottom+8;if(top+46>innerHeight)top=Math.max(8,r.top-52);toolbar.style.left=`${left}px`;toolbar.style.top=`${top}px`;toolbar.style.display='flex';};
+  document.addEventListener('selectionchange',()=>{setTimeout(positionToolbar,0)});
+  editor.addEventListener('mouseup',()=>setTimeout(positionToolbar,0));
+  editor.addEventListener('touchend',()=>setTimeout(positionToolbar,80));
+  editor.addEventListener('keyup',()=>setTimeout(positionToolbar,0));
+  document.addEventListener('mousedown',e=>{if(!toolbar.contains(e.target)&&!editor.contains(e.target))toolbar.style.display='none'});
+  toolbar.querySelector('[data-cmd="underline"]').onclick=()=>{
+    if(!savedRange)return;
+    const sel=window.getSelection();sel.removeAllRanges();sel.addRange(savedRange);
+    document.execCommand('underline',false,null);
+    editor.focus();saveSelection();positionToolbar();
+  };
+  toolbar.querySelector('[data-cmd="clear"]').onclick=()=>{
+    if(!savedRange)return;
+    const sel=window.getSelection();sel.removeAllRanges();sel.addRange(savedRange);
+    document.execCommand('removeFormat',false,null);
+    editor.focus();saveSelection();positionToolbar();
+  };
+  return ()=>sanitizeQuestionHtml(editor.innerHTML);
+}
 async function questions(){
-  const {data:parts,error:partError}=await supabase.from('parts').select('*').order('part_number');
-  if(partError)return app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1></div></div><div class="card admin-card"><p class="muted">Gagal memuat Part: ${esc(partError.message)}</p></div>`);
-  if(!parts?.length)return app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Buat Part terlebih dahulu sebelum menambahkan soal.</p></div></div>`);
-
-  const initialPart=parts[0].id;
-  app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part untuk melihat hanya soal dari Part tersebut.</p></div></div>
+  installQuestionEditorStyle();
+  const {data:parts}=await supabase.from('parts').select('*').order('part_number');
+  const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
+  app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Atur Part, tipe soal, media, dan aktif/nonaktif setiap soal.</p></div></div>
   <div class="card admin-card"><form id="qForm" class="form-grid">
-    <label>Part<select class="input" name="part_id" id="qPart" required>${parts.map((p,i)=>`<option value="${p.id}" ${i===0?'selected':''}>Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label>
-    <label>Tipe<select class="input" name="type" id="qType" required><option value="multiple_choice">Ganda</option><option value="typing">Ketik jawaban sendiri</option></select></label>
-    <label class="full question-editor-label">Pertanyaan
-      <div class="question-editor-wrap">
-        <div id="qPromptEditor" class="textarea question-editor" contenteditable="true" data-placeholder="Opsional" role="textbox" aria-multiline="true"></div>
-        <div id="qFormatToolbar" class="question-format-toolbar" hidden>
-          <button type="button" data-format="underline" aria-label="Garis bawah"><u>U</u></button>
-          <button type="button" data-format="clear" aria-label="Hapus format">Tx</button>
-        </div>
-      </div>
-      <input type="hidden" name="prompt" id="qPromptValue" value="">
+    <label>Part<select class="input" name="part_id">${(parts||[]).map(p=>`<option value="${p.id}">Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label>
+    <label>Tipe<select class="input" name="type"><option value="multiple_choice">Ganda</option><option value="typing">Ketik jawaban sendiri</option></select></label>
+    <label class="full">Pertanyaan
+      <div class="question-editor-wrap"><div id="questionEditor" class="question-editor" contenteditable="true" spellcheck="false" data-placeholder="Opsional"></div>
+      <div id="selectionToolbar" class="selection-toolbar"><button type="button" class="u-btn" data-cmd="underline">U</button><button type="button" data-cmd="clear">Tx</button></div></div>
     </label>
     <label>Jawaban benar<input class="input" name="answer" placeholder="Opsional"></label>
-    <label id="qOptionsWrap">Pilihan<input class="input" name="options" placeholder="Contoh: Makan;Minum;Tidur"></label>
+    <label>Pilihan<input class="input" name="options" placeholder="Contoh: Makan;Minum;Tidur"></label>
     <label>Reading (opsional)<input class="input" name="reading" placeholder="Opsional"></label>
     <label class="full">Penjelasan (opsional)<input class="input" name="instruction" placeholder="Opsional"></label>
-    <label class="full">Foto soal (opsional)<input class="input" id="qPhoto" name="photo" type="file" accept="image/*"></label>
-    <label class="full">Audio soal (opsional)<input class="input" id="qAudio" name="audio" type="file" accept="audio/*"></label>
-    <div class="full muted" id="qMediaNote">Foto dan audio boleh dikosongkan.</div>
+    <label>Foto soal (opsional)<input class="input" id="qPhoto" type="file" accept="image/*"></label>
+    <label>Audio soal (opsional)<input class="input" id="qAudio" type="file" accept="audio/*"></label>
     <button class="btn red full" type="submit">Tambah Soal</button>
   </form></div>
-  <div id="questionList" class="card admin-card table-list"></div>`);
-
-  const form=document.querySelector('#qForm');
-  const partSelect=document.querySelector('#qPart');
-  const typeSelect=document.querySelector('#qType');
-  const optionsWrap=document.querySelector('#qOptionsWrap');
-  const promptEditor=setupQuestionEditor();
-  const refreshList=async()=>{
-    const partId=partSelect.value;
-    const {data,error}=await supabase.from('questions').select('*').eq('part_id',partId).order('created_at',{ascending:true});
-    if(error){document.querySelector('#questionList').innerHTML=`<p class="muted">Gagal memuat soal: ${esc(error.message)}</p>`;return;}
-    const selectedPart=parts.find(p=>String(p.id)===String(partId));
-    document.querySelector('#questionList').innerHTML=`<div class="admin-list-head"><h2>Soal Part ${esc(String(selectedPart?.part_number||''))}</h2><span class="muted">${(data||[]).length} soal</span></div>${(data||[]).map((x,i)=>`<div class="list-row"><div><b>${esc(x.prompt||'(Pertanyaan kosong)')}</b><span>${x.type==='typing'?'Ketik jawaban sendiri':'Ganda'} · jawaban: ${esc(x.answer||'—')} ${x.photo_url?'· 📷':''} ${x.audio_url?'· 🔊':''}</span></div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal di Part ini.</p>'}`;
-    document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else refreshList();}});
-  };
-
-  const syncType=()=>{
-    const typing=typeSelect.value==='typing';
-    optionsWrap.style.display=typing?'none':'';
-    document.querySelector('[name="options"]').value=typing?'':document.querySelector('[name="options"]').value;
-  };
-  typeSelect.onchange=syncType;
-  syncType();
-  partSelect.onchange=refreshList;
-  await refreshList();
-
-  form.onsubmit=async e=>{
+  <div class="card admin-card table-list">${(qs||[]).map((x,i)=>`<article class="list-row ${x.active===false?'question-row-off':''}">
+    <div><b>${i+1}. ${sanitizeQuestionHtml(x.prompt||'')||'<span class="muted">Pertanyaan kosong</span>'}</b><span>${esc(x.type==='typing'?'Ketik jawaban sendiri':'Ganda')} · ${x.active===false?'Nonaktif':'Aktif'} · jawaban: ${esc(x.answer||'—')}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}<div class="question-media-admin">${x.photo_url?'<span>📷 Foto</span>':''}${x.audio_url?'<span>🔊 Audio</span>':''}</div></div>
+    <div class="question-status-actions"><span class="question-active ${x.active===false?'off':''}">${x.active===false?'● Nonaktif':'● Aktif'}</span><button class="btn question-toggle" data-qtoggle="${x.id}" data-active="${x.active!==false}">${x.active===false?'Aktifkan':'Nonaktifkan'}</button><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>
+  </article>`).join('')||'<p class="muted">Belum ada soal.</p>'}</div>`);
+  const editor=document.querySelector('#questionEditor');
+  const getPrompt=setupQuestionEditor(editor,document.querySelector('#selectionToolbar'));
+  document.querySelector('#qForm').onsubmit=async e=>{
     e.preventDefault();
-    const submit=form.querySelector('button[type="submit"]');
-    submit.disabled=true;
-    try{
-      const fd=new FormData(form);
-      const type=String(fd.get('type')||'multiple_choice');
-      const partId=String(fd.get('part_id')||'');
-      const prompt=String(fd.get('prompt')||'').trim();
-      const answer=String(fd.get('answer')||'').trim();
-      const reading=String(fd.get('reading')||'').trim();
-      const instruction=String(fd.get('instruction')||'').trim();
-      const options=type==='typing'?[]:String(fd.get('options')||'').split(';').map(s=>s.trim()).filter(Boolean);
-      if(!partId)return alert('Pilih Part terlebih dahulu.');
-
-      // Buat UUID sendiri agar ID selalu tersedia sebelum media di-upload.
-      // Ini mencegah path Storage menjadi questions/undefined/...
-      const questionId=globalThis.crypto?.randomUUID?.();
-      if(!questionId)throw new Error('Browser tidak mendukung pembuatan UUID. Silakan refresh halaman.');
-      const row={id:questionId,part_id:partId,prompt,reading,instruction:type==='typing'?'':instruction,type,options,answer,active:true};
-      const {error}=await supabase.from('questions').insert(row);
-      if(error)throw error;
-
-      const photo=document.querySelector('#qPhoto')?.files?.[0];
-      const audio=document.querySelector('#qAudio')?.files?.[0];
-      const mediaErrors=[];
-      if(photo){
-        const result=await uploadMediaFile(photo,'photo',questionId);
-        if(result.error)mediaErrors.push(`Foto: ${result.error.message}`);
+    const fd=new FormData(e.target),o=Object.fromEntries(fd.entries());
+    const prompt=getPrompt();
+    const answer=(o.answer||'').trim();
+    let options=(o.options||'').split(';').map(s=>s.trim()).filter(Boolean);
+    if(o.type==='typing')options=[];
+    const row={part_id:o.part_id,prompt,reading:o.reading||'',instruction:o.type==='typing'?'':(o.instruction||''),type:o.type,options,answer,active:true};
+    const {data,error}=await supabase.from('questions').insert(row).select('id').single();
+    if(error)return alert(error.message);
+    const id=data?.id;
+    if(id){
+      for(const [input,kind] of [[document.querySelector('#qPhoto'),'photo'],[document.querySelector('#qAudio'),'audio']]){
+        if(input?.files?.[0])await uploadMediaById(input,kind,id);
       }
-      if(audio){
-        const result=await uploadMediaFile(audio,'audio',questionId);
-        if(result.error)mediaErrors.push(`Audio: ${result.error.message}`);
-      }
-
-      form.reset();
-      partSelect.value=partId;
-      typeSelect.value=type;
-      syncType();
-      await refreshList();
-      if(mediaErrors.length)alert(`Soal tersimpan, tetapi media gagal disimpan:\n${mediaErrors.join('\n')}`);
-      else alert('Soal berhasil disimpan.');
-    }catch(err){
-      alert('Gagal menyimpan soal: '+(err?.message||err));
-    }finally{submit.disabled=false;}
+    }
+    render();
   };
+  document.querySelectorAll('[data-qtoggle]').forEach(b=>b.onclick=async()=>{
+    const next=b.dataset.active!=='true';
+    const {error}=await supabase.from('questions').update({active:next}).eq('id',b.dataset.qtoggle);
+    if(error)alert(error.message);else questions();
+  });
+  document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else render();}});
+}
+async function uploadMediaById(input,kind,id){
+  const file=input.files?.[0];if(!file)return;
+  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const path=`questions/${id}/${Date.now()}-${safe}`;
+  const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type||undefined});
+  if(uploadError)return alert(`Upload ${kind} gagal: ${uploadError.message}`);
+  const {data:urlData}=supabase.storage.from('media').getPublicUrl(path);const publicUrl=urlData?.publicUrl||'';
+  const patch=kind==='photo'?{photo_url:publicUrl,media_url:publicUrl,media_type:'image'}:{audio_url:publicUrl,media_url:publicUrl,media_type:'audio'};
+  const {error}=await supabase.from('questions').update(patch).eq('id',id);if(error)alert(`URL ${kind} gagal disimpan: ${error.message}`);
 }
 
-async function uploadMediaFile(file,kind,id){
-  if(!file)return {error:null};
-  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-  const path=`questions/${id}/${Date.now()}-${safe}`;
-  const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type||undefined});
-  if(uploadError)return {error:uploadError};
-  const {data:urlData}=supabase.storage.from('media').getPublicUrl(path);
-  const publicUrl=urlData?.publicUrl||'';
-  if(!publicUrl)return {error:new Error('URL media tidak berhasil dibuat.')};
-  const patch=kind==='photo'?{photo_url:publicUrl}:{audio_url:publicUrl};
-  const {error:updateError}=await supabase.from('questions').update(patch).eq('id',id);
-  return {error:updateError||null};
-}
 async function quick(){
   const {data:parts}=await supabase.from('parts').select('*').order('part_number');
   app(`<div class="admin-header"><div><div class="eyebrow">QUICK SOAL</div><h1>Import Cepat</h1><p class="muted">Import teks dulu. Setelah masuk, pilih Part untuk melihat dan mengelola semua soalnya.</p></div></div>
@@ -427,29 +204,26 @@ function renderQuickList(rows,title='Soal yang berhasil diimport'){
 }
 async function uploadMedia(input,kind){
   const file=input.files?.[0];
-  if(!file)return {error:null};
-  // Bisa dipanggil dari Quick Soal maupun halaman Part.
-  const id=input.dataset[kind] || input.dataset.partPhoto || input.dataset.partAudio;
-  if(!id || id==='undefined'){
-    const error=new Error('ID soal tidak ditemukan. Silakan muat ulang halaman lalu coba lagi.');
-    alert(`Upload ${kind==='photo'?'foto':'audio'} gagal: ${error.message}`);
-    return {error};
-  }
+  if(!file)return;
+  const id=input.dataset[kind];
   const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   const path=`questions/${id}/${Date.now()}-${safe}`;
   const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type||undefined});
-  if(uploadError){alert(`Upload gagal: ${uploadError.message}`);return {error:uploadError};}
+  if(uploadError)return alert(`Upload gagal: ${uploadError.message}`);
   const {data:urlData}=supabase.storage.from('media').getPublicUrl(path);
   const publicUrl=urlData?.publicUrl||'';
-  if(!publicUrl){const error=new Error('URL media tidak berhasil dibuat.');alert(error.message);return {error};}
-  const patch=kind==='photo'?{photo_url:publicUrl}:{audio_url:publicUrl};
-  const {error:updateError}=await supabase.from('questions').update(patch).eq('id',id);
-  if(updateError){alert(`Media ter-upload, tetapi URL gagal disimpan: ${updateError.message}`);return {error:updateError};}
+  if(!publicUrl)return alert('URL media tidak berhasil dibuat.');
+  const patch=kind==='photo'
+    ?{photo_url:publicUrl,media_url:publicUrl,media_type:'image'}
+    :{audio_url:publicUrl,media_url:publicUrl,media_type:'audio'};
+  const {data:saved,error:updateError}=await supabase.from('questions').update(patch).eq('id',id).select('id,photo_url,audio_url,media_url,media_type').single();
+  if(updateError)return alert(`Media ter-upload, tetapi data soal gagal disimpan: ${updateError.message}`);
+  const ok=kind==='photo'?saved?.photo_url===publicUrl:saved?.audio_url===publicUrl;
+  if(!ok)return alert('Media sudah ter-upload tetapi URL belum tersimpan pada soal. Coba upload ulang.');
+  input.closest('.media-row').querySelector('small').textContent=`${kind==='photo'?'📷 Foto':'🔊 Audio'} tersimpan dan terhubung ke soal.`;
   input.value='';
-  return {error:null};
 }
-
-async function timer(){const {data}=await supabase.from('timer_settings').select('*').eq('id',1).maybeSingle();const t=data||{enabled:false,global_seconds:0,per_part:{},per_question:{}};app(`<div class="admin-header"><div><div class="eyebrow">TIME CONTROL</div><h1>Kelola Timer</h1><p class="muted">Timer total Part berjalan terus selama latihan; Timer Soal (opsional) mulai ulang di tiap soal. Part yang diatur User tidak memakai timer ini. Timer Part juga bisa diisi langsung di halaman Part.</p></div></div><div class="card admin-card"><form id="tForm"><label><input type="checkbox" name="enabled" ${t.enabled?'checked':''}> Aktifkan timer</label><label>Global (detik)<input class="input" type="number" name="global_seconds" value="${Number(t.global_seconds||0)}"></label><label>Timer Part JSON<textarea class="textarea" name="per_part">${esc(JSON.stringify(parse(t.per_part||'{}'),null,2))}</textarea></label><label>Timer Soal JSON<textarea class="textarea" name="per_question">${esc(JSON.stringify(parse(t.per_question||'{}'),null,2))}</textarea></label><button class="btn red" type="submit">Simpan Timer</button></form></div><div class="card admin-card"><p>Contoh Part: <code>{"1":1800,"2":1200}</code></p><p>Contoh Soal: gunakan ID soal sebagai key, atau nomor soal seperti <code>{"1":30,"2":45}</code>.</p></div>`);document.querySelector('#tForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);let pp,pq;try{pp=JSON.parse(fd.get('per_part')||'{}');pq=JSON.parse(fd.get('per_question')||'{}');}catch{return alert('JSON timer tidak valid.');}const {error}=await supabase.from('timer_settings').upsert({id:1,enabled:fd.has('enabled'),global_seconds:Number(fd.get('global_seconds')||0),per_part:pp,per_question:pq});alert(error?error.message:'Timer tersimpan.');};}
+async function timer(){const {data}=await supabase.from('timer_settings').select('*').eq('id',1).maybeSingle();const t=data||{enabled:false,global_seconds:0,per_part:{},per_question:{}};app(`<div class="admin-header"><div><div class="eyebrow">TIME CONTROL</div><h1>Kelola Timer</h1><p class="muted">Priority: Timer Soal → Timer Part → Timer Global.</p></div></div><div class="card admin-card"><form id="tForm"><label><input type="checkbox" name="enabled" ${t.enabled?'checked':''}> Aktifkan timer</label><label>Global (detik)<input class="input" type="number" name="global_seconds" value="${Number(t.global_seconds||0)}"></label><label>Timer Part JSON<textarea class="textarea" name="per_part">${esc(JSON.stringify(parse(t.per_part||'{}'),null,2))}</textarea></label><label>Timer Soal JSON<textarea class="textarea" name="per_question">${esc(JSON.stringify(parse(t.per_question||'{}'),null,2))}</textarea></label><button class="btn red" type="submit">Simpan Timer</button></form></div><div class="card admin-card"><p>Contoh Part: <code>{"1":1800,"2":1200}</code></p><p>Contoh Soal: gunakan ID soal sebagai key, atau nomor soal seperti <code>{"1":30,"2":45}</code>.</p></div>`);document.querySelector('#tForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);let pp,pq;try{pp=JSON.parse(fd.get('per_part')||'{}');pq=JSON.parse(fd.get('per_question')||'{}');}catch{return alert('JSON timer tidak valid.');}const {error}=await supabase.from('timer_settings').upsert({id:1,enabled:fd.has('enabled'),global_seconds:Number(fd.get('global_seconds')||0),per_part:pp,per_question:pq});alert(error?error.message:'Timer tersimpan.');};}
 async function results(){const {data}=await supabase.from('results').select('*,parts(name,part_number)').order('created_at',{ascending:false});app(`<div class="admin-header"><div><div class="eyebrow">RESULTS</div><h1>Hasil</h1></div></div><div class="toolbar"><button id="resetResults" class="btn danger">Reset Statistik</button></div><div class="card admin-card table-list">${(data||[]).map(x=>`<div class="list-row"><div><b>${esc(x.name)} · ${esc(x.parts?.name||'Part')}</b><span>Nilai ${x.score} · Benar ${x.correct_count} · Salah ${x.wrong_count} · Tidak dijawab ${x.unanswered_count} · ${new Date(x.created_at).toLocaleString('id-ID')}</span></div></div>`).join('')||'<p class="muted">Belum ada hasil.</p>'}</div>`);document.querySelector('#resetResults').onclick=async()=>{if(confirm('Hapus semua hasil? Nama tetap disimpan.')){const {error}=await supabase.from('results').delete().neq('id','00000000-0000-0000-0000-000000000000');if(error)alert(error.message);else render();}};}
-function guide(){app(`<div class="admin-header"><div><div class="eyebrow">DOCUMENTATION</div><h1>Cara Penggunaan Admin</h1></div></div><div class="card admin-card guide-grid"><div><h2>Branding</h2><p>Atur identitas website, logo, favicon, hero, deskripsi, nama Developer, deskripsi Developer, serta link WhatsApp/Telegram/Instagram. Publik hanya melihat ikon kontak.</p></div><div><h2>Kanji</h2><p>Gunakan tiga field: Kanji, Cara Baca, Arti. Centang <b>Buat animasi urutan goresan</b> jika Kanji itu mau dianimasikan; animasi bisa dimatikan atau dihidupkan lagi dari daftar. Import dengan format <code>Kanji|Cara Baca|Arti</code>. Baris kosong dan nomor awal boleh.</p></div><div><h2>Part</h2><p>Buat maksimal 20 Part. Pilih <b>Diatur Admin</b> (kamu menentukan jumlah soal dan timer) atau <b>Diatur User</b> (user mengisi sendiri nama, jumlah soal, dan waktu sebelum mengerjakan, tanpa batas minimum). Pengaturan bisa diubah kapan saja dengan membuka Part → Pengaturan Soal &amp; Timer.</p></div><div><h2>Soal</h2><p>Gunakan Ganda, Ketik, Kanji, B/S, Pilih Kanji, atau Pasangan. Untuk Ketik, instruksi otomatis berdasarkan jawaban benar.</p></div><div><h2>Quick Soal</h2><pre>1. 食べる|Makan|ganda|Makan;Minum;Tidur;Pergi\n\n2. 飲む|Minum|ketik\n\n3. 学校|Sekolah|kanji\n\n4. 日本はアジアの国です|Benar|bs\n\n5. Sekolah|学校|pilih|学校;先生;日本;会社\n\n6. Cocokkan|Jepang=日本;Sekolah=学校|pasangan</pre><p>Setelah import, foto/audio dapat ditambahkan satu per satu.</p></div><div><h2>Timer</h2><p>Cara termudah: isi Timer di pengaturan Part. Halaman Kelola Timer dipakai untuk timer per soal (ID atau nomor soal) dan timer global. Timeout soal lanjut ke soal berikutnya; waktu total habis mengakhiri latihan. Part yang diatur User memakai waktu pilihan user.</p></div><div><h2>Hasil & Reset</h2><p>Hasil tersimpan berdasarkan nama. Reset Statistik menghapus hasil tetapi tidak menghapus nama. Penghapusan Part akan ikut menghapus soal di Part tersebut.</p></div></div>`);}
+function guide(){app(`<div class="admin-header"><div><div class="eyebrow">DOCUMENTATION</div><h1>Cara Penggunaan Admin</h1></div></div><div class="card admin-card guide-grid"><div><h2>Branding</h2><p>Atur identitas website, logo, favicon, hero, deskripsi, nama Developer, deskripsi Developer, serta link WhatsApp/Telegram/Instagram. Publik hanya melihat ikon kontak.</p></div><div><h2>Kanji</h2><p>Gunakan tiga field: Kanji, Cara Baca, Arti. Import dengan format <code>Kanji|Cara Baca|Arti</code>. Baris kosong dan nomor awal boleh.</p></div><div><h2>Part</h2><p>Buat maksimal 20 Part. Atur nama, deskripsi, batas soal, dan pengacakan.</p></div><div><h2>Soal</h2><p>Gunakan Ganda, Ketik, Kanji, B/S, Pilih Kanji, atau Pasangan. Untuk Ketik, instruksi otomatis berdasarkan jawaban benar.</p></div><div><h2>Quick Soal</h2><pre>1. 食べる|Makan|ganda|Makan;Minum;Tidur;Pergi\n\n2. 飲む|Minum|ketik\n\n3. 学校|Sekolah|kanji\n\n4. 日本はアジアの国です|Benar|bs\n\n5. Sekolah|学校|pilih|学校;先生;日本;会社\n\n6. Cocokkan|Jepang=日本;Sekolah=学校|pasangan</pre><p>Setelah import, foto/audio dapat ditambahkan satu per satu.</p></div><div><h2>Timer</h2><p>Priority: Soal → Part → Global. Timer Soal memakai ID soal atau nomor soal. Timeout soal lanjut ke soal berikutnya; timeout Part/Global mengakhiri latihan.</p></div><div><h2>Hasil & Reset</h2><p>Hasil tersimpan berdasarkan nama. Reset Statistik menghapus hasil tetapi tidak menghapus nama. Penghapusan Part akan ikut menghapus soal di Part tersebut.</p></div></div>`);}
 boot();
