@@ -250,8 +250,13 @@ function setupQuestionEditor(){
     const rect=sel.getRangeAt(0).getBoundingClientRect();
     toolbar.hidden=false;
     const tw=toolbar.offsetWidth||120,th=toolbar.offsetHeight||42;
-    let left=rect.left+(rect.width/2)-(tw/2);let top=rect.top-th-8;
-    left=Math.max(8,Math.min(left,window.innerWidth-tw-8));if(top<8)top=Math.min(window.innerHeight-th-8,rect.bottom+8);
+    let left=rect.left+(rect.width/2)-(tw/2);
+    // Let Chrome/Android's native selection toolbar stay above the text.
+    // Put our formatting toolbar below the selected text so it isn't covered.
+    let top=rect.bottom+10;
+    if(top+th>window.innerHeight-8) top=rect.top-th-10;
+    left=Math.max(8,Math.min(left,window.innerWidth-tw-8));
+    top=Math.max(8,Math.min(top,window.innerHeight-th-8));
     toolbar.style.left=`${left}px`;toolbar.style.top=`${Math.max(8,top)}px`;
   };
   editor.addEventListener('input',sync);
@@ -259,7 +264,13 @@ function setupQuestionEditor(){
   editor.addEventListener('mouseup',()=>setTimeout(show,0));
   editor.addEventListener('touchend',()=>setTimeout(show,80));
   editor.addEventListener('focus',()=>setTimeout(show,0));
-  document.addEventListener('selectionchange',()=>{if(editor.contains(window.getSelection()?.anchorNode))setTimeout(show,0);else hide();});
+  document.addEventListener('selectionchange',()=>{
+    const sel=window.getSelection();
+    if(sel && sel.rangeCount && !sel.isCollapsed && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)){
+      clearTimeout(editor._toolbarTimer);
+      editor._toolbarTimer=setTimeout(show,120);
+    }
+  });
   editor.addEventListener('paste',e=>{
     e.preventDefault();
     const html=e.clipboardData?.getData('text/html');
@@ -272,7 +283,14 @@ function setupQuestionEditor(){
   toolbar.addEventListener('mousedown',e=>e.preventDefault());
   toolbar.querySelector('[data-format="underline"]').onclick=()=>{document.execCommand('underline',false,null);sync();setTimeout(show,0);};
   toolbar.querySelector('[data-format="clear"]').onclick=()=>{document.execCommand('removeFormat',false,null);sync();setTimeout(show,0);};
-  document.addEventListener('scroll',hide,true);window.addEventListener('resize',hide);
+  document.addEventListener('scroll',()=>{
+    const sel=window.getSelection();
+    if(sel && sel.rangeCount && !sel.isCollapsed && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)) setTimeout(show,0);
+  },true);
+  window.addEventListener('resize',()=>{
+    const sel=window.getSelection();
+    if(sel && sel.rangeCount && !sel.isCollapsed && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)) setTimeout(show,0);
+  });
   return {sync,setValue(v){editor.innerHTML=String(v||'');sync();}};
 }
 
