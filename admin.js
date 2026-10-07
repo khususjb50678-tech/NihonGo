@@ -53,10 +53,11 @@ async function parts(){
     <button class="btn red full" type="submit">Tambah Part</button>
   </form></div>
   <div class="card admin-card table-list">${(data||[]).map(x=>`<div class="list-row part-admin-row" data-part-open="${x.id}" role="button" tabindex="0">
-    <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${esc(x.description||'')} · ${x.active?'Aktif':'Nonaktif'}</span></div>
-    <div class="media-actions"><button class="btn" type="button" data-part-open-btn="${x.id}">Kelola Soal →</button><button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button></div>
+    <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${esc(x.description||'')} · <strong>${x.active?'Aktif':'Nonaktif'}</strong></span></div>
+    <div class="media-actions"><button class="btn ${x.active?'':'danger'}" type="button" data-part-toggle="${x.id}">${x.active?'✓ Aktif':'✕ Nonaktif'}</button><button class="btn" type="button" data-part-open-btn="${x.id}">Kelola Soal →</button><button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button></div>
   </div>`).join('')||'<p class="muted">Belum ada Part.</p>'}</div>`);
   document.querySelector('#pForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const o=Object.fromEntries(fd.entries());const row={part_number:Number(o.part_number),name:o.name,description:o.description||'',question_limit:o.question_limit?Number(o.question_limit):null,shuffle_questions:fd.has('shuffle_questions'),shuffle_options:fd.has('shuffle_options'),active:fd.has('active')};const {error}=await supabase.from('parts').insert(row);if(error)alert(error.message);else render();};
+  document.querySelectorAll('[data-part-toggle]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const id=b.dataset.partToggle;const currentRow=(data||[]).find(x=>String(x.id)===String(id));if(!currentRow)return;const {error}=await supabase.from('parts').update({active:!currentRow.active}).eq('id',id);if(error)alert(error.message);else render();});
   document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm('Hapus Part dan seluruh soal di dalamnya?')){await supabase.from('parts').delete().eq('id',b.dataset.pdel);render();}});
   document.querySelectorAll('[data-part-open-btn]').forEach(b=>b.onclick=e=>{e.stopPropagation();partQuestions(b.dataset.partOpenBtn);});
   document.querySelectorAll('[data-part-open]').forEach(row=>{row.onclick=()=>partQuestions(row.dataset.partOpen);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();partQuestions(row.dataset.partOpen)}}});
@@ -83,110 +84,7 @@ async function partQuestions(partId){
   document.querySelectorAll('[data-part-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini dari Part?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.partQdel);if(error)alert(error.message);else partQuestions(partId);}});
 }
 async function uploadMediaAndRefresh(input,kind,partId){await uploadMedia(input,kind);partQuestions(partId);}
-function installQuestionEditorStyle(){
-  if(document.getElementById('question-editor-style'))return;
-  const st=document.createElement('style');st.id='question-editor-style';st.textContent=`
-    .question-editor-wrap{position:relative}.question-editor{min-height:120px;width:100%;background:#0d0d0d;border:1px solid #303030;color:#fff;border-radius:11px;padding:12px 14px;outline:none;line-height:1.7;white-space:pre-wrap;word-break:break-word}.question-editor:focus{border-color:#8d3030}.question-editor:empty:before{content:attr(data-placeholder);color:#666;pointer-events:none}.selection-toolbar{position:fixed;z-index:9999;display:none;align-items:center;gap:4px;padding:6px;background:#202124;border:1px solid #3b3b3b;border-radius:10px;box-shadow:0 8px 28px #0009}.selection-toolbar button{min-width:36px;height:34px;border:0;border-radius:7px;background:#303134;color:#fff;font-weight:800;cursor:pointer}.selection-toolbar button:hover{background:#4a4a4a}.selection-toolbar .u-btn{text-decoration:underline}.question-active{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;font-size:11px;border:1px solid #294b2d;background:#102014;color:#8fe39a}.question-active.off{border-color:#4a2626;background:#241313;color:#e58a8a}.question-row-off{opacity:.58}.question-row-off .question-active{opacity:1}.question-media-admin{display:flex;gap:8px;flex-wrap:wrap}.question-status-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.question-toggle{min-width:84px}
-  `;document.head.appendChild(st);
-}
-function sanitizeQuestionHtml(html){
-  const box=document.createElement('div');box.innerHTML=html||'';
-  box.querySelectorAll('*').forEach(el=>{
-    const tag=el.tagName.toLowerCase();
-    if(!['u','br','b','strong','i','em'].includes(tag)){
-      el.replaceWith(document.createTextNode(el.textContent||''));
-      return;
-    }
-    [...el.attributes].forEach(a=>el.removeAttribute(a.name));
-  });
-  return box.innerHTML.replace(/^(?:<br>)+|(?:<br>)+$/g,'');
-}
-function plainQuestionText(html){const d=document.createElement('div');d.innerHTML=html||'';return (d.textContent||'').trim();}
-function selectionInsideEditor(editor){const sel=window.getSelection();return !!sel && sel.rangeCount && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode) && !sel.isCollapsed;}
-function setupQuestionEditor(editor,toolbar){
-  let savedRange=null;
-  const saveSelection=()=>{const sel=window.getSelection();if(selectionInsideEditor(editor))savedRange=sel.getRangeAt(0).cloneRange();};
-  const positionToolbar=()=>{if(!selectionInsideEditor(editor))return;saveSelection();const r=window.getSelection().getRangeAt(0).getBoundingClientRect();const w=toolbar.offsetWidth||92;let left=r.left+(r.width/2)-(w/2);left=Math.max(8,Math.min(left,innerWidth-w-8));let top=r.bottom+8;if(top+46>innerHeight)top=Math.max(8,r.top-52);toolbar.style.left=`${left}px`;toolbar.style.top=`${top}px`;toolbar.style.display='flex';};
-  document.addEventListener('selectionchange',()=>{setTimeout(positionToolbar,0)});
-  editor.addEventListener('mouseup',()=>setTimeout(positionToolbar,0));
-  editor.addEventListener('touchend',()=>setTimeout(positionToolbar,80));
-  editor.addEventListener('keyup',()=>setTimeout(positionToolbar,0));
-  document.addEventListener('mousedown',e=>{if(!toolbar.contains(e.target)&&!editor.contains(e.target))toolbar.style.display='none'});
-  toolbar.querySelector('[data-cmd="underline"]').onclick=()=>{
-    if(!savedRange)return;
-    const sel=window.getSelection();sel.removeAllRanges();sel.addRange(savedRange);
-    document.execCommand('underline',false,null);
-    editor.focus();saveSelection();positionToolbar();
-  };
-  toolbar.querySelector('[data-cmd="clear"]').onclick=()=>{
-    if(!savedRange)return;
-    const sel=window.getSelection();sel.removeAllRanges();sel.addRange(savedRange);
-    document.execCommand('removeFormat',false,null);
-    editor.focus();saveSelection();positionToolbar();
-  };
-  return ()=>sanitizeQuestionHtml(editor.innerHTML);
-}
-async function questions(){
-  installQuestionEditorStyle();
-  const {data:parts}=await supabase.from('parts').select('*').order('part_number');
-  const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
-  app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Atur Part, tipe soal, media, dan aktif/nonaktif setiap soal.</p></div></div>
-  <div class="card admin-card"><form id="qForm" class="form-grid">
-    <label>Part<select class="input" name="part_id">${(parts||[]).map(p=>`<option value="${p.id}">Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label>
-    <label>Tipe<select class="input" name="type"><option value="multiple_choice">Ganda</option><option value="typing">Ketik jawaban sendiri</option></select></label>
-    <label class="full">Pertanyaan
-      <div class="question-editor-wrap"><div id="questionEditor" class="question-editor" contenteditable="true" spellcheck="false" data-placeholder="Opsional"></div>
-      <div id="selectionToolbar" class="selection-toolbar"><button type="button" class="u-btn" data-cmd="underline">U</button><button type="button" data-cmd="clear">Tx</button></div></div>
-    </label>
-    <label>Jawaban benar<input class="input" name="answer" placeholder="Opsional"></label>
-    <label>Pilihan<input class="input" name="options" placeholder="Contoh: Makan;Minum;Tidur"></label>
-    <label>Reading (opsional)<input class="input" name="reading" placeholder="Opsional"></label>
-    <label class="full">Penjelasan (opsional)<input class="input" name="instruction" placeholder="Opsional"></label>
-    <label>Foto soal (opsional)<input class="input" id="qPhoto" type="file" accept="image/*"></label>
-    <label>Audio soal (opsional)<input class="input" id="qAudio" type="file" accept="audio/*"></label>
-    <button class="btn red full" type="submit">Tambah Soal</button>
-  </form></div>
-  <div class="card admin-card table-list">${(qs||[]).map((x,i)=>`<article class="list-row ${x.active===false?'question-row-off':''}">
-    <div><b>${i+1}. ${sanitizeQuestionHtml(x.prompt||'')||'<span class="muted">Pertanyaan kosong</span>'}</b><span>${esc(x.type==='typing'?'Ketik jawaban sendiri':'Ganda')} · ${x.active===false?'Nonaktif':'Aktif'} · jawaban: ${esc(x.answer||'—')}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}<div class="question-media-admin">${x.photo_url?'<span>📷 Foto</span>':''}${x.audio_url?'<span>🔊 Audio</span>':''}</div></div>
-    <div class="question-status-actions"><span class="question-active ${x.active===false?'off':''}">${x.active===false?'● Nonaktif':'● Aktif'}</span><button class="btn question-toggle" data-qtoggle="${x.id}" data-active="${x.active!==false}">${x.active===false?'Aktifkan':'Nonaktifkan'}</button><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>
-  </article>`).join('')||'<p class="muted">Belum ada soal.</p>'}</div>`);
-  const editor=document.querySelector('#questionEditor');
-  const getPrompt=setupQuestionEditor(editor,document.querySelector('#selectionToolbar'));
-  document.querySelector('#qForm').onsubmit=async e=>{
-    e.preventDefault();
-    const fd=new FormData(e.target),o=Object.fromEntries(fd.entries());
-    const prompt=getPrompt();
-    const answer=(o.answer||'').trim();
-    let options=(o.options||'').split(';').map(s=>s.trim()).filter(Boolean);
-    if(o.type==='typing')options=[];
-    const row={part_id:o.part_id,prompt,reading:o.reading||'',instruction:o.type==='typing'?'':(o.instruction||''),type:o.type,options,answer,active:true};
-    const {data,error}=await supabase.from('questions').insert(row).select('id').single();
-    if(error)return alert(error.message);
-    const id=data?.id;
-    if(id){
-      for(const [input,kind] of [[document.querySelector('#qPhoto'),'photo'],[document.querySelector('#qAudio'),'audio']]){
-        if(input?.files?.[0])await uploadMediaById(input,kind,id);
-      }
-    }
-    render();
-  };
-  document.querySelectorAll('[data-qtoggle]').forEach(b=>b.onclick=async()=>{
-    const next=b.dataset.active!=='true';
-    const {error}=await supabase.from('questions').update({active:next}).eq('id',b.dataset.qtoggle);
-    if(error)alert(error.message);else questions();
-  });
-  document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else render();}});
-}
-async function uploadMediaById(input,kind,id){
-  const file=input.files?.[0];if(!file)return;
-  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const path=`questions/${id}/${Date.now()}-${safe}`;
-  const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type||undefined});
-  if(uploadError)return alert(`Upload ${kind} gagal: ${uploadError.message}`);
-  const {data:urlData}=supabase.storage.from('media').getPublicUrl(path);const publicUrl=urlData?.publicUrl||'';
-  const patch=kind==='photo'?{photo_url:publicUrl,media_url:publicUrl,media_type:'image'}:{audio_url:publicUrl,media_url:publicUrl,media_type:'audio'};
-  const {error}=await supabase.from('questions').update(patch).eq('id',id);if(error)alert(`URL ${kind} gagal disimpan: ${error.message}`);
-}
-
+async function questions(){const {data:parts}=await supabase.from('parts').select('*').order('part_number');const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1></div></div><div class="card admin-card"><form id="qForm" class="form-grid"><label>Part<select class="input" name="part_id" required>${(parts||[]).map(p=>`<option value="${p.id}">Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label><label>Tipe<select class="input" name="type"><option value="multiple_choice">Ganda</option><option value="typing">Ketik</option><option value="kanji_input">Kanji</option><option value="truefalse">B/S</option><option value="kanji_choice">Pilih Kanji</option><option value="matching">Pasangan</option></select></label><label class="full">Pertanyaan<textarea class="textarea" name="prompt" required></textarea></label><label>Jawaban benar<input class="input" name="answer" required></label><label>Pilihan<input class="input" name="options" placeholder="Makan;Minum;Tidur"></label><label>Reading (opsional)<input class="input" name="reading"></label><label class="full">Penjelasan (opsional)<input class="input" name="instruction" placeholder="Untuk Ketik, instruksi otomatis. field ini untuk tipe lain."></label><button class="btn red full" type="submit">Tambah Soal</button></form></div><div class="card admin-card table-list">${(qs||[]).map(x=>`<div class="list-row"><div><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span></div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal.</p>'}</div>`);document.querySelector('#qForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target),o=Object.fromEntries(fd.entries());let options=[];if(o.type==='matching'){options=o.options.split(';').map(s=>{const [left,right]=s.split('=').map(v=>v?.trim());return left&&right?{left,right}:null}).filter(Boolean);o.answer=JSON.stringify(Object.fromEntries(options.map(x=>[x.left,x.right])));}else options=o.options.split(';').map(s=>s.trim()).filter(Boolean);const row={part_id:o.part_id,prompt:o.prompt,reading:o.reading||'',instruction:o.type==='typing'?'':o.instruction||'',type:o.type,options,answer:o.answer,active:true};const {error}=await supabase.from('questions').insert(row);if(error)alert(error.message);else render();};document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){await supabase.from('questions').delete().eq('id',b.dataset.qdel);render();}});}
 async function quick(){
   const {data:parts}=await supabase.from('parts').select('*').order('part_number');
   app(`<div class="admin-header"><div><div class="eyebrow">QUICK SOAL</div><h1>Import Cepat</h1><p class="muted">Import teks dulu. Setelah masuk, pilih Part untuk melihat dan mengelola semua soalnya.</p></div></div>
