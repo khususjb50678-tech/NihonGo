@@ -294,3 +294,30 @@ html.study-open body{overflow:hidden}
 
 /* Make all in-page navigation reliably tappable on mobile. */
 .bottom a,.nav a,.brand{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+/* =====================================================================
+   Kartu soal + kolom jawaban: wallpaper, goyang seirama, dan garis tepi warna berjalan.
+   Dibuat aktif langsung lewat CSS (tidak menunggu IntersectionObserver), jadi selalu jalan.
+   ===================================================================== */
+.exercise .live-card{position:relative;
+  background:linear-gradient(rgba(5,6,10,var(--cw-dim)),rgba(5,6,10,var(--cw-dim))),var(--cw-bg);
+  box-shadow:-5px -3px 18px rgba(255,45,85,.13),5px 3px 18px rgba(45,123,255,.13),0 10px 26px rgba(0,0,0,.45);
+  animation:fxSway 5s ease-in-out var(--fxd,0s) infinite}
+.exercise .live-card.still{animation:none}
+.exercise .live-card::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;pointer-events:none;z-index:4;
+  background:conic-gradient(from var(--ang),transparent 0%,var(--fx-red) 13%,#ff9bb0 17%,transparent 31%,transparent 50%,var(--fx-blue) 63%,#9cc3ff 67%,transparent 81%,transparent 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;
+  animation:fxSpin 4s linear var(--fxd,0s) infinite}
+html[data-sway="off"] .exercise .live-card{animation:none}
+html[data-glow="off"] .exercise .live-card::before{display:none}
+.exercise .question-block.live-card{border-radius:16px;overflow:visible;box-shadow:-5px -3px 20px rgba(255,45,85,.14),5px 3px 20px rgba(45,123,255,.14),0 18px 40px rgba(0,0,0,.5)}
+.exercise .answer.live-card{border-radius:16px;border-color:#292929;padding:16px 18px}
+.exercise .answer.live-card:hover{box-shadow:-5px -3px 20px rgba(255,45,85,.22),5px 3px 20px rgba(45,123,255,.22),0 10px 26px rgba(0,0,0,.5)}
+.exercise .answer.live-card.selected{border-color:#d1263b;
+  background:linear-gradient(rgba(150,20,32,.55),rgba(150,20,32,.55)),linear-gradient(rgba(5,6,10,var(--cw-dim)),rgba(5,6,10,var(--cw-dim))),var(--cw-bg);
+  box-shadow:0 0 0 1px #d1263b,0 0 24px rgba(209,38,59,.45),0 10px 26px rgba(0,0,0,.45)}
+.exercise .answer-field.live-card{border-radius:16px;padding:10px;margin:20px 0}
+.exercise .answer-field.live-card .input{background:rgba(0,0,0,.45);position:relative;z-index:1}
+.exercise .matching-row.live-card{border-radius:16px;padding:12px 14px}
+.exercise .matching-row.live-card .input{background:rgba(0,0,0,.45);position:relative;z-index:1}
