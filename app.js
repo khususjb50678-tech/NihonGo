@@ -3,10 +3,11 @@ import { CONFIG } from './config.js';
 import { applyCardStyle, loadCachedStyle, fetchCardStyle, runFx } from './cardstyle.js';
 import { stopAllStages } from './kanastroke.js';
 import { openStudy, closeStudy } from './study.js';
+import { currentUser, userName, renderAuth } from './auth.js';
 import { fixDesc, NEW_DESC } from './copy.js';
 
 const app = document.querySelector('#app');
-const state = { page: location.hash.slice(1) || 'home', branding: null, part: null, name: '', questions: [], index: 0, answers: {}, result: null, timer: null, timerLeft: 0, timerSettings: null, setup: null, totalOn: false, totalLeft: 0, qOn: false, qLeft: 0, qFor: -1, perQ: {}, timedOut: false };
+const state = { user: null, page: location.hash.slice(1) || 'home', branding: null, part: null, name: '', questions: [], index: 0, answers: {}, result: null, timer: null, timerLeft: 0, timerSettings: null, setup: null, totalOn: false, totalLeft: 0, qOn: false, qLeft: 0, qFor: -1, perQ: {}, timedOut: false };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const norm = s => String(s ?? '').trim().toLowerCase().replace(/\s+/g,' ');
 const isKanji = s => /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(String(s));
@@ -68,6 +69,7 @@ async function loadBranding(force=false){
   if(sbReady){ try{ const {data}=await supabase.from('branding').select('*').eq('id',1).maybeSingle(); if(data)b={...b,...data}; }catch(err){ console.warn('Branding tidak terbaca:',err); } }
   fixDesc(b);
   state.branding=b; document.title=b.site_name||CONFIG.siteName;
+  try{localStorage.setItem('itco_brand',JSON.stringify({n:b.site_name||CONFIG.siteName,c:b.corporate_name||'',l:b.logo_url||''}));}catch{}
   if(b.favicon_url) document.querySelector('#favicon')?.setAttribute('href',b.favicon_url);
   const cs=await styleJob; if(cs) applyCardStyle(cs);
   return b;
@@ -101,7 +103,7 @@ function shell(content){
   stopAllStages();
   const b=state.branding||{};
   const logo=b.logo_url?`<img class="mark-img" src="${esc(b.logo_url)}" alt="logo" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'mark-fallback',textContent:'⛩'}))">`:'⛩';
-  app.innerHTML=`<div class="shell"><header class="topbar"><div class="topin"><a class="brand" href="#home"><span class="mark fx-card fx-ring">${logo}</span><span>${esc(b.site_name||'ITCO JAPAN')}<small>${esc(b.corporate_name||'TOP CORPORATION')} · ${esc(b.creator||'ウィタマ。')}</small></span></a><nav class="nav"><a href="#home">⌂ Beranda</a><a href="#developer">⌘ Developer</a></nav><button type="button" class="top-message" id="messageBtn" aria-label="Pesan terbaru" title="Pesan terbaru"><span>🔔</span>${b.message_enabled?'<i aria-hidden="true"></i>':''}</button></div></header>${content}<nav class="bottom"><a href="#home">⌂<br>Beranda</a><a href="#developer">⌘<br>Developer</a></nav></div>`;
+  app.innerHTML=`<div class="shell"><header class="topbar"><div class="topin"><a class="brand" href="#home"><span class="mark fx-card fx-ring">${logo}</span><span>${esc(b.site_name||'ITCO JAPAN')}<small>${esc(b.corporate_name||'TOP CORPORATION')} · ${esc(b.creator||'ウィタマ。')}</small></span></a><nav class="nav"><a href="#home">⌂ Beranda</a><a href="#developer">⌘ Developer</a>${state.user?'<a href="#akun">☺ Akun</a>':''}</nav><button type="button" class="top-message" id="messageBtn" aria-label="Pesan terbaru" title="Pesan terbaru"><span>🔔</span>${b.message_enabled?'<i aria-hidden="true"></i>':''}</button></div></header>${content}<nav class="bottom"><a href="#home">⌂<br>Beranda</a><a href="#developer">⌘<br>Developer</a>${state.user?'<a href="#akun">☺<br>Akun</a>':''}</nav></div>`;
   document.querySelectorAll('.nav a,.bottom a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')===`#${state.page}`));
   const mb=document.querySelector('#messageBtn');
   if(mb)mb.onclick=()=>showSiteMessage();
@@ -205,7 +207,7 @@ async function openSetup(id,parts){
   const total=(data||[]).length;
   if(!total){alert('Part ini belum memiliki soal aktif.');return}
   const user=p.setup_mode==='user';
-  let saved=''; try{saved=localStorage.getItem('itco_name')||'';}catch{}
+  let saved=userName(state.user); if(!saved){try{saved=localStorage.getItem('itco_name')||'';}catch{}}
   document.querySelector('#setupModal')?.remove();
   document.body.insertAdjacentHTML('beforeend',`<div class="bunpou-modal-backdrop" id="setupModal"><form class="bunpou-modal setup-modal" id="setupForm" novalidate role="dialog" aria-modal="true" aria-labelledby="suTitle"><button type="button" class="bunpou-close" id="suClose" aria-label="Tutup">×</button><div class="bunpou-tag">PART ${String(p.part_number).padStart(2,'0')}</div><h2 id="suTitle">${esc(p.name)}</h2><p class="muted setup-info">${user?`Atur latihanmu sendiri. Tersedia <b>${total}</b> soal.`:esc(partBadge(p))}</p><label class="setup-field"><span>Nama</span><input class="input" id="suName" maxlength="60" autocomplete="name" placeholder="Tulis namamu" value="${esc(saved)}"></label>${user?`<label class="setup-field"><span>Jumlah soal</span><input class="input" id="suCount" type="number" inputmode="numeric" min="1" max="${total}" value="${total}"></label><div class="setup-field"><span>Waktu <small>(kosongkan jika tanpa batas waktu)</small></span><div class="setup-time"><label><input class="input" id="suMin" type="number" inputmode="numeric" min="0" placeholder="0"><small>menit</small></label><label><input class="input" id="suSec" type="number" inputmode="numeric" min="0" placeholder="0"><small>detik</small></label></div></div>`:''}<div class="setup-error" id="suErr" role="alert"></div><div class="setup-actions"><button type="button" class="btn" id="suCancel">Batal</button><button type="submit" class="btn red">Mulai</button></div></form></div>`);
   const modal=document.querySelector('#setupModal'), form=document.querySelector('#setupForm'), err=document.querySelector('#suErr');
@@ -270,7 +272,7 @@ function renderResult(){const r=state.result; shell(`<section class="section res
 function backToLatihan(){stopTimer();if(location.hash==='#latihan')renderRoute();else location.hash='#latihan';}
 function formatAnswer(v,type){if(!v)return '';if(type==='matching'){const o=parseJSON(v,{});return Object.entries(o).map(([a,b])=>`${a} = ${b}`).join(', ');}return String(v);}
 
-async function renderRoute(){stopTimer();closeStudy();state.page=location.hash.slice(1)||'home';const b=await loadBranding(true);if(b.maintenance_enabled===true)return showMaintenance(b);if(state.page==='home')return home();if(state.page==='kanji')return kanji();if(state.page==='kana')return kana();if(state.page==='developer')return developer();if(state.page==='kaiwa')return kaiwa();if(state.page==='latihan')return latihan();return home();}
+async function renderRoute(){stopTimer();closeStudy();state.page=location.hash.slice(1)||'home';const b=await loadBranding(true);if(b.maintenance_enabled===true)return showMaintenance(b);if(state.page==='home')return home();if(state.page==='kanji')return kanji();if(state.page==='kana')return kana();if(state.page==='developer')return developer();if(state.page==='akun')return account();if(state.page==='kaiwa')return kaiwa();if(state.page==='latihan')return latihan();return home();}
 
 // Global tap interaction: subtle wiggle + ripple/glow on interactive UI.
 function playInteraction(el, clientX=null, clientY=null){
@@ -330,4 +332,39 @@ function bindInteractionEffects(){
 bindInteractionEffects();
 if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 
-window.addEventListener('hashchange',renderRoute);renderRoute();
+// ===== Akun & layar loading =====
+async function account(){
+  await loadBranding();
+  const u=state.user, nm=userName(u);
+  shell(`<section class="section account-page"><div class="account-card fx-float fx-ring"><div class="account-avatar">${esc((nm[0]||'?').toUpperCase())}</div><div class="eyebrow">Akun saya</div><h2>${esc(nm)}</h2><p class="muted">${esc(u?.email||'')}</p><button type="button" id="logoutBtn" class="btn red">Keluar</button></div></section>`);
+  document.querySelector('#logoutBtn').onclick=async()=>{ stopTimer(); try{await supabase.auth.signOut();}catch{} state.user=null; location.hash='#home'; showLogin(); };
+}
+function showLogin(){ stopTimer(); closeStudy(); renderAuth(app,state.branding||{},u=>{ state.user=u; if(!location.hash||location.hash==='#akun')location.hash='#home'; renderRoute(); }); }
+function updateSplash(b){
+  const sp=document.querySelector('#splash'); if(!sp||!b)return;
+  const n=document.querySelector('#splashName'),c=document.querySelector('#splashSub'),i=document.querySelector('#splashImg');
+  if(n)n.textContent=b.site_name||CONFIG.siteName; if(c)c.textContent=b.corporate_name||'';
+  if(i){ const want=b.logo_url||'favicon.svg'; if(i.getAttribute('src')!==want){ i.onerror=()=>{i.onerror=null;i.src='favicon.svg';}; i.src=want; } }
+  sp.classList.remove('pending');
+}
+function hideSplash(){
+  const sp=document.querySelector('#splash'); if(!sp)return;
+  const wait=Math.max(0,1700-(Date.now()-(window.__splashStart||Date.now())));
+  setTimeout(()=>{ sp.classList.add('hide'); setTimeout(()=>sp.remove(),600); },wait);
+}
+async function boot(){
+  try{
+    const b=await loadBranding(); updateSplash(b);
+    if(sbReady){
+      state.user=await currentUser();
+      supabase.auth.onAuthStateChange((ev,session)=>{ const had=!!state.user; state.user=session?.user||null; if(ev==='SIGNED_OUT'&&had&&b.maintenance_enabled!==true)showLogin(); });
+    }
+    if(b.maintenance_enabled===true) showMaintenance(b);
+    else if(sbReady&&!state.user) showLogin();
+    else await renderRoute();
+  }catch(err){ console.error(err); }
+  finally{ hideSplash(); }
+}
+window.addEventListener('hashchange',()=>{ if(sbReady&&!state.user)return; renderRoute(); });
+boot();
+

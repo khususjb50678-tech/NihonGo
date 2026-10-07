@@ -310,3 +310,33 @@ html.study-open body{overflow:hidden}
 .exercise .answer-field.live-card{border-radius:16px;padding:10px;margin:20px 0}
 .exercise .answer-field.live-card .input,.exercise .matching-row.live-card .input{background:rgba(0,0,0,.45)}
 .exercise .matching-row.live-card{border-radius:16px;padding:12px 14px}
+
+/* =====================================================================
+   Akun: layar masuk/daftar + halaman Akun
+   ===================================================================== */
+.auth-wrap{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 50% 0%,#2a0f14 0%,#0a0a0d 55%,#050505 100%)}
+.auth-card{width:min(420px,100%);padding:26px 22px 22px;border:1px solid #2c2c33;border-radius:26px;background:#0d0d11ee;box-shadow:-5px -3px 24px rgba(255,45,85,.12),5px 3px 24px rgba(45,123,255,.12),0 24px 60px #000a;text-align:center}
+.auth-logo{width:78px;height:78px;margin:0 auto 12px;border-radius:22px;overflow:hidden;border:1px solid #333;background:#151515;display:grid;place-items:center;font-size:38px}
+.auth-logo img{width:100%;height:100%;object-fit:cover}
+.auth-title{margin:0;font-family:var(--f-head);font-size:26px;font-weight:800}
+.auth-sub{margin:4px 0 18px;color:#9a9aa6;font-size:12px;letter-spacing:2.5px;text-transform:uppercase}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;border:1px solid #2a2a30;border-radius:14px;background:#08080b}
+.auth-tabs button{border:0;border-radius:10px;padding:11px 8px;background:transparent;color:#a5a5b0;font:700 14px var(--f-head);cursor:pointer}
+.auth-tabs button.on{background:linear-gradient(145deg,#d1263b,#8f1219);color:#fff}
+.auth-hint{margin:14px 0 4px;color:#a5a5b0;font-size:13.5px;line-height:1.55}
+.auth-notice{min-height:20px;margin:6px 0 2px;font-size:13.5px;line-height:1.5;color:#9fe3b0}
+.auth-notice.err{color:#ffb0b0}
+.auth-form{display:grid;gap:12px;text-align:left;margin-top:6px}
+.auth-form label{display:grid;gap:6px;color:#cfcfd8;font-size:13.5px}
+.auth-form .input{min-width:0;width:100%}
+.auth-pass{position:relative;display:block}
+.auth-pass .input{padding-right:78px}
+.auth-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:#1b1b22;color:#cfcfd8;border-radius:9px;padding:7px 10px;font-size:12px;cursor:pointer}
+.auth-switch{margin:16px 0 0;color:#9a9aa6;font-size:13.5px}
+.auth-switch button{border:0;background:none;color:#ff6b81;font:700 13.5px var(--f-body);cursor:pointer;padding:2px}
+.account-page{display:grid;place-items:center}
+.account-card{width:min(440px,100%);padding:30px 22px;border:1px solid #292929;border-radius:26px;text-align:center;display:grid;justify-items:center;gap:6px}
+.shell .account-card{background:linear-gradient(rgba(5,6,10,var(--cw-dim)),rgba(5,6,10,var(--cw-dim))),var(--cw-bg)}
+.account-avatar{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;font:800 36px var(--f-head);background:linear-gradient(145deg,#d1263b,#8f1219);margin-bottom:6px}
+.account-card h2{margin:2px 0;font-family:var(--f-head);font-size:24px}
+.account-card .btn{margin-top:14px;min-width:150px}
