@@ -12,6 +12,12 @@ const sanitizePromptHTML=html=>{
     [...n.childNodes].forEach(ch=>{
       if(ch.nodeType===1){
         const tag=ch.tagName.toLowerCase();
+        if(['div','p','li','h1','h2','h3','h4','h5','h6'].includes(tag)){
+          const parent=ch.parentNode;
+          while(ch.firstChild) parent.insertBefore(ch.firstChild,ch);
+          parent.insertBefore(document.createElement('br'),ch);
+          parent.removeChild(ch); return;
+        }
         if(!['u','br'].includes(tag)){
           const parent=ch.parentNode;
           while(ch.firstChild) parent.insertBefore(ch.firstChild,ch);
@@ -42,6 +48,15 @@ function bindPromptToolbar(editor){
     if(top+toolbar.offsetHeight>window.innerHeight-8) top=Math.max(8,r.top-toolbar.offsetHeight-8);
     toolbar.style.top=top+'px'; toolbar.classList.add('show');
   };
+  editor.addEventListener('paste',e=>{
+    e.preventDefault();
+    const text=(e.clipboardData||window.clipboardData)?.getData('text/plain')||'';
+    const html=esc(text).replace(/\r\n/g,'\n').replace(/\r/g,'\n').replace(/\n/g,'<br>');
+    document.execCommand('insertHTML',false,html);
+    editor.innerHTML=sanitizePromptHTML(editor.innerHTML);
+    setTimeout(show,20);
+  });
+  editor.addEventListener('input',()=>{ editor.innerHTML=sanitizePromptHTML(editor.innerHTML); });
   editor.addEventListener('mouseup',()=>setTimeout(show,20));
   editor.addEventListener('touchend',()=>setTimeout(show,60));
   editor.addEventListener('keyup',show);
