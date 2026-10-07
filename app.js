@@ -101,9 +101,21 @@ function shell(content){
   stopAllStages();
   const b=state.branding||{};
   const logo=b.logo_url?`<img class="mark-img" src="${esc(b.logo_url)}" alt="logo" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'mark-fallback',textContent:'⛩'}))">`:'⛩';
-  app.innerHTML=`<div class="shell"><header class="topbar"><div class="topin"><a class="brand" href="#home"><span class="mark fx-card fx-ring">${logo}</span><span>${esc(b.site_name||'ITCO JAPAN')}<small>${esc(b.corporate_name||'TOP CORPORATION')} · ${esc(b.creator||'ウィタマ。')}</small></span></a><nav class="nav"><a href="#home">⌂ Beranda</a><a href="#developer">⌘ Developer</a><button type="button" class="nav-message" id="messageBtn">🔔 Pesan</button></nav></div></header>${content}<nav class="bottom"><a href="#home">⌂<br>Beranda</a><a href="#developer">⌘<br>Developer</a></nav></div>`;
+  app.innerHTML=`<div class="shell"><header class="topbar"><div class="topin"><a class="brand" href="#home"><span class="mark fx-card fx-ring">${logo}</span><span>${esc(b.site_name||'ITCO JAPAN')}<small>${esc(b.corporate_name||'TOP CORPORATION')} · ${esc(b.creator||'ウィタマ。')}</small></span></a><nav class="nav"><a href="#home">⌂ Beranda</a><a href="#developer">⌘ Developer</a></nav><button type="button" class="top-message" id="messageBtn" aria-label="Pesan terbaru" title="Pesan terbaru"><span>🔔</span>${b.message_enabled?'<i aria-hidden="true"></i>':''}</button></div></header>${content}<nav class="bottom"><a href="#home">⌂<br>Beranda</a><a href="#developer">⌘<br>Developer</a></nav></div>`;
   document.querySelectorAll('.nav a,.bottom a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')===`#${state.page}`));
-  const mb=document.querySelector('#messageBtn'); if(mb)mb.onclick=()=>showSiteMessage();
+  const mb=document.querySelector('#messageBtn');
+  if(mb)mb.onclick=()=>showSiteMessage();
+  if(b.message_enabled===true){
+    const signature=`${String(b.message_title||'')}\n${String(b.message_body||'')}`.trim();
+    let seen='';
+    try{seen=localStorage.getItem('nihongo_seen_message')||'';}catch{}
+    if(signature && signature!==seen){
+      setTimeout(()=>{
+        showSiteMessage();
+        try{localStorage.setItem('nihongo_seen_message',signature);}catch{}
+      },300);
+    }
+  }
   runFx();
 }
 function showSiteMessage(){
