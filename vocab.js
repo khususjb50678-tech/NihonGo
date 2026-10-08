@@ -68,15 +68,32 @@ function quickRanges(){return [[1,5,'Bab 1–5'],[1,10,'Bab 1–10'],[11,15,'Bab
 function vocabCard(x){return `<article class="vocab-word-card fx-card fx-ring"><div class="vocab-card-top"><span class="vocab-tag">BAB ${x.lesson}</span><span class="vocab-type">${vesc(x.romaji||'')}</span></div><div class="vocab-jp">${vesc(x.kanji||x.kana)}</div><div class="vocab-kana">${vesc(x.kana||'')}</div><div class="vocab-meaning">${vesc(x.meaning_id||x.meaning_en||'')}</div></article>`;}
 function selectionPanel(selected){return `<div class="vocab-selector card"><div class="vocab-selector-head"><div><div class="eyebrow">📖 PILIH BAB</div><h3>Pilih satu, beberapa, atau semua bab</h3></div><button type="button" class="btn" id="vocabAll">Semua Bab</button></div><div class="vocab-ranges">${quickRanges()}</div><div class="vocab-lessons" id="vocabLessons">${lessonButtons(selected)}</div></div>`;}
 export async function kosakata({state,shell,esc=vesc,norm=vnorm}){
-  shell(`<section class="section vocab-page"><div class="section-title"><div><div class="eyebrow">📖 KOSAKATA</div><h2>Minna no Nihongo I</h2><p class="muted">Kosakata Bab 1–25 berdasarkan data edisi ke-2. Pilih bab untuk belajar, lalu lanjut ke Test Kotoba.</p></div></div><div id="vocabLoading" class="card vocab-loading">Memuat data kosakata…</div></section>`);
+  shell(`<section class="section vocab-page"><div class="section-title"><div><div class="eyebrow">📖 KOSAKATA</div><h2>Minna no Nihongo I</h2><p class="muted">Kosakata Bab 1–25 berdasarkan data edisi ke-2. Pilih bab untuk belajar, lalu lanjut ke Test Kotoba.</p></div></div><div id="vocabMount"><div id="vocabLoading" class="card vocab-loading">Memuat data kosakata…</div></div></section>`);
   try{const data=await loadVocab();let selected=[1];
-    const render=async()=>{const filtered=data.filter(x=>selected.includes(x.lesson));document.querySelector('#vocabLoading').outerHTML=selectionPanel(selected)+`<div class="vocab-toolbar"><div><b>${filtered.length}</b> kata tersedia</div><input id="vocabSearch" class="input" placeholder="Cari Jepang, kana, romaji, atau arti..."></div><div id="vocabGrid" class="vocab-grid"></div><div class="vocab-test-cta card"><div><div class="eyebrow">🎯 TEST KOTOBA</div><h3>Uji hafalanmu dari bab yang dipilih</h3><p class="muted">Bisa JP → Indonesia atau Indonesia → Jepang.</p></div><a class="btn red" href="#tes-kotoba">Mulai Test Kotoba</a></div><p class="vocab-source-note">Data kosakata pihak ketiga digunakan sebagai referensi pendamping buku. Buku Minna no Nihongo tetap menjadi sumber utama pembelajaran.</p>`;
-      const draw=async()=>{const q=norm(document.querySelector('#vocabSearch')?.value||'');let rows=filtered.filter(x=>!q||norm(`${x.kanji} ${x.kana} ${x.romaji} ${x.meaning_id||x.meaning_en}`).includes(q)).slice(0,120);if(rows.some(x=>!x.meaning_id)){await translateItems(rows);}const grid=document.querySelector('#vocabGrid');if(grid)grid.innerHTML=rows.map(vocabCard).join('')||'<div class="empty">Tidak ada kata yang cocok.</div>';};
+    const render=async()=>{const filtered=data.filter(x=>selected.includes(x.lesson));const mount=document.querySelector('#vocabMount');if(!mount)return;mount.innerHTML=selectionPanel(selected)+`<div class="vocab-toolbar"><div><b>${filtered.length}</b> kata tersedia</div><input id="vocabSearch" class="input" placeholder="Cari Jepang, kana, romaji, atau arti..."></div><div id="vocabGrid" class="vocab-grid"></div><div class="vocab-test-cta card"><div><div class="eyebrow">🎯 TEST KOTOBA</div><h3>Uji hafalanmu dari bab yang dipilih</h3><p class="muted">Bisa JP → Indonesia atau Indonesia → Jepang.</p></div><a class="btn red" href="#tes-kotoba">Mulai Test Kotoba</a></div><p class="vocab-source-note">Data kosakata pihak ketiga digunakan sebagai referensi pendamping buku. Buku Minna no Nihongo tetap menjadi sumber utama pembelajaran.</p>`;
+      const draw=async()=>{
+        const q=norm(document.querySelector('#vocabSearch')?.value||'');
+        const rows=filtered.filter(x=>!q||norm(`${x.kanji} ${x.kana} ${x.romaji} ${x.meaning_id||x.meaning_en}`).includes(q)).slice(0,120);
+        const grid=document.querySelector('#vocabGrid');
+        if(grid)grid.innerHTML=rows.map(vocabCard).join('')||'<div class="empty">Tidak ada kata yang cocok.</div>';
+        // Jangan menunggu terjemahan sebelum kartu tampil. Ini membuat Bab 2–25 tetap langsung merespons.
+        if(rows.some(x=>!x.meaning_id)){
+          try{await translateItems(rows);if(document.querySelector('#vocabGrid')){const current=norm(document.querySelector('#vocabSearch')?.value||'');if(current===q)grid.innerHTML=rows.map(vocabCard).join('');}}catch(e){}
+        }
+      };
       await draw();
-      document.querySelectorAll('[data-vlesson]').forEach(b=>b.onclick=async()=>{const n=Number(b.dataset.vlesson);selected=selected.includes(n)?selected.filter(x=>x!==n):[...selected,n].sort((a,b)=>a-b);if(!selected.length)selected=[n];await render();});
-      document.querySelectorAll('[data-vfrom]').forEach(b=>b.onclick=async()=>{const a=Number(b.dataset.vfrom),z=Number(b.dataset.vto);selected=Array.from({length:z-a+1},(_,i)=>a+i);await render();});
-      document.querySelector('#vocabAll').onclick=async()=>{selected=Array.from({length:25},(_,i)=>i+1);await render();};
-      document.querySelector('#vocabSearch').oninput=draw;
+      const mountEl=document.querySelector('#vocabMount');
+      if(mountEl){
+        mountEl.onclick=async(e)=>{
+          const lesson=e.target.closest('[data-vlesson]');
+          const range=e.target.closest('[data-vfrom]');
+          const all=e.target.closest('#vocabAll');
+          if(lesson){const n=Number(lesson.dataset.vlesson);selected=selected.includes(n)?selected.filter(x=>x!==n):[...selected,n].sort((a,b)=>a-b);if(!selected.length)selected=[n];await render();return;}
+          if(range){const a=Number(range.dataset.vfrom),z=Number(range.dataset.vto);selected=Array.from({length:z-a+1},(_,i)=>a+i);await render();return;}
+          if(all){selected=Array.from({length:25},(_,i)=>i+1);await render();return;}
+        };
+      }
+      const searchEl=document.querySelector('#vocabSearch');if(searchEl)searchEl.oninput=draw;
     };
     await render();
   }catch(e){const el=document.querySelector('#vocabLoading');if(el)el.innerHTML=`<b>Gagal memuat kosakata.</b><p class="muted">${vesc(e.message||'Coba buka kembali halaman ini.')}</p>`;}
