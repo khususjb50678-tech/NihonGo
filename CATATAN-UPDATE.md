@@ -58,3 +58,11 @@
 - Setiap huruf muncul tepat satu kali dalam satu sesi.
 - Soal campuran: Hiragana → Romaji dan Romaji → Hiragana.
 - Hasil tersimpan di akun user dan dapat dilihat user maupun Admin.
+
+---
+
+## Update: arti Bahasa Indonesia + kartu kosakata beranimasi
+- Perbaikan bug kamus offline (kata "I" tidak ketemu karena beda huruf besar/kecil) dan ditambah kamus Indonesia bawaan Bab 1 (tanpa internet).
+- Test Kotoba tidak lagi memunculkan soal/pilihan tanpa arti Indonesia.
+- Kartu kosakata & kartu Bab kini punya cahaya merah-biru yang berputar dan goyang seirama, sama seperti Kanji/Hiragana.
+- Label Inggris (Password, Login, Edit) diganti Bahasa Indonesia.

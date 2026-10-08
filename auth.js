@@ -47,7 +47,7 @@ export function renderAuth(root, brand, onSuccess) {
       <form id="authForm" class="auth-form" novalidate>
         ${reg ? '<label>Nama<input class="input" id="auName" autocomplete="name" maxlength="60" placeholder="Nama lengkapmu"></label>' : ''}
         <label>Email<input class="input" id="auEmail" type="email" inputmode="email" autocomplete="email" placeholder="nama@email.com"></label>
-        <label>Password<span class="auth-pass"><input class="input" id="auPass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}" placeholder="${reg ? 'Minimal 6 karakter' : 'Password'}"><button type="button" class="auth-eye" id="auEye" aria-label="Tampilkan password">Lihat</button></span></label>
+        <label>Kata sandi<span class="auth-pass"><input class="input" id="auPass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}" placeholder="${reg ? 'Minimal 6 karakter' : 'Kata sandi'}"><button type="button" class="auth-eye" id="auEye" aria-label="Tampilkan password">Lihat</button></span></label>
         ${reg ? '<label>Ulangi password<input class="input" id="auPass2" type="password" autocomplete="new-password" placeholder="Ketik ulang password"></label>' : ''}
         <button class="btn red fullbtn" type="submit" id="auSubmit">${reg ? 'Buat akun' : 'Masuk'}</button>
       </form>
