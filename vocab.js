@@ -2,7 +2,7 @@ import { runFx } from './cardstyle.js';
 const VOCAB_SOURCE='https://raw.githubusercontent.com/vitto4/MinnaNoDS/main/minna-no-ds.yaml';
 const TRANSLATE_URL='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=id&dt=t&q=';
 const TRANSLATE_FALLBACK='https://api.mymemory.translated.net/get?q=';
-const CACHE_KEY='itco_minna_vocab_v5';
+const CACHE_KEY='itco_minna_vocab_v6';
 let vocabCache=null;
 let vocabLoadPromise=null;
 let kotobaTimerHandle=null;
@@ -64,7 +64,50 @@ const ID_DICT={
  '~さい':'~ tahun (usia)','なんさい(おいくつ)':'Berapa umur? (おいくつ = bentuk sopan)','なんさい':'Berapa umur?','おいくつ':'Berapa umur? (sopan)',
  'はい':'Ya','いいえ':'Bukan, tidak','しつれいですが':'Permisi, maaf (sebelum bertanya)','おなまえは?':'Siapa nama Anda?','はじめまして':'Senang bertemu dengan Anda (salam perkenalan)',
  'どうぞよろしくおねがいします':'Mohon bantuannya, senang berkenalan','こちらは~さんです':'Ini adalah Bapak/Ibu ~','~からきました':'Saya datang dari ~',
- 'アメリカ':'Amerika','イギリス':'Inggris','インド':'India','インドネシア':'Indonesia','かんこく':'Korea Selatan','タイ':'Thailand','ちゅうごく':'Tiongkok','ドイツ':'Jerman','にほん':'Jepang','フランス':'Prancis','ブラジル':'Brasil'
+ 'アメリカ':'Amerika','イギリス':'Inggris','インド':'India','インドネシア':'Indonesia','かんこく':'Korea Selatan','タイ':'Thailand','ちゅうごく':'Tiongkok','ドイツ':'Jerman','にほん':'Jepang','フランス':'Prancis','ブラジル':'Brasil',
+ // Pelajaran 21–25 — arti Bahasa Indonesia berdasarkan foto halaman buku yang diberikan.
+ 'おもいます':'mengira, berpikir','いいます':'mengatakan, berkata','かちます':'menang','まけます':'kalah',
+ 'あります［おまつりが~］':'ada, diadakan [pesta perayaan]','やくにたちます':'berguna, bermanfaat','うごきます':'pindah, bergerak',
+ 'やめます［かいしゃを~］':'berhenti [kerja]','きをつけます':'berwaspada, berhati-hati','りゅうがくします':'studi di luar negeri',
+ 'むだ［な］':'sia-sia, tidak berguna','ふべん［な］':'tidak praktis','すごい':'hebat, bukan main (digunakan ketika menyatakan kejutan atau kekaguman)',
+ 'ほんとう':'betul, benar','うそ':'bohong','じどうしゃ':'mobil','こうつう':'lalu lintas','ぶっか':'harga barang',
+ 'ほうそう':'siaran, pengumuman','ニュース':'warta berita','アニメ':'animasi','マンガ':'manga, komik','デザイン':'desain, model',
+ 'ゆめ':'mimpi','てんさい':'genius','しあい':'pertandingan (~をします: bertanding)','いけん':'pendapat',
+ 'はなし':'cerita (~をします: bercerita, berbicara)','ちきゅう':'bumi','つき':'bulan','さいきん':'akhir-akhir ini',
+ 'たぶん':'mungkin, barangkali','きっと':'pasti','ほんとうに':'betul-betul','そんなに':'tidak begitu (diikuti bentuk negatif)',
+ '~について':'tentang ~, mengenai ~','ひさしぶりですね。':'Sudah lama tidak bertemu ya.','~でものみませんか。':'Bagaimana kalau kita minum ~, atau apa saja?',
+ 'もちろん':'tentu saja','もうかえらないと……。':'Saya harus pulang...','アインシュタイン':'Albert Einstein (1879-1955)',
+ 'ガガーリン':'Gagarin (1934-1968)','ガリレオ':'Galileo Galilei (1564-1642)','キングぼくし':'Martin Luther King, Jr. (1929-1968)',
+ 'フランクリン':'Benjamin Franklin (1706-1790)','かぐやひめ':'Putri Kaguya (protagonis dari cerita dongeng Jepang “Taketori monogatari”)',
+ 'てんじんまつり':'Perayaan Tenjin (perayaan di Osaka)','よしのやま':'Gunung Yoshino (gunung yang ada di Nara)','カンガルー':'kanguru',
+ 'キャプテン・クック':'Captain James Cook (1728-1779)','ヨーネン':'perusahaan fiksi',
+
+ 'きます':'memakai (kemeja)','はきます':'memakai (sepatu, celana)','かぶります':'memakai (topi)','かけます［めがねを~］':'memakai [kaca mata]',
+ 'します［ネクタイを~］':'memakai [dasi]','うまれます':'lahir','わたしたち':'kami, kita','コート':'mantel','セーター':'sweater, baju hangat',
+ 'スーツ':'pakaian setelan','ぼうし':'topi','めがね':'kaca mata','ケーキ':'kue','［お］べんとう':'bekal','ロボット':'robot',
+ 'ユーモア':'humor','つごう':'kondisi','よく':'sering kali','えーと':'Itu...','おめでとう［ございます］。':'Selamat (digunakan ketika hari ulang tahun, upacara pernikahan, dan tahun baru)',
+ 'おさがしですか。':'Mencari apa?','では':'kalau begitu','こちら':'ini (ungkapan sopan dari これ)','やちん':'biaya sewa rumah',
+ 'ダイニングキッチン':'ruang makan dengan dapur','わしつ':'kamar ala Jepang','おしいれ':'lemari dinding ala Jepang','ふとん':'selimut dan kasur berisi kapas ala Jepang',
+ 'パリ':'Paris','ばんりのちょうじょう':'Tembok Besar China','みんなのアンケート':'angket fiksi',
+
+ 'ききます［せんせいに~］':'bertanya [kepada guru]','まわします':'memutar','ひきます':'tarik','かえます':'mengubah',
+ 'さわります［ドアに~］':'menyentuh [pintu]','でます［おつりが~］':'keluar [uang kembalian]','あるきます':'berjalan kaki',
+ 'わたります［はしを~］':'menyeberang [jembatan]','まがります［みぎへ~］':'belok [ke kanan]','さびしい':'sepi','［お］ゆ':'air panas',
+ 'おと':'bunyi, suara','サイズ':'ukuran','こしょう':'kerusakan (~します: rusak)','みち':'jalan','こうさてん':'perempatan',
+ 'しんごう':'lampu lalu lintas','かど':'sudut','はし':'jembatan','ちゅうしゃじょう':'tempat parkir','たてもの':'gedung',
+ 'なんかいも':'berkali-kali','－め':'yang ke- (mengungkapkan urutan)','しょうとくたいし':'Pangeran Shotoku (574-622)',
+ 'ほうりゅうじ':'Kuil Horyuji, kuil di Prefektur Nara','げんきちゃ':'teh fiksi','ほんだえき':'stasiun fiksi','としょかんまえ':'halte bus fiksi',
+
+ 'くれます':'diberikan','なおします':'memperbaiki','つれていきます':'membawa [seseorang] pergi','つれてきます':'membawa [seseorang] datang',
+ 'おくります［ひとを~］':'mengantar [orang]','しょうかいします':'memperkenalkan','あんないします':'mengantarkan','せつめいします':'menjelaskan, menerangkan',
+ 'おじいさん／おじいちゃん':'kakek','おばあさん／おばあちゃん':'nenek','じゅんび':'persiapan','ひっこし':'pindah rumah, memindahkan',
+ '［お］かし':'kue','ホームステイ':'homestay','ぜんぶ':'semua','じぶんで':'dengan sendiri','ほかに':'selain, yang lain','ははのひ':'Hari Ibu',
+
+ 'かんがえます':'berpikir, memikirkan','つきます':'tiba, sampai','とります［としを~］':'berumur, lanjut usia','たります':'cukup',
+ 'いなか':'desa, kampung halaman','チャンス':'kesempatan','おく':'ratus juta','もし［~たら］':'kalau','いみ':'arti, makna',
+ 'もしもし':'halo (digunakan ketika menelepon)','てんきん':'pindah ke kantor cabang lain atau jabatan lain (~します: pindah kantor)',
+ 'こと':'hal (~のこと: hal ~)','ひま':'waktu luang','［いろいろ］おせわになりました。':'Terima kasih banyak bantuan Anda yang telah diberikan',
+ 'がんばります':'berusaha, bekerja keras','どうぞおげんきで。':'Semoga sehat-sehat selalu (digunakan ketika perpisahan dalam jangka waktu lama)','ベトナム':'Vietnam'
 };
 function jkey(s){return String(s||'').replace(/[\s\u3000]/g,'').replace(/（/g,'(').replace(/）/g,')').replace(/[～〜]/g,'~').replace(/？/g,'?');}
 function dictMeaning(x){
