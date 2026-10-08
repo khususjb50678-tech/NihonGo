@@ -32,7 +32,7 @@ create policy "admins_baca_diri_sendiri" on public.admins
 -- Jika email tidak ditemukan, script berhenti di sini supaya kamu tidak terkunci.
 do $$
 declare
-  v_email text := lower('admin@quiznihongowsid.com');
+  v_email text := lower('GANTI-DENGAN-EMAIL-ADMIN-KAMU@contoh.com');
   v_id uuid;
 begin
   select id into v_id from auth.users where lower(email) = v_email;
