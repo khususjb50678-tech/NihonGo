@@ -26,3 +26,35 @@
 - Layar loading saat web dibuka: logo, nama web, dan animasi memuat (logo & nama diambil dari Branding).
 - **Keamanan Admin:** sebelumnya semua akun yang login dianggap Admin. Sekarang hanya akun di tabel `admins` yang bisa membuka panel Admin dan mengubah data. Untuk menambah admin lain: Supabase → Table Editor → `admins` → tambah `user_id` akun tersebut.
 - Lupa password: belum ada fitur sendiri; reset lewat Supabase → Authentication → Users.
+
+---
+
+## Update terbaru: User Monitoring + Hasil Akun + Tes Hiragana 46
+
+**Wajib dilakukan setelah upload update ini:**
+1. Pastikan `supabase-accounts.sql` sudah pernah dijalankan untuk keamanan Admin.
+2. Jalankan `supabase-user-monitor.sql` **sekali** di Supabase → SQL Editor → Run.
+3. Upload semua file website terbaru.
+
+### User di Admin Panel
+- Menu **Hasil** diganti menjadi **User**.
+- Daftar user otomatis diperbarui berkala.
+- Menampilkan online/offline berdasarkan heartbeat website.
+- Nama, email, waktu daftar, login terakhir, total login, device terakhir, halaman terakhir, jumlah hasil.
+- Ada notifikasi visual untuk user baru saat Admin Panel sedang terbuka.
+- Klik user untuk melihat detail lengkap: riwayat login/logout, aktivitas, device, hasil latihan, dan Tes Hiragana.
+- Admin dapat menonaktifkan/mengaktifkan akun atau menghapus akun.
+- Tidak mengumpulkan IP atau lokasi.
+
+### Akun user
+- Halaman **Akun** sekarang menampilkan semua hasil latihan milik akun tersebut.
+- Hasil latihan lama yang bisa dicocokkan dengan satu nama user akan otomatis ditautkan oleh SQL.
+- Setiap hasil baru ditautkan dengan `user_id`, sehingga nama yang sama tidak mencampur hasil.
+- Klik hasil untuk melihat review jawaban.
+
+### Tes Hiragana
+- Dari halaman Kana tersedia **Tes 46 Hiragana**.
+- Tepat 46 huruf dasar: あ〜ん, tanpa dakuten/handakuten/kombinasi.
+- Setiap huruf muncul tepat satu kali dalam satu sesi.
+- Soal campuran: Hiragana → Romaji dan Romaji → Hiragana.
+- Hasil tersimpan di akun user dan dapat dilihat user maupun Admin.
