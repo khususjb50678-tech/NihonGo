@@ -66,3 +66,4 @@
 - Test Kotoba tidak lagi memunculkan soal/pilihan tanpa arti Indonesia.
 - Kartu kosakata & kartu Bab kini punya cahaya merah-biru yang berputar dan goyang seirama, sama seperti Kanji/Hiragana.
 - Label Inggris (Password, Login, Edit) diganti Bahasa Indonesia.
+- Kamus Indonesia per bab ada di `vocab-id.js` (sudah: Bab 1-5). Bab lain masih memakai terjemahan online sampai kamusnya ditambah.
