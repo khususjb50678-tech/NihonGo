@@ -1,7 +1,7 @@
 const VOCAB_SOURCE='https://raw.githubusercontent.com/vitto4/MinnaNoDS/main/minna-no-ds.yaml';
 const TRANSLATE_URL='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=id&dt=t&q=';
 const TRANSLATE_FALLBACK='https://api.mymemory.translated.net/get?q=';
-const CACHE_KEY='itco_minna_vocab_v3';
+const CACHE_KEY='itco_minna_vocab_v4';
 let vocabCache=null;
 let vocabLoadPromise=null;
 let kotobaTimerHandle=null;
@@ -44,13 +44,67 @@ async function loadVocab(){
 }
 function getTranslationCache(){try{return JSON.parse(localStorage.getItem(CACHE_KEY)||'{}')}catch{return {}}}
 function saveTranslationCache(c){try{localStorage.setItem(CACHE_KEY,JSON.stringify(c))}catch{}}
-async function translateMeaning(en){const source=String(en||'').trim();if(!source)return '';const cache=getTranslationCache();if(cache[source])return cache[source];
-  try{const r=await fetch(TRANSLATE_URL+encodeURIComponent(source),{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();const id=Array.isArray(j?.[0])?j[0].map(x=>x?.[0]||'').join('').trim():'';if(id&&id.toLowerCase()!==source.toLowerCase()){cache[source]=id;saveTranslationCache(cache);return id;}}catch{}
-  try{const r=await fetch(TRANSLATE_FALLBACK+encodeURIComponent(source)+'&langpair=en|id',{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();const id=String(j?.responseData?.translatedText||'').trim();if(id&&id.toLowerCase()!==source.toLowerCase()){cache[source]=id;saveTranslationCache(cache);return id;}}catch{}
+const OFFLINE_ID={
+  'I':'Saya','we':'Kami, kita','you':'Anda, kamu','that person, he, she':'Orang itu, dia',
+  'person':'Orang','teacher':'Guru, dosen','student':'Siswa, murid','university':'Universitas',
+  'hospital':'Rumah sakit','doctor':'Dokter','researcher':'Peneliti','company employee':'Pegawai perusahaan',
+  'bank employee':'Pegawai bank','employee':'Karyawan','name':'Nama','what is your name?':'Nama Anda siapa?',
+  'yes':'Iya','no':'Tidak','introduction':'Perkenalan','excuse me':'Permisi',
+  'america':'Amerika','england':'Inggris','india':'India','indonesia':'Indonesia','korea':'Korea',
+  'china':'China','germany':'Jerman','japan':'Jepang','france':'Prancis'
+};
+function offlineMeaning(en){
+  const s=String(en||'').trim(); if(!s)return '';
+  const key=s.toLowerCase().replace(/[“”"]/g,'').replace(/\s+/g,' ');
+  if(OFFLINE_ID[key])return OFFLINE_ID[key];
+  if(/university/i.test(key))return 'Universitas';
+  if(/hospital/i.test(key))return 'Rumah sakit';
+  if(/doctor/i.test(key))return 'Dokter';
+  if(/teacher/i.test(key))return 'Guru, dosen';
+  if(/student/i.test(key))return 'Siswa, murid';
+  if(/researcher/i.test(key))return 'Peneliti';
   return '';
 }
-async function translateItems(items){const cache=getTranslationCache();const need=[...new Set(items.map(x=>x.meaning_en).filter(x=>x&&!cache[x]))];for(let i=0;i<need.length;i+=6)await Promise.all(need.slice(i,i+6).map(async en=>{cache[en]=await translateMeaning(en);}));saveTranslationCache(cache);items.forEach(x=>x.meaning_id=cache[x.meaning_en]||x.meaning_en);return items;}
-function vocabCard(x){return `<article class="vocab-word-card fx-card fx-ring"><div class="vocab-card-top"><span class="vocab-tag">BAB ${x.lesson}</span><span class="vocab-type">${vesc(x.romaji||'')}</span></div><div class="vocab-jp">${vesc(x.kanji||x.kana)}</div><div class="vocab-kana">${vesc(x.kana||'')}</div><div class="vocab-meaning" data-vocab-meaning="${vesc(x.id)}">${vesc(x.meaning_id||'Memuat arti Indonesia…')}</div></article>`;}
+async function translateMeaning(en){
+  const source=String(en||'').trim(); if(!source)return '';
+  const cache=getTranslationCache(); if(cache[source])return cache[source];
+  const local=offlineMeaning(source); if(local){cache[source]=local;saveTranslationCache(cache);return local;}
+  try{
+    const r=await fetch(TRANSLATE_URL+encodeURIComponent(source),{cache:'no-store'});
+    if(r.ok){
+      const j=await r.json();
+      const id=Array.isArray(j?.[0])?j[0].map(x=>x?.[0]||'').join('').trim():'';
+      if(id&&id.toLowerCase()!==source.toLowerCase()){
+        cache[source]=id;saveTranslationCache(cache);return id;
+      }
+    }
+  }catch{}
+  try{
+    const r=await fetch(TRANSLATE_FALLBACK+encodeURIComponent(source)+'&langpair=en|id',{cache:'no-store'});
+    if(r.ok){
+      const j=await r.json();
+      const id=String(j?.responseData?.translatedText||'').trim();
+      if(id&&id.toLowerCase()!==source.toLowerCase()){
+        cache[source]=id;saveTranslationCache(cache);return id;
+      }
+    }
+  }catch{}
+  return '';
+}
+async function translateItems(items){
+  const cache=getTranslationCache();
+  const need=[...new Set(items.map(x=>x.meaning_en).filter(x=>x&&!cache[x]))];
+  for(let i=0;i<need.length;i+=10){
+    await Promise.all(need.slice(i,i+10).map(async en=>{
+      const id=await translateMeaning(en); if(id)cache[en]=id;
+    }));
+    saveTranslationCache(cache);
+  }
+  items.forEach(x=>x.meaning_id=cache[x.meaning_en]||'');
+  return items;
+}
+function meaningText(x){return x.meaning_id||'Arti Indonesia belum tersedia';}
+function vocabCard(x){return `<article class="vocab-word-card fx-card fx-ring"><div class="vocab-card-top"><span class="vocab-tag">BAB ${x.lesson}</span><span class="vocab-type">${vesc(x.romaji||'')}</span></div><div class="vocab-jp">${vesc(x.kanji||x.kana)}</div><div class="vocab-kana">${vesc(x.kana||'')}</div><div class="vocab-meaning" data-vocab-meaning="${vesc(x.id)}">${vesc(meaningText(x))}</div></article>`;}
 function lessonCard(n,count){return `<button type="button" class="vocab-chapter-card fx-card fx-ring" data-chapter="${n}"><span class="vocab-chapter-front"><span class="vocab-chapter-no">BAB ${n}</span><strong>ことば</strong><small>${count?`${count} kata`:'Belum ada data'}</small><em>Klik untuk membalik</em></span><span class="vocab-chapter-back"><span class="vocab-chapter-no">BAB ${n}</span><b>Kamu mau apa?</b><span class="vocab-chapter-actions"><span data-learn="${n}">📖 Pelajari</span><span data-test="${n}">📝 Test</span></span></span></button>`;}
 function testSelectionButton(){return `<div class="vocab-choice-test card"><div><div class="eyebrow">🎯 TEST PILIHAN KOSAKATA</div><h3>Pilih sendiri bab yang mau kamu test</h3><p class="muted">Centang satu, beberapa, atau semua bab. Pilihanmu hanya berlaku untuk test ini.</p></div><button type="button" class="btn red" id="openVocabChoiceTest">Pilih Bab &amp; Mulai Test</button></div>`;}
 function selectionModal(initial=[1]){
@@ -74,12 +128,11 @@ export async function kosakata({state,shell,esc=vesc,norm=vnorm}){
     const renderLesson=async n=>{
       const rows=byLesson(n).slice();
       const mount=document.querySelector('#vocabMount');if(!mount)return;
+      mount.innerHTML=`<div class="card vocab-loading">Menyiapkan arti Bahasa Indonesia untuk Bab ${n}…</div>`;
+      try{await translateItems(rows);}catch{}
       mount.innerHTML=`<div class="vocab-learn-head"><button type="button" class="btn" id="backVocab">← Kembali ke Bab</button><div><div class="eyebrow">📖 BELAJAR KOSAKATA</div><h2>Bab ${n}</h2><p class="muted">${rows.length} kata tersedia.</p></div><button type="button" class="btn red" id="lessonTest">📝 Test Bab ${n}</button></div><div class="vocab-grid">${rows.map(vocabCard).join('')||'<div class="empty">Data kosakata untuk bab ini belum tersedia.</div>'}</div>`;
       document.querySelector('#backVocab').onclick=()=>render();
       document.querySelector('#lessonTest').onclick=()=>{window.__kotobaSetup={lessons:[n],mode:'jp_id',count:10};location.hash='tes-kotoba';};
-      translateItems(rows).then(()=>{
-        rows.forEach(x=>{const el=document.querySelector(`[data-vocab-meaning=\"${CSS.escape(x.id)}\"]`);if(el)el.textContent=x.meaning_id||'Arti Indonesia belum tersedia';});
-      }).catch(()=>{});
     };
     const render=async()=>{
       const counts=Object.fromEntries(Array.from({length:50},(_,i)=>[i+1,byLesson(i+1).length]));
@@ -93,7 +146,6 @@ export async function kosakata({state,shell,esc=vesc,norm=vnorm}){
       document.querySelector('#openVocabChoiceTest').onclick=()=>selectionModal([]);
     };
     await render();
-    translateItems(data.slice()).catch(()=>{});
   }catch(e){const el=document.querySelector('#vocabLoading');if(el)el.innerHTML=`<b>Gagal memuat kosakata.</b><p class="muted">${vesc(e.message||'Coba buka kembali halaman ini.')}</p>`;}
 }
 
@@ -107,9 +159,8 @@ export async function tesKotoba({state,shell,recordActivity,supabase,sbReady}){
     await recordActivity('kotoba_test_start',{total:rows.length,lessons:setup.lessons,mode:setup.mode,timer_seconds:kotobaTimerSeconds});let finishStarted=false;
     const finish=async(timedOut=false)=>{if(finishStarted)return;finishStarted=true;kotobaFinished=true;stopKotobaTimer();const details=rows.map((q,i)=>{const forward=setup.mode==='jp_id';const correct=forward?q.meaning_id:(q.romaji||q.kana);return {lesson:q.lesson,japanese:q.kanji||q.kana,kana:q.kana,romaji:q.romaji,meaning:q.meaning_id,user_answer:answers[i]||'',correct:vnorm(answers[i])===vnorm(correct),direction:setup.mode};});const correct=details.filter(x=>x.correct).length,unanswered=details.filter(x=>!x.user_answer).length,wrong=details.length-correct-unanswered,score=details.length?Math.round(correct/details.length*100):0,duration=Math.round((Date.now()-started)/1000);if(sbReady&&state.user){const {error}=await supabase.from('assessment_results').insert({user_id:state.user.id,test_type:'kotoba',score,correct_count:correct,wrong_count:wrong,unanswered_count:unanswered,duration_seconds:duration,details});if(error)console.warn('Hasil Test Kotoba belum tersimpan:',error.message);}await recordActivity('kotoba_test_finish',{score,correct,wrong,unanswered,duration_seconds:duration,lessons:setup.lessons,mode:setup.mode,timed_out:timedOut});shell(`<section class="section result hira-result"><div class="result-card fx-float fx-ring"><div class="eyebrow">HASIL TEST KOTOBA</div><h1>${score}<small>/100</small></h1><div class="result-stats"><span>Benar <b>${correct}</b></span><span>Salah <b>${wrong}</b></span><span>Tidak dijawab <b>${unanswered}</b></span></div><p class="muted">Bab: ${setup.lessons.join(', ')} · ${Math.floor(duration/60)} menit ${duration%60} detik${timedOut?' · ⏰ Waktu habis':''}</p></div><div class="review-list"><h2>Review</h2>${details.map((x,i)=>`<article class="review ${x.correct?'ok':'bad'}"><b>${i+1}. ${vesc(x.japanese)} · ${vesc(x.romaji)}</b><span>Arti: ${vesc(x.meaning)}</span><span>Jawaban kamu: ${vesc(x.user_answer)||'—'}</span><span>Jawaban benar: ${vesc(x.direction==='jp_id'?x.meaning:x.romaji)}</span></article>`).join('')}</div><a class="cta" href="#akun">Lihat hasil di Akun</a></section>`);};
     window.__finishKotoba=finish;
-    const render=async()=>{const q=rows[index];if(!q)return finish(false);const forward=setup.mode==='jp_id';const pool=data.filter(x=>x.id!==q.id&&setup.lessons.includes(x.lesson)).sort(()=>Math.random()-.5).slice(0,8);if(forward)translateItems([q,...pool]).then(()=>{if(!kotobaFinished)render();}).catch(()=>{});const correct=forward?(q.meaning_id||'Memuat arti Indonesia…'):(q.romaji||q.kana);const opts=[correct,...pool.slice(0,3).map(x=>forward?(x.meaning_id||'Memuat arti Indonesia…'):(x.romaji||x.kana))];const unique=[...new Set(opts)].sort(()=>Math.random()-.5);shell(`<section class="section vocab-test-page"><div class="section-title"><div><div class="eyebrow">🎯 TEST KOTOBA · ${index+1}/${rows.length}</div><h2>${forward?'Jepang → Indonesia':'Indonesia → Jepang'}</h2></div><div id="kotobaTestTimer" class="timer-text"></div></div><div class="hira-progress"><i style="width:${((index+1)/rows.length)*100}%"></i></div><div class="vocab-test-question fx-float fx-ring"><span class="vocab-tag">BAB ${q.lesson}</span><div class="vocab-test-prompt">${vesc(forward?(q.kanji||q.kana):(q.meaning_id||'Memuat arti Indonesia…'))}</div>${forward?`<div class="vocab-kana">${vesc(q.kana||'')}</div>`:''}</div><div class="vocab-options">${unique.map((o,i)=>`<button type="button" class="btn vocab-option ${vnorm(answers[index])===vnorm(o)?'selected':''}" data-vanswer="${vesc(o)}"><b class="choice-letter">${String.fromCharCode(65+i)}.</b> ${vesc(o)}</button>`).join('')}</div><div class="exercise-nav"><button type="button" class="btn" id="vprev" ${index===0?'disabled':''}>← Sebelumnya</button><button type="button" class="btn red" id="vnext">${index===rows.length-1?'Selesai':'Selanjutnya →'}</button></div></section>`);startKotobaTimer();document.querySelectorAll('[data-vanswer]').forEach(b=>b.onclick=()=>{answers[index]=b.dataset.vanswer;document.querySelectorAll('[data-vanswer]').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');});document.querySelector('#vprev').onclick=()=>{if(index>0){index--;render();}};document.querySelector('#vnext').onclick=()=>{if(index<rows.length-1){index++;render();}else finish(false);};};
+    const render=async()=>{const q=rows[index];if(!q)return finish(false);const forward=setup.mode==='jp_id';const pool=data.filter(x=>x.id!==q.id&&setup.lessons.includes(x.lesson)).sort(()=>Math.random()-.5).slice(0,8);try{if(forward)await translateItems([q,...pool]);}catch{}const correct=forward?meaningText(q):(q.romaji||q.kana);const opts=[correct,...pool.slice(0,3).map(x=>forward?meaningText(x):(x.romaji||x.kana))].filter(Boolean);const unique=[...new Set(opts)].sort(()=>Math.random()-.5);shell(`<section class="section vocab-test-page"><div class="section-title"><div><div class="eyebrow">🎯 TEST KOTOBA · ${index+1}/${rows.length}</div><h2>${forward?'Jepang → Indonesia':'Indonesia → Jepang'}</h2></div><div id="kotobaTestTimer" class="timer-text"></div></div><div class="hira-progress"><i style="width:${((index+1)/rows.length)*100}%"></i></div><div class="vocab-test-question fx-float fx-ring"><span class="vocab-tag">BAB ${q.lesson}</span><div class="vocab-test-prompt">${vesc(forward?(q.kanji||q.kana):meaningText(q))}</div>${forward?`<div class="vocab-kana">${vesc(q.kana||'')}</div>`:''}</div><div class="vocab-options">${unique.map((o,i)=>`<button type="button" class="btn vocab-option ${vnorm(answers[index])===vnorm(o)?'selected':''}" data-vanswer="${vesc(o)}"><b class="choice-letter">${String.fromCharCode(65+i)}.</b> ${vesc(o)}</button>`).join('')}</div><div class="exercise-nav"><button type="button" class="btn" id="vprev" ${index===0?'disabled':''}>← Sebelumnya</button><button type="button" class="btn red" id="vnext">${index===rows.length-1?'Selesai':'Selanjutnya →'}</button></div></section>`);startKotobaTimer();document.querySelectorAll('[data-vanswer]').forEach(b=>b.onclick=()=>{answers[index]=b.dataset.vanswer;document.querySelectorAll('[data-vanswer]').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');});document.querySelector('#vprev').onclick=()=>{if(index>0){index--;render();}};document.querySelector('#vnext').onclick=()=>{if(index<rows.length-1){index++;render();}else finish(false);};};
     await render();
-    translateItems(data.slice()).catch(()=>{});
   }catch(e){stopKotobaTimer();window.__finishKotoba=null;shell(`<section class="section"><div class="card"><h2>Test Kotoba tidak bisa dimulai</h2><p class="muted">${vesc(e.message||'Data belum tersedia.')}</p><a class="btn" href="#kosakata">Kembali ke Kosakata</a></div></section>`);}
 }
 export function openKotobaSetup(initial=[1]){loadVocab().then(()=>selectionModal(initial));}
