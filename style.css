@@ -447,3 +447,11 @@ html.study-open body{overflow:hidden}
 /* Admin timer: simple controls first; JSON is kept only as an advanced option. */
 .timer-simple-global{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.timer-simple-global label,.timer-part-row label{display:grid;gap:6px;color:#ccc}.timer-section-title{margin:24px 0 10px}.timer-part-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}.timer-part-row{display:grid;grid-template-columns:70px 1fr 1fr;gap:8px;align-items:end;padding:10px;border:1px solid #272727;border-radius:12px;background:#0d0d0d}.timer-part-row>b{padding-bottom:12px}.timer-advanced summary{cursor:pointer;display:flex;justify-content:space-between;gap:12px;list-style:none}.timer-advanced summary::-webkit-details-marker{display:none}.timer-advanced summary span{font-size:12px}.timer-advanced .textarea{margin-top:12px;min-height:180px}
 @media(max-width:650px){.vocab-chapter-grid{grid-template-columns:1fr;gap:12px}.vocab-chapter-card{min-height:190px}.vocab-choice-test,.vocab-learn-head{flex-direction:column;align-items:stretch}.vocab-choice-test .btn,.vocab-learn-head .btn{width:100%}.vocab-choice-grid{grid-template-columns:repeat(4,minmax(0,1fr));max-height:50vh}.vocab-choice span{min-height:42px;font-size:12px}.timer-part-grid{grid-template-columns:1fr}.timer-part-row{grid-template-columns:62px 1fr 1fr}.timer-simple-global{grid-template-columns:1fr 1fr}}
+
+/* Japanese text readability: standard/regular weight across learning content. */
+.kana-char,.kanji-char,.answer-kanji,.kana-static,.kana-back-char,.study-glyph,.study-reading,.jp,.bunpou-pattern,.kaiwa-line .jp,.hira-prompt,.vocab-jp,.vocab-kana,.vocab-test-prompt{font-family:'Noto Sans JP','Yu Gothic','Hiragino Kaku Gothic ProN','Meiryo',sans-serif;font-weight:400!important;}
+.question,.question-long{font-weight:500;}
+.hira-option,.answer,.vocab-option{display:flex;align-items:center;gap:10px;line-height:1.45;}
+.choice-letter{flex:0 0 28px;width:28px;height:28px;border-radius:8px;display:inline-grid;place-items:center;background:#1b1b1b;border:1px solid #333;color:#ddd;font-size:13px;font-weight:700;}
+.hira-option.selected .choice-letter,.answer.selected .choice-letter,.vocab-option.selected .choice-letter{background:#8f1717;border-color:#b71919;color:#fff;}
+.vocab-meaning{font-weight:500;}
