@@ -2,7 +2,7 @@ import { runFx } from './cardstyle.js';
 const VOCAB_SOURCE='https://raw.githubusercontent.com/vitto4/MinnaNoDS/main/minna-no-ds.yaml';
 const TRANSLATE_URL='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=id&dt=t&q=';
 const TRANSLATE_FALLBACK='https://api.mymemory.translated.net/get?q=';
-const CACHE_KEY='itco_minna_vocab_v10_bab1_25';
+const CACHE_KEY='itco_minna_vocab_v11_bab1_25_buku';
 let vocabCache=null;
 let vocabLoadPromise=null;
 let kotobaTimerHandle=null;
@@ -57,6 +57,9 @@ const OFFLINE_ID={
 
 // Kamus Bahasa Indonesia bawaan (tanpa internet), kuncinya tulisan kana. Dicek lebih dulu sebelum terjemahan online.
 const ID_DICT={
+ // Bentuk berkonteks dari buku (ditaruh sebelum bentuk dasar agar arti tidak jatuh ke terjemahan mesin).
+ 'います［こどもが~］':'ada [anak], mempunyai [anak]','います［にほんに~］':'tinggal, berada [di Jepang]','やすみます［かいしゃを~］':'tidak masuk, libur [dari kantor]','カレー［ライス］':'kari [dengan nasi]',
+ 'おおい［ひとが~］':'banyak [orang]','すくない［ひとが~］':'sedikit [orang]','あります［おまつりが~］':'ada [festival]','つきます［えきに~］':'tiba [di stasiun]','とります［としを~］':'bertambah usia, menjadi tua','ききます［せんせいに~］':'bertanya [kepada guru]','さわります［ドアに~］':'menyentuh [pintu]','でます［おつりが~］':'keluar [uang kembalian]','わたります［はしを~］':'menyeberangi [jembatan]','まがります［みぎへ~］':'belok [ke kanan]','おくります［ひとを~］':'mengantar [orang]','くれます':'memberi [kepada saya/kelompok saya]','きます［きものを~］':'memakai [kimono]','はきます［くつを~］':'memakai [sepatu]','かぶります［ぼうしを~］':'memakai [topi]','かけます［めがねを~］':'memakai [kacamata]','します［ネクタイを~］':'memakai [dasi]',
  'わたし':'Saya','わたしたち':'Kami, kita','あなた':'Anda, kamu','あのひと(あのかた)':'Orang itu (あのかた = bentuk sopan: beliau)','あのひと':'Orang itu','あのかた':'Beliau (bentuk sopan dari あの人)',
  'みなさん':'Anda sekalian, semuanya','~さん':'Bapak/Ibu/Saudara ~ (sapaan sopan)','~ちゃん':'Dik ~ (sapaan akrab untuk anak kecil)','~くん':'Dik ~ (sapaan untuk anak laki-laki)','~じん':'Orang ~ (kebangsaan)',
  'せんせい':'Guru, dosen (sapaan)','きょうし':'Guru, dosen (profesi)','がくせい':'Siswa, mahasiswa','かいしゃいん':'Karyawan perusahaan','しゃいん':'Karyawan perusahaan ~','ぎんこういん':'Pegawai bank','いしゃ':'Dokter','けんきゅうしゃ':'Peneliti','エンジニア':'Insinyur',
@@ -131,12 +134,25 @@ const ID_DICT={
  'こと':'hal (~のこと: hal ~)','ひま':'waktu luang','［いろいろ］おせわになりました。':'Terima kasih banyak bantuan Anda yang telah diberikan',
  'がんばります':'berusaha, bekerja keras','どうぞおげんきで。':'Semoga sehat-sehat selalu (digunakan ketika perpisahan dalam jangka waktu lama)','ベトナム':'Vietnam'
 };
-function jkey(s){return String(s||'').replace(/[\s\u3000]/g,'').replace(/（/g,'(').replace(/）/g,')').replace(/[～〜]/g,'~').replace(/？/g,'?');}
+function _normDictKey(s){return String(s||'').replace(/[\s\u3000]/g,'').replace(/（/g,'(').replace(/）/g,')').replace(/［/g,'[').replace(/］/g,']').replace(/[～〜]/g,'~').replace(/？/g,'?').replace(/。/g,'');}
+const ID_DICT_NORM=Object.fromEntries(Object.entries(ID_DICT).map(([k,v])=>[_normDictKey(k),v]));
+function jkey(s){return String(s||'').replace(/[\s\u3000]/g,'').replace(/（/g,'(').replace(/）/g,')').replace(/［/g,'[').replace(/］/g,']').replace(/[～〜]/g,'~').replace(/？/g,'?').replace(/。/g,'');}
+function dictCandidates(raw){
+  const k=jkey(raw); if(!k)return [];
+  const out=[k];
+  // Buku memakai keterangan konteks di dalam tanda [ ... ]. Coba bentuk lengkap dulu,
+  // lalu bentuk kata dasarnya supaya "おおい［ひとが～］" -> "ooi" tidak jatuh ke terjemahan online.
+  const noSquare=k.replace(/\[[^\]]*\]/g,''); if(noSquare&&noSquare!==k)out.push(noSquare);
+  const noParen=k.replace(/\([^)]*\)/g,''); if(noParen&&noParen!==k)out.push(noParen);
+  const base=noSquare.replace(/\([^)]*\)/g,''); if(base&&!out.includes(base))out.push(base);
+  return [...new Set(out)];
+}
 function dictMeaning(x){
   for(const raw of [x.kana,x.kanji]){
-    const k=jkey(raw); if(!k)continue;
-    if(ID_DICT[k])return ID_DICT[k];
-    const base=k.replace(/\(.*?\)/g,''); if(ID_DICT[base])return ID_DICT[base];
+    for(const k of dictCandidates(raw)){
+      if(ID_DICT[k])return ID_DICT[k];
+      if(ID_DICT_NORM[k])return ID_DICT_NORM[k];
+    }
   }
   return '';
 }
@@ -181,7 +197,10 @@ async function translateMeaning(en){
 }
 async function translateItems(items){
   const cache=getTranslationCache();
-  const need=[...new Set(items.filter(x=>!dictMeaning(x)).map(x=>x.meaning_en).filter(x=>x&&!cache[x]))];
+  // Bab 1–25 memakai kamus Indonesia bawaan agar arti konsisten dengan materi buku.
+  // Jangan memakai hasil terjemahan mesin untuk bab-bab ini karena sering menghasilkan
+  // kalimat aneh seperti: "banyak [orang], banyak".
+  const need=[...new Set(items.filter(x=>x.lesson>25&&!dictMeaning(x)).map(x=>x.meaning_en).filter(x=>x&&!cache[x]))];
   for(let i=0;i<need.length;i+=10){
     await Promise.all(need.slice(i,i+10).map(async en=>{
       const id=await translateMeaning(en); if(id)cache[en]=id;
