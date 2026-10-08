@@ -1,5 +1,5 @@
 import { runFx } from './cardstyle.js';
-import { ID_BY_LESSON } from './vocab-id.js';
+import { BOOK, toRomaji } from './vocab-book.js';
 const VOCAB_SOURCE='https://raw.githubusercontent.com/vitto4/MinnaNoDS/main/minna-no-ds.yaml';
 const TRANSLATE_URL='https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=id&dt=t&q=';
 const TRANSLATE_FALLBACK='https://api.mymemory.translated.net/get?q=';
@@ -39,9 +39,30 @@ function parseMinnaYaml(text){
   }
   return out;
 }
+function bookRows(){
+  const out=[];
+  for(const l of Object.keys(BOOK).map(Number).sort((a,b)=>a-b))BOOK[l].forEach((str,i)=>{
+    const p=str.split('|');const hasKanji=p.length>=3;
+    const kanji=hasKanji?p[0]:'',kana=hasKanji?p[1]:p[0],arti=p[p.length-1];
+    out.push({id:`${l}-${i+1}`,lesson:l,number:i+1,kanji,kana,romaji:toRomaji(kana),meaning_en:'',meaning_id:arti});
+  });
+  return out;
+}
+function applyEdits(rows,edits){
+  const map=new Map(edits.filter(e=>e.number!=null).map(e=>[`${e.lesson}-${e.number}`,e]));const out=[];
+  for(let r of rows){const e=map.get(r.id);if(e){if(e.hidden)continue;r={...r,kanji:e.kanji??r.kanji,kana:e.kana??r.kana,meaning_id:e.arti??r.meaning_id};r.romaji=toRomaji(r.kana);}out.push(r);}
+  edits.filter(e=>e.number==null&&!e.hidden).forEach((e,i)=>out.push({id:`${e.lesson}-x${e.id}`,lesson:e.lesson,number:1000+i,kanji:e.kanji||'',kana:e.kana||'',romaji:toRomaji(e.kana||''),meaning_en:'',meaning_id:e.arti||''}));
+  return out;
+}
 async function loadVocab(){
   if(vocabCache)return vocabCache;if(vocabLoadPromise)return vocabLoadPromise;
-  vocabLoadPromise=(async()=>{const r=await fetch(VOCAB_SOURCE,{cache:'no-store'});if(!r.ok)throw new Error('Data kosakata gagal dimuat.');const text=await r.text();vocabCache=parseMinnaYaml(text);if(!vocabCache.length)throw new Error('Data kosakata kosong.');return vocabCache;})().finally(()=>{vocabLoadPromise=null;});
+  vocabLoadPromise=(async()=>{
+    const book=bookRows();let old=[];
+    try{const r=await fetch(VOCAB_SOURCE,{cache:'no-store'});if(r.ok)old=parseMinnaYaml(await r.text()).filter(x=>x.lesson<=25&&!BOOK[x.lesson]);}catch{}
+    let edits=[];try{const m=await import('./supabase.js');if(m.sbReady){const {data}=await m.supabase.from('vocab_edits').select('*');edits=data||[];}}catch{}
+    vocabCache=applyEdits([...book,...old],edits).sort((a,b)=>a.lesson-b.lesson||a.number-b.number);
+    if(!vocabCache.length)throw new Error('Data kosakata gagal dimuat.');return vocabCache;
+  })().finally(()=>{vocabLoadPromise=null;});
   return vocabLoadPromise;
 }
 function getTranslationCache(){try{return JSON.parse(localStorage.getItem(CACHE_KEY)||'{}')}catch{return {}}}
@@ -69,7 +90,7 @@ const ID_DICT={
 };
 function jkey(s){return String(s||'').replace(/[\s\u3000]/g,'').replace(/（/g,'(').replace(/）/g,')').replace(/[～〜]/g,'~').replace(/？/g,'?');}
 function dictMeaning(x){
-  const byNo=ID_BY_LESSON[x.lesson]?.[Number(x.number)-1]; if(byNo)return byNo;
+  if(x.meaning_id)return x.meaning_id;
   for(const raw of [x.kana,x.kanji]){
     const k=jkey(raw); if(!k)continue;
     if(ID_DICT[k])return ID_DICT[k];
@@ -134,7 +155,7 @@ function lessonCard(n,count){return `<button type="button" class="vocab-chapter-
 function testSelectionButton(){return `<div class="vocab-choice-test card"><div><div class="eyebrow">🎯 TEST PILIHAN KOSAKATA</div><h3>Pilih sendiri bab yang mau kamu test</h3><p class="muted">Centang satu, beberapa, atau semua bab. Pilihanmu hanya berlaku untuk test ini.</p></div><button type="button" class="btn red" id="openVocabChoiceTest">Pilih Bab &amp; Mulai Test</button></div>`;}
 function selectionModal(initial=[1]){
   const modal=document.createElement('div');modal.className='vocab-setup-backdrop';modal.id='vocabSetupModal';
-  modal.innerHTML=`<div class="vocab-setup-card"><button class="bunpou-close" id="vocabSetupClose">×</button><div class="eyebrow">🎯 TEST PILIHAN KOSAKATA</div><h2>Pilih Bab untuk Test</h2><p class="muted">Centang bab yang ingin kamu gunakan.</p><div class="vocab-pick-tools"><button type="button" class="btn" data-pick="all">☑ Semua</button><button type="button" class="btn" data-pick="1-25">Bab 1–25</button><button type="button" class="btn" data-pick="26-50">Bab 26–50</button><button type="button" class="btn" data-pick="none">Kosongkan</button></div><div class="vocab-choice-grid">${Array.from({length:50},(_,i)=>{const n=i+1;return `<label class="vocab-choice"><input type="checkbox" value="${n}" ${initial.includes(n)?'checked':''}><span>Bab ${n}</span></label>`}).join('')}</div><div class="vocab-setup-section"><b>Mode</b><div class="segmented"><button class="seg active" data-vmode="jp_id">🇯🇵 Jepang → 🇮🇩 Indonesia</button><button class="seg" data-vmode="id_jp">🇮🇩 Indonesia → 🇯🇵 Jepang</button></div></div><div class="vocab-setup-section"><b>Jumlah soal</b><div class="vocab-counts"><button class="btn active" data-vcount="10">10</button><button class="btn" data-vcount="20">20</button><button class="btn" data-vcount="30">30</button><button class="btn" data-vcount="50">50</button></div></div><button class="btn red full" id="startKotoba">🚀 Mulai Test</button></div>`;
+  modal.innerHTML=`<div class="vocab-setup-card"><button class="bunpou-close" id="vocabSetupClose">×</button><div class="eyebrow">🎯 TEST PILIHAN KOSAKATA</div><h2>Pilih Bab untuk Test</h2><p class="muted">Centang bab yang ingin kamu gunakan.</p><div class="vocab-pick-tools"><button type="button" class="btn" data-pick="all">☑ Semua</button><button type="button" class="btn" data-pick="1-25">Bab 1–25</button><button type="button" class="btn" data-pick="none">Kosongkan</button></div><div class="vocab-choice-grid">${Array.from({length:25},(_,i)=>{const n=i+1;return `<label class="vocab-choice"><input type="checkbox" value="${n}" ${initial.includes(n)?'checked':''}><span>Bab ${n}</span></label>`}).join('')}</div><div class="vocab-setup-section"><b>Mode</b><div class="segmented"><button class="seg active" data-vmode="jp_id">🇯🇵 Jepang → 🇮🇩 Indonesia</button><button class="seg" data-vmode="id_jp">🇮🇩 Indonesia → 🇯🇵 Jepang</button></div></div><div class="vocab-setup-section"><b>Jumlah soal</b><div class="vocab-counts"><button class="btn active" data-vcount="10">10</button><button class="btn" data-vcount="20">20</button><button class="btn" data-vcount="30">30</button><button class="btn" data-vcount="50">50</button></div></div><button class="btn red full" id="startKotoba">🚀 Mulai Test</button></div>`;
   document.body.appendChild(modal);let mode='jp_id',count=10;
   const boxes=()=>[...modal.querySelectorAll('.vocab-choice input')];
   modal.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{const p=b.dataset.pick;boxes().forEach(x=>x.checked=p==='all'||(p==='1-25'&&+x.value<=25)||(p==='26-50'&&+x.value>=26));});
@@ -146,7 +167,7 @@ function selectionModal(initial=[1]){
 }
 
 export async function kosakata({state,shell,esc=vesc,norm=vnorm}){
-  shell(`<section class="section vocab-page"><div class="section-title"><div><div class="eyebrow">📖 KOSAKATA</div><h2>Minna no Nihongo I · Bab 1–50</h2><p class="muted">Klik kartu Bab untuk membaliknya. Pilih Pelajari untuk melihat kosakata atau Test untuk langsung menguji bab tersebut.</p></div></div><div id="vocabMount"><div id="vocabLoading" class="card vocab-loading">Memuat data kosakata…</div></div></section>`);
+  shell(`<section class="section vocab-page"><div class="section-title"><div><div class="eyebrow">📖 KOSAKATA</div><h2>Minna no Nihongo I · Bab 1–25</h2><p class="muted">Klik kartu Bab untuk membaliknya. Pilih Pelajari untuk melihat kosakata atau Test untuk langsung menguji bab tersebut.</p></div></div><div id="vocabMount"><div id="vocabLoading" class="card vocab-loading">Memuat data kosakata…</div></div></section>`);
   try{
     const data=await loadVocab();
     const byLesson=n=>data.filter(x=>x.lesson===n);
@@ -160,11 +181,10 @@ export async function kosakata({state,shell,esc=vesc,norm=vnorm}){
       document.querySelector('#lessonTest').onclick=()=>{window.__kotobaSetup={lessons:[n],mode:'jp_id',count:10};location.hash='tes-kotoba';};
     };
     const render=async()=>{
-      const counts=Object.fromEntries(Array.from({length:50},(_,i)=>[i+1,byLesson(i+1).length]));
+      const counts=Object.fromEntries(Array.from({length:25},(_,i)=>[i+1,byLesson(i+1).length]));
       const first=Array.from({length:25},(_,i)=>i+1).map(n=>lessonCard(n,counts[n])).join('');
-      const second=Array.from({length:25},(_,i)=>i+26).map(n=>lessonCard(n,counts[n])).join('');
       const mount=document.querySelector('#vocabMount');if(!mount)return;
-      mount.innerHTML=`<div class="vocab-chapter-grid">${first}</div><div class="vocab-chapter-grid">${second}</div>${testSelectionButton()}<p class="vocab-source-note">Data kosakata pihak ketiga digunakan sebagai referensi pendamping buku. Buku Minna no Nihongo tetap menjadi sumber utama pembelajaran.</p>`;
+      mount.innerHTML=`<div class="vocab-chapter-grid">${first}</div>${testSelectionButton()}<p class="vocab-source-note">Kosakata mengikuti urutan dan arti di buku Minna no Nihongo I (Bab 1–25).</p>`;
       runFx();document.querySelectorAll('[data-chapter]').forEach(card=>card.onclick=()=>{card.classList.toggle('flipped');});
       document.querySelectorAll('[data-learn]').forEach(el=>el.onclick=e=>{e.stopPropagation();renderLesson(Number(el.dataset.learn));});
       document.querySelectorAll('[data-test]').forEach(el=>el.onclick=e=>{e.stopPropagation();window.__kotobaSetup={lessons:[Number(el.dataset.test)],mode:'jp_id',count:10};location.hash='tes-kotoba';});

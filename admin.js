@@ -1,6 +1,7 @@
 import { supabase, sbReady, requireSupabase } from './supabase.js';
 import { CONFIG } from './config.js';
 import { defaultBunpou } from './default-bunpou.js';
+import { BOOK } from './vocab-book.js';
 import { PRESETS, DEFAULT_STYLE, cleanStyle, applyCardStyle, saveCardStyle, fetchCardStyle, loadCachedStyle, runFx } from './cardstyle.js';
 import { NEW_DESC, NEW_DEV, OLD_DESC, OLD_DEV } from './copy.js';
 const root=document.querySelector('#admin-app');
@@ -135,7 +136,7 @@ function partModeBadge(x){
 
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
-  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL</small></div></div><nav>${[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['parts','Part'],['questions','Soal'],['quick','Quick Soal'],['timer','Kelola Timer'],['users','User'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']].map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}</nav><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
+  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL</small></div></div><nav>${[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['vocab','Kosakata'],['parts','Part'],['questions','Soal'],['quick','Quick Soal'],['timer','Kelola Timer'],['users','User'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']].map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}</nav><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
   document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});
   document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};
 }
@@ -143,7 +144,33 @@ function app(html){
 async function checkAdmin(){const {data,error}=await supabase.rpc('is_admin');if(error)return {ok:false,msg:'Fungsi keamanan is_admin belum ada di database. Jalankan file supabase-accounts.sql di Supabase SQL Editor.'};return data===true?{ok:true}:{ok:false,msg:'Akun ini bukan Admin.'};}
 async function boot(){if(!sbReady)return login('Supabase belum dikonfigurasi.');const {data}=await supabase.auth.getSession();user=data.session?.user||null;if(!user)return login();const a=await checkAdmin();if(!a.ok){user=null;return login(a.msg);}render();}
 function login(msg=''){root.innerHTML=`<div class="login-wrap"><div class="login-card"><div class="admin-logo">⛩</div><div class="eyebrow">ITCO JAPAN</div><h1>Admin Panel</h1><p class="muted">Masuk menggunakan akun Admin Supabase.</p>${msg?`<div class="alert">${esc(msg)}</div>`:''}<input id="email" class="input" type="email" placeholder="Email"><input id="password" class="input" type="password" placeholder="Password"><button id="login" class="btn red fullbtn">Masuk</button></div></div>`;document.querySelector('#login').onclick=async()=>{const {error}=await supabase.auth.signInWithPassword({email:document.querySelector('#email').value,password:document.querySelector('#password').value});if(error)return login(error.message);user=(await supabase.auth.getUser()).data.user;const a=await checkAdmin();if(!a.ok){await supabase.auth.signOut();user=null;return login(a.msg);}render();};}
-async function render(){if(current==='dashboard')return dashboard();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
+const vx=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function kosakata(){
+  const lesson=Number(sessionStorage.getItem('vocabLesson')||1);
+  const {data:ed,error}=await supabase.from('vocab_edits').select('*').eq('lesson',lesson);
+  const warn=error?`<div class="card admin-card"><b>Tabel belum dibuat.</b> Jalankan file <code>supabase-kosakata.sql</code> di Supabase → SQL Editor, lalu muat ulang halaman ini.</div>`:'';
+  const edits=ed||[];const byNo=new Map(edits.filter(x=>x.number!=null).map(x=>[x.number,x]));
+  const rows=(BOOK[lesson]||[]).map((str,i)=>{const p=str.split('|'),hk=p.length>=3,n=i+1,e=byNo.get(n);const b={kanji:hk?p[0]:'',kana:hk?p[1]:p[0],arti:p[p.length-1]};return {n,kanji:e?.kanji??b.kanji,kana:e?.kana??b.kana,arti:e?.arti??b.arti,hidden:!!e?.hidden,eid:e?.id||'',isNew:false};});
+  edits.filter(x=>x.number==null).forEach(e=>rows.push({n:'',kanji:e.kanji||'',kana:e.kana||'',arti:e.arti||'',hidden:!!e.hidden,eid:e.id,isNew:true}));
+  const opts=Array.from({length:25},(_,i)=>`<option value="${i+1}" ${i+1===lesson?'selected':''}>Bab ${i+1}</option>`).join('');
+  const list=rows.map((r,i)=>`<div class="card admin-card" style="${r.hidden?'opacity:.5':''}"><div><b>${vx(r.kanji||r.kana)}</b> ${r.kanji?`<small>${vx(r.kana)}</small>`:''}${r.isNew?' <small>(tambahan)</small>':''}${r.hidden?' <small>(disembunyikan)</small>':''}</div><div class="muted">${vx(r.arti)}</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn" data-vedit="${i}">Ubah</button><button class="btn" data-vhide="${i}">${r.hidden?'Tampilkan':'Sembunyikan'}</button>${r.eid?`<button class="btn" data-vreset="${i}">${r.isNew?'Hapus':'Kembalikan ke buku'}</button>`:''}</div></div>`).join('');
+  app(`<div class="admin-header"><div><div class="eyebrow">KOSAKATA</div><h1>Kelola Kosakata</h1></div></div>${warn}
+  <div class="card admin-card"><label>Pilih Bab<select class="input" id="vLesson">${opts}</select></label></div>
+  <form id="vForm" class="card admin-card form-grid"><b id="vTitle">Tambah kata baru</b><input type="hidden" name="n"><input type="hidden" name="eid">
+  <label>Kanji (boleh kosong)<input class="input" name="kanji"></label><label>Hiragana/Katakana<input class="input" name="kana" required></label><label>Arti Bahasa Indonesia<textarea class="input" name="arti" rows="3" required></textarea></label>
+  <div style="display:flex;gap:8px"><button class="btn primary" type="submit">Simpan</button><button class="btn" type="button" id="vCancel">Batal</button></div></form>${list}`);
+  const form=document.querySelector('#vForm');
+  const reset=()=>{form.reset();form.n.value='';form.eid.value='';document.querySelector('#vTitle').textContent='Tambah kata baru';};
+  document.querySelector('#vLesson').onchange=e=>{sessionStorage.setItem('vocabLesson',e.target.value);kosakata();};
+  document.querySelector('#vCancel').onclick=reset;
+  form.onsubmit=async e=>{e.preventDefault();const o=Object.fromEntries(new FormData(form));const row={lesson,number:o.n===''?null:Number(o.n),kanji:o.kanji.trim(),kana:o.kana.trim(),arti:o.arti.trim(),hidden:false};
+    const {error:er}=o.eid?await supabase.from('vocab_edits').update(row).eq('id',o.eid):await supabase.from('vocab_edits').insert(row);if(er)return alert(er.message);kosakata();};
+  document.querySelectorAll('[data-vedit]').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.vedit];form.n.value=r.n;form.eid.value=r.eid;form.kanji.value=r.kanji;form.kana.value=r.kana;form.arti.value=r.arti;document.querySelector('#vTitle').textContent='Ubah kata';form.scrollIntoView({behavior:'smooth'});});
+  document.querySelectorAll('[data-vhide]').forEach(b=>b.onclick=async()=>{const r=rows[+b.dataset.vhide];const row={lesson,number:r.n===''?null:Number(r.n),kanji:r.kanji,kana:r.kana,arti:r.arti,hidden:!r.hidden};
+    const {error:er}=r.eid?await supabase.from('vocab_edits').update({hidden:!r.hidden}).eq('id',r.eid):await supabase.from('vocab_edits').insert(row);if(er)return alert(er.message);kosakata();});
+  document.querySelectorAll('[data-vreset]').forEach(b=>b.onclick=async()=>{const r=rows[+b.dataset.vreset];if(!confirm(r.isNew?'Hapus kata tambahan ini?':'Kembalikan kata ini ke versi buku?'))return;const {error:er}=await supabase.from('vocab_edits').delete().eq('id',r.eid);if(er)return alert(er.message);kosakata();});
+}
+async function render(){if(current==='dashboard')return dashboard();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='vocab')return kosakata();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
 
 async function tampilan(){
   let st=cleanStyle(await fetchCardStyle()||loadCachedStyle()||DEFAULT_STYLE);
