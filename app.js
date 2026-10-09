@@ -65,6 +65,20 @@ function renderBunpouExamples(examples){return examples.map(e=>`<div class="bunp
 function renderConversation(rows){return rows.map(r=>`<div class="kaiwa-line"><b>${esc(r[0]||'A')}</b><div><div class="jp">${esc(r[1]||'')}</div><div class="romaji">${esc(r[2]||'')}</div><div class="meaning">${esc(r[3]||'')}</div></div></div>`).join('');}
 function renderBunpouCard(x,i=0){return `<button type="button" class="bunpou-item fx-float fx-ring" data-bunpou-index="${i}"><span class="bunpou-item-tag">${x.category==='partikel'?'PARTIKEL':'BUNPOU'}</span><strong>${esc(x.title||x.pattern||'Materi')}</strong><span class="bunpou-item-pattern">${esc(x.pattern||'')}</span><span class="bunpou-item-arrow">›</span></button>`;}
 function renderBunpouDetail(x){return `<div class="bunpou-modal-backdrop" id="bunpouModal"><div class="bunpou-modal" role="dialog" aria-modal="true"><button type="button" class="bunpou-close" id="bunpouClose" aria-label="Tutup">×</button><div class="bunpou-tag">${x.category==='partikel'?'PARTIKEL':'BUNPOU'}</div><h2>${esc(x.title||x.pattern||'Materi')}</h2><div class="bunpou-pattern">${esc(x.pattern||'')}</div><p class="bunpou-meaning"><b>Arti:</b> ${esc(x.meaning||'')}</p><p class="bunpou-detail-text"><b>Fungsi:</b> ${esc(x.usage||'')}</p><div class="bunpou-block"><b>Bentuk sebelum pola</b><p>${esc(x.before_form||'')}</p></div>${x.notes?`<div class="bunpou-block"><b>Catatan</b><p>${esc(x.notes)}</p></div>`:''}<div class="bunpou-block"><b>Contoh</b>${renderBunpouExamples(x.examples)}</div><div class="bunpou-block"><b>Percakapan KAIWA</b><div class="kaiwa">${renderConversation(x.conversation)}</div></div></div></div>`;}
+function applyAppManifest(b){
+  const name=(b.app_name||'').trim()||(b.site_name||'').trim()||CONFIG.siteName;
+  const short=(b.app_short_name||'').trim()||name.slice(0,12);
+  const o=location.origin+'/',abs=f=>new URL(f,o).href;
+  const icon=(b.app_icon_url||'').trim();
+  const icons=icon?[{src:icon,sizes:'192x192',type:'image/png',purpose:'any'},{src:icon,sizes:'512x512',type:'image/png',purpose:'any'}]
+    :[{src:abs('icon-192.png'),sizes:'192x192',type:'image/png',purpose:'any'},{src:abs('icon-512.png'),sizes:'512x512',type:'image/png',purpose:'any'},{src:abs('icon-maskable-512.png'),sizes:'512x512',type:'image/png',purpose:'maskable'}];
+  const m={id:o,name,short_name:short,description:'Belajar bahasa Jepang: Kana, Kanji, Bunpou, dan latihan soal interaktif.',start_url:o,scope:o,display:'standalone',orientation:'portrait',background_color:'#050505',theme_color:'#050505',lang:'id',icons};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/manifest+json'}));
+  let l=document.querySelector('link[rel="manifest"]');if(!l){l=document.createElement('link');l.rel='manifest';document.head.appendChild(l);}
+  l.setAttribute('href',url);
+  const t=document.querySelector('meta[name="apple-mobile-web-app-title"]')||Object.assign(document.createElement('meta'),{name:'apple-mobile-web-app-title'});t.content=name;if(!t.parentNode)document.head.appendChild(t);
+  const ai=document.querySelector('link[rel="apple-touch-icon"]');if(ai&&icon)ai.setAttribute('href',icon);
+}
 async function loadBranding(force=false){
   if(state.branding && !force) return state.branding;
   let b={site_name:CONFIG.siteName,corporate_name:CONFIG.corporateName,creator:CONFIG.creator,hero_image:CONFIG.heroImage,description:NEW_DESC,logo_url:'',favicon_url:'',whatsapp_url:'',telegram_url:'',instagram_url:'',developer_logo_url:''};
@@ -73,7 +87,8 @@ async function loadBranding(force=false){
   fixDesc(b);
   state.branding=b; document.title=b.site_name||CONFIG.siteName;
   try{localStorage.setItem('itco_brand',JSON.stringify({n:b.site_name||CONFIG.siteName,c:b.corporate_name||'',l:b.logo_url||''}));}catch{}
-  if(b.favicon_url) document.querySelector('#favicon')?.setAttribute('href',b.favicon_url);
+  if(b.favicon_url&&!/^https?:\/\/(www\.)?ibb\.co\//i.test(b.favicon_url)){const f=document.querySelector('#favicon');if(f){f.setAttribute('href',b.favicon_url);f.removeAttribute('type');}}
+  try{applyAppManifest(b);}catch(e){console.warn('Manifest:',e);}
   const cs=await styleJob; if(cs) applyCardStyle(cs);
   return b;
 }
