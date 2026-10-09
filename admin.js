@@ -331,6 +331,7 @@ function injectPdfImport(){
   const form=document.querySelector('#qForm');if(!form||document.querySelector('#pdfCard'))return;
   form.closest('.card').insertAdjacentHTML('beforebegin',`<div class="card admin-card" id="pdfCard"><h3>Impor Soal dari PDF</h3><p class="muted">Pilih file PDF soal (teksnya harus bisa disalin). Nomor soal dan pilihan a–d terdeteksi otomatis. Kunci jawaban kamu isi di pratinjau.</p><label>Part tujuan<select class="input" id="pdfPart">${document.querySelector('#qPart').innerHTML}</select></label><input type="file" accept="application/pdf" id="pdfFile" class="input"><div id="pdfOut"></div><hr style="margin:16px 0;opacity:.2"><b>Sudah punya soal? Cocokkan dengan PDF</b><p class="muted">Tidak perlu impor ulang. Pilih PDF yang sama: halaman dan nomor soal yang sudah ada diisi otomatis sesuai PDF (Part tujuan di atas), foto/audio tetap aman, dan salinan ganda digabung.</p><input type="file" accept="application/pdf" id="pdfSync" class="input"></div>`);
   document.querySelector('#pdfSync').onchange=e=>syncPdf(e.target.files[0]);
+  const pp=document.querySelector('#pdfPart'),qp=document.querySelector('#qPart');pp.value=qp.value;qp.addEventListener('change',()=>{pp.value=qp.value;});
   document.querySelector('#pdfFile').onchange=e=>handlePdf(e.target.files[0]);
 }
 async function handlePdf(file){
@@ -395,7 +396,16 @@ async function syncPdf(file){
     }
     const {data:ex2}=await supabase.from('questions').select('*').eq('part_id',part);
     const removed=await mergeDupes(ex2||[]);
-    out.innerHTML='';alert(`${matched} soal dicocokkan dengan halaman & nomor PDF.\n${removed} salinan ganda digabung.\n${unmatched} soal tidak ditemukan di PDF (tetap di "Soal manual").`);render();
+    const {data:ex3}=await supabase.from('questions').select('*').eq('part_id',part);
+    const {data:oth}=await supabase.from('questions').select('*').neq('part_id',part).or('photo_url.not.is.null,audio_url.not.is.null');
+    const mk={};(oth||[]).forEach(o=>{if(o.type!=='multiple_choice')return;const m=mk[optKey(optsArr(o),o.answer)]=mk[optKey(optsArr(o),o.answer)]||{};if(o.photo_url&&!m.photo_url)m.photo_url=o.photo_url;if(o.audio_url&&!m.audio_url)m.audio_url=o.audio_url;});
+    let copied=0;
+    for(const x of ex3||[]){const patch={};const m=x.type==='multiple_choice'?mk[optKey(optsArr(x),x.answer)]:null;
+      if(m){if(m.photo_url&&!x.photo_url){patch.photo_url=m.photo_url;if(!x.media_url){patch.media_url=m.photo_url;patch.media_type='image';}}if(m.audio_url&&!x.audio_url)patch.audio_url=m.audio_url;}
+      if(/Lihat gambar/.test(x.prompt||''))patch.prompt='';
+      if(Object.keys(patch).length){const {error:pe}=await supabase.from('questions').update(patch).eq('id',x.id);if(pe)throw pe;if(patch.photo_url||patch.audio_url)copied++;}}
+    sessionStorage.setItem('qPartSel',part);
+    out.innerHTML='';alert(`${matched} soal dicocokkan dengan halaman & nomor PDF.\n${copied} foto/audio disalin dari soal yang sama di Part lain.\n${removed} salinan ganda digabung.\n${unmatched} soal tidak ditemukan di PDF (tetap di "Soal manual").`);render();
   }catch(err){out.innerHTML=`<p class="muted">${esc(err.message||err)}</p>`;}
 }
 async function questions(){const r=await questions0();injectPdfImport();return r;}
@@ -465,8 +475,7 @@ async function questions0(){
   const typeEl=document.querySelector('#qType'), optField=document.querySelector('#optionsField');
   const syncType=()=>{optField.style.display=typeEl.value==='multiple_choice'?'':'none';};
   typeEl.onchange=syncType; syncType();
-  document.querySelector('#qPart').onchange=e=>renderList(e.target.value);
-  renderList(document.querySelector('#qPart').value);
+  {const sel=document.querySelector('#qPart');const saved=sessionStorage.getItem('qPartSel');if(saved&&[...sel.options].some(o=>o.value===saved))sel.value=saved;sel.onchange=e=>{sessionStorage.setItem('qPartSel',e.target.value);renderList(e.target.value);};renderList(sel.value);}
   document.querySelector('#qForm').onsubmit=async e=>{
     e.preventDefault();
     const fd=new FormData(e.target), type=fd.get('type'), prompt=sanitizePromptHTML(editor.innerHTML.trim());
