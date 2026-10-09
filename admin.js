@@ -302,20 +302,18 @@ async function parts(){
   document.querySelectorAll('[data-part-open]').forEach(row=>{row.onclick=()=>partQuestions(row.dataset.partOpen);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();partQuestions(row.dataset.partOpen)}}});
 }
 async function partQuestions(partId){
-  let [{data:part},{data:qs,error}]=await Promise.all([
+  const [{data:part},{data:qs,error}]=await Promise.all([
     supabase.from('parts').select('*').eq('id',partId).single(),
-    supabase.from('questions').select('*').eq('part_id',partId).order('source_page',{ascending:true,nullsFirst:false}).order('q_number',{ascending:true,nullsFirst:false}).order('created_at',{ascending:true})
+    supabase.from('questions').select('*').eq('part_id',partId).order('created_at',{ascending:true})
   ]);
-  if(error){const r2=await supabase.from('questions').select('*').eq('part_id',partId).order('created_at',{ascending:true});qs=r2.data;error=r2.error;}
   if(error)return alert(error.message);
-  const rows=qs||[];const seqP={};rows.forEach(r=>{const k=r.source_page??'m';seqP[k]=(seqP[k]||0)+1;r._no=seqP[k];});
+  const rows=qs||[];
   app(`<div class="admin-header"><div><div class="eyebrow">PART ${String(part?.part_number||'').padStart(2,'0')}</div><h1>${esc(part?.name||'Part')}</h1><p class="muted">${rows.length} soal · Kelola soal, foto, dan audio langsung dari Part ini.</p></div><div class="toolbar"><button id="backParts" class="btn">← Kembali ke Part</button><button id="goQuick" class="btn red">＋ Tambah Soal</button></div></div>
   <div class="card admin-card"><h3>Pengaturan Soal &amp; Timer</h3><form id="partSetupForm">${partSetupHTML(part||{})}<button class="btn red fullbtn" type="submit">Simpan Pengaturan</button></form></div>
-  <div class="card admin-card"><div class="part-question-list">${rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:34px 0 8px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<article class="part-question-card" data-qcard="${x.id}">
-    <div class="part-question-main"><div class="question-number">${x._no}</div><div class="part-question-copy"><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}</div></div>
+  <div class="card admin-card"><div class="part-question-list">${rows.map((x,i)=>`<article class="part-question-card" data-qcard="${x.id}">
+    <div class="part-question-main"><div class="question-number">${i+1}</div><div class="part-question-copy"><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}</div></div>
     <div class="part-media-status">${x.photo_url?'<span class="media-pill">📷 Foto tersimpan</span>':'<span class="media-pill muted-pill">📷 Belum ada foto</span>'}${x.audio_url?'<span class="media-pill">🔊 Audio tersimpan</span>':'<span class="media-pill muted-pill">🔊 Belum ada audio</span>'}</div>
     <div class="part-question-actions"><label class="btn">📷 ${x.photo_url?'Ganti Foto':'Tambah Foto'}<input hidden type="file" accept="image/*" data-part-photo="${x.id}"></label><label class="btn">🔊 ${x.audio_url?'Ganti Audio':'Tambah Audio'}<input hidden type="file" accept="audio/*" data-part-audio="${x.id}"></label><button class="btn danger" data-part-qdel="${x.id}">Hapus Soal</button></div>
-    <div class="part-save-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span class="muted" data-fname>Belum ada file dipilih</span><button class="btn red" type="button" data-part-save="${x.id}">💾 Simpan Foto &amp; Audio</button></div>
     ${x.photo_url?`<div class="part-media-preview"><img src="${esc(x.photo_url)}" alt="Foto soal" loading="lazy"></div>`:''}
     ${x.audio_url?`<div class="part-audio-preview"><audio controls preload="metadata" src="${esc(x.audio_url)}"></audio></div>`:''}
   </article>`).join('')||'<div class="empty-state">Belum ada soal di Part ini.</div>'}</div></div>`);
@@ -323,15 +321,16 @@ async function partQuestions(partId){
   bindPartSetup(document.querySelector('#partSetupForm'));
   document.querySelector('#partSetupForm').onsubmit=async e=>{e.preventDefault();const {error,degraded}=await saveOptional(r=>supabase.from('parts').update(r).eq('id',partId),readPartSetup(e.target),PART_OPT);if(error)alert(error.message);else if(!degraded){alert('Pengaturan Part tersimpan.');partQuestions(partId);}};
   document.querySelector('#goQuick').onclick=()=>{current='quick';render();setTimeout(()=>{const sel=document.querySelector('#quickPart');if(sel){sel.value=partId;}},0)};
-  document.querySelectorAll('[data-part-photo],[data-part-audio]').forEach(i=>i.onchange=()=>{const card=i.closest('article');const names=[...card.querySelectorAll('input[type=file]')].map(f=>f.files?.[0]?.name).filter(Boolean);card.querySelector('[data-fname]').textContent=names.length?names.join(' + '):'Belum ada file dipilih';});
-  document.querySelectorAll('[data-part-save]').forEach(b=>b.onclick=async()=>{const card=b.closest('article');const ph=card.querySelector('[data-part-photo]'),au=card.querySelector('[data-part-audio]');if(!ph.files?.[0]&&!au.files?.[0])return alert('Pilih foto atau audio dulu, lalu tekan Simpan.');b.disabled=true;b.textContent='Menyimpan…';if(ph.files?.[0])await uploadMedia(ph,'photo');if(au.files?.[0])await uploadMedia(au,'audio');partQuestions(partId);});
+  document.querySelectorAll('[data-part-photo]').forEach(i=>i.onchange=()=>uploadMediaAndRefresh(i,'photo',partId));
+  document.querySelectorAll('[data-part-audio]').forEach(i=>i.onchange=()=>uploadMediaAndRefresh(i,'audio',partId));
   document.querySelectorAll('[data-part-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini dari Part?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.partQdel);if(error)alert(error.message);else partQuestions(partId);}});
 }
 async function uploadMediaAndRefresh(input,kind,partId){await uploadMedia(input,kind);partQuestions(partId);}
 
 function injectPdfImport(){
   const form=document.querySelector('#qForm');if(!form||document.querySelector('#pdfCard'))return;
-  form.closest('.card').insertAdjacentHTML('beforebegin',`<div class="card admin-card" id="pdfCard"><h3>Impor Soal dari PDF</h3><p class="muted">Pilih file PDF soal (teksnya harus bisa disalin). Nomor soal dan pilihan a–d terdeteksi otomatis. Kunci jawaban kamu isi di pratinjau.</p><label>Part tujuan<select class="input" id="pdfPart">${document.querySelector('#qPart').innerHTML}</select></label><input type="file" accept="application/pdf" id="pdfFile" class="input"><div id="pdfOut"></div></div>`);
+  form.closest('.card').insertAdjacentHTML('beforebegin',`<div class="card admin-card" id="pdfCard"><h3>Impor Soal dari PDF</h3><p class="muted">Pilih file PDF soal (teksnya harus bisa disalin). Nomor soal dan pilihan a–d terdeteksi otomatis. Kunci jawaban kamu isi di pratinjau.</p><label>Part tujuan<select class="input" id="pdfPart">${document.querySelector('#qPart').innerHTML}</select></label><input type="file" accept="application/pdf" id="pdfFile" class="input"><div id="pdfOut"></div><hr style="margin:16px 0;opacity:.2"><b>Sudah punya soal? Cocokkan dengan PDF</b><p class="muted">Tidak perlu impor ulang. Pilih PDF yang sama: halaman dan nomor soal yang sudah ada diisi otomatis sesuai PDF (Part tujuan di atas), foto/audio tetap aman, dan salinan ganda digabung.</p><input type="file" accept="application/pdf" id="pdfSync" class="input"></div>`);
+  document.querySelector('#pdfSync').onchange=e=>syncPdf(e.target.files[0]);
   document.querySelector('#pdfFile').onchange=e=>handlePdf(e.target.files[0]);
 }
 async function handlePdf(file){
@@ -359,6 +358,45 @@ function showPdfPreview(qs,out){
     qs.forEach((q,i)=>{const s=document.querySelector(`input[name=pq${i}]:checked`);if(!s)return missing.push(`${q.sec} no.${q.num}`);const options=q.opts.map((o,j)=>o||'ABCD'[j]);rows.push({part_id:part,prompt:esc(q.stem||'').replace(/\n/g,'<br>'),type:'multiple_choice',options,answer:options[+s.value],reading:'',instruction:'',active:true,q_number:q.num,source_page:q.page});});
     if(missing.length)return alert('Kunci jawaban belum diisi untuk: '+missing.slice(0,8).join(', ')+(missing.length>8?` dan ${missing.length-8} lainnya`:''));
     const {error}=await supabase.from('questions').insert(rows);if(error)return alert(/q_number|source_page/.test(error.message)?'Jalankan dulu file supabase-soal-nomor.sql di Supabase (SQL Editor), lalu coba simpan lagi.':error.message);alert(`${rows.length} soal tersimpan, berurutan sesuai nomor di PDF.`);render();};
+}
+
+const optKey=(opts,ans)=>JSON.stringify((opts||[]).map(v=>String(v).trim()).sort())+'|'+String(ans||'').trim();
+const optsArr=x=>{let o=x.options;if(typeof o==='string'){try{o=JSON.parse(o);}catch{o=[];}}return Array.isArray(o)?o:[];};
+async function mergeDupes(list){
+  const isPh=t=>/Lihat gambar/.test(t||'');const score=x=>(x.photo_url||x.audio_url?4:0)+(x.source_page!=null?2:0)+(((x.prompt||'').trim()&&!isPh(x.prompt))?1:0);
+  const groups={};list.filter(x=>x.type==='multiple_choice').forEach(x=>{(groups[optKey(optsArr(x),x.answer)]=groups[optKey(optsArr(x),x.answer)]||[]).push(x);});
+  let removed=0;
+  for(const g of Object.values(groups).filter(g=>g.length>1)){
+    const sorted=[...g].sort((a,b)=>score(b)-score(a)||String(a.created_at).localeCompare(String(b.created_at)));const keep=sorted[0];const patch={};
+    for(const o of sorted.slice(1)){
+      for(const f of ['photo_url','audio_url','media_url','media_type','source_page','q_number']){if((keep[f]===null||keep[f]===undefined||keep[f]==='')&&o[f]){patch[f]=o[f];keep[f]=o[f];}}
+      if((!(keep.prompt||'').trim()||isPh(keep.prompt))&&(o.prompt||'').trim()&&!isPh(o.prompt)){patch.prompt=o.prompt;keep.prompt=o.prompt;}
+    }
+    if(isPh(keep.prompt)&&patch.prompt===undefined)patch.prompt='';
+    if(Object.keys(patch).length){const {error}=await supabase.from('questions').update(patch).eq('id',keep.id);if(error)throw error;}
+    const {error:de}=await supabase.from('questions').delete().in('id',sorted.slice(1).map(x=>x.id));if(de)throw de;removed+=sorted.length-1;
+  }
+  return removed;
+}
+async function syncPdf(file){
+  if(!file)return;const part=document.querySelector('#pdfPart').value;if(!part)return alert('Pilih Part tujuan dulu.');
+  const out=document.querySelector('#pdfOut');out.innerHTML='<p class="muted">Mencocokkan dengan PDF…</p>';
+  try{
+    const parsed=parsePdfQuestions(await readPdfPages(file)).filter(q=>q.opts.length>=2);
+    const pk={};parsed.forEach(q=>{const ans=q.opts['abcd'.indexOf(q.key)];if(!ans)return;const k=optKey(q.opts,ans);(pk[k]=pk[k]||[]).push(q);});
+    const {data:ex,error}=await supabase.from('questions').select('*').eq('part_id',part);if(error)throw error;
+    let matched=0,unmatched=0;
+    for(const x of ex||[]){
+      if(x.type!=='multiple_choice')continue;const c=pk[optKey(optsArr(x),x.answer)];
+      if(!c||c.length!==1){unmatched++;continue;}
+      const {error:ue}=await supabase.from('questions').update({source_page:c[0].page,q_number:c[0].num}).eq('id',x.id);
+      if(ue){if(/q_number|source_page/.test(ue.message))throw new Error('Jalankan dulu file supabase-soal-nomor.sql di Supabase (SQL Editor), lalu coba lagi.');throw ue;}
+      matched++;
+    }
+    const {data:ex2}=await supabase.from('questions').select('*').eq('part_id',part);
+    const removed=await mergeDupes(ex2||[]);
+    out.innerHTML='';alert(`${matched} soal dicocokkan dengan halaman & nomor PDF.\n${removed} salinan ganda digabung.\n${unmatched} soal tidak ditemukan di PDF (tetap di "Soal manual").`);render();
+  }catch(err){out.innerHTML=`<p class="muted">${esc(err.message||err)}</p>`;}
 }
 async function questions(){const r=await questions0();injectPdfImport();return r;}
 async function questions0(){
