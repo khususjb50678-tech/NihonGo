@@ -2,6 +2,7 @@ import { supabase, sbReady, requireSupabase } from './supabase.js';
 import { CONFIG } from './config.js';
 import { defaultBunpou } from './default-bunpou.js';
 import { BOOK } from './vocab-book.js';
+import { readPdfPages, parsePdfQuestions, parseKeyText } from './pdfsoal.js';
 import { PRESETS, DEFAULT_STYLE, cleanStyle, applyCardStyle, saveCardStyle, fetchCardStyle, loadCachedStyle, runFx } from './cardstyle.js';
 import { NEW_DESC, NEW_DEV, OLD_DESC, OLD_DEV } from './copy.js';
 const root=document.querySelector('#admin-app');
@@ -325,7 +326,40 @@ async function partQuestions(partId){
   document.querySelectorAll('[data-part-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini dari Part?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.partQdel);if(error)alert(error.message);else partQuestions(partId);}});
 }
 async function uploadMediaAndRefresh(input,kind,partId){await uploadMedia(input,kind);partQuestions(partId);}
-async function questions(){
+
+function injectPdfImport(){
+  const form=document.querySelector('#qForm');if(!form||document.querySelector('#pdfCard'))return;
+  form.closest('.card').insertAdjacentHTML('beforebegin',`<div class="card admin-card" id="pdfCard"><h3>Impor Soal dari PDF</h3><p class="muted">Pilih file PDF soal (teksnya harus bisa disalin). Nomor soal dan pilihan a–d terdeteksi otomatis. Kunci jawaban kamu isi di pratinjau.</p><label>Part tujuan<select class="input" id="pdfPart">${document.querySelector('#qPart').innerHTML}</select></label><input type="file" accept="application/pdf" id="pdfFile" class="input"><div id="pdfOut"></div></div>`);
+  document.querySelector('#pdfFile').onchange=e=>handlePdf(e.target.files[0]);
+}
+async function handlePdf(file){
+  const out=document.querySelector('#pdfOut');if(!file)return;out.innerHTML='<p class="muted">Membaca PDF…</p>';
+  try{
+    const pages=await readPdfPages(file);const all=parsePdfQuestions(pages);const cnt={};all.forEach(q=>{cnt[q.page]=(cnt[q.page]||0)+1;});
+    out.innerHTML=`<p><b>PDF ini punya ${pages.length} halaman.</b> Pilih halaman yang mau dimasukkan:</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">${pages.map((_,i)=>`<label class="btn" style="cursor:pointer"><input type="checkbox" data-pg="${i+1}" ${cnt[i+1]?'checked':''}> Hal ${i+1}${cnt[i+1]?` · ${cnt[i+1]} soal`:' · tanpa soal'}</label>`).join('')}</div>
+    <div style="display:flex;gap:8px;margin:8px 0"><input class="input" id="pgRange" placeholder="atau ketik: 1-3, 5"><button class="btn" type="button" id="pgRangeBtn">Pilih</button></div>
+    <button class="btn red fullbtn" id="pgNext" type="button">Lanjut ke Pratinjau</button><div id="pdfPrev"></div>`;
+    document.querySelector('#pgRangeBtn').onclick=()=>{const on=new Set();document.querySelector('#pgRange').value.split(',').forEach(t=>{const m=t.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(m)for(let n=+m[1];n<=+(m[2]||m[1]);n++)on.add(n);});document.querySelectorAll('[data-pg]').forEach(c=>{c.checked=on.has(+c.dataset.pg);});};
+    document.querySelector('#pgNext').onclick=()=>{const sel=[...document.querySelectorAll('[data-pg]:checked')].map(c=>+c.dataset.pg);const qs=all.filter(q=>sel.includes(q.page)&&q.opts.length>=2);const prev=document.querySelector('#pdfPrev');
+      if(!qs.length)return void(prev.innerHTML='<p class="muted">Tidak ada soal di halaman yang dipilih. Pastikan PDF berisi teks (bukan hasil scan/foto).</p>');showPdfPreview(qs,prev);};
+  }catch(err){out.innerHTML=`<p class="muted">${esc(err.message||err)}</p>`;}
+}
+function showPdfPreview(qs,out){
+  const secs=[...new Set(qs.map(q=>q.sec))];
+  const cards=qs.map((q,i)=>`<div class="list-row" style="display:block"><b>${esc(q.sec)} · No. ${q.num} <small>(hal. ${q.page})</small></b><div style="white-space:pre-wrap">${esc(q.stem||'(soal bergambar/audio — tambahkan foto atau audio setelah disimpan)')}</div>${q.opts.map((o,j)=>`<label style="display:block"><input type="radio" name="pq${i}" value="${j}" ${q.key==='abcd'[j]?'checked':''}> ${'abcd'[j]}. ${esc(o||'abcd'[j].toUpperCase())}</label>`).join('')}</div>`).join('');
+  out.innerHTML=`<p><b>${qs.length} soal akan dimasukkan.</b> ${qs.some(q=>q.key)?'Kunci jawaban dari halaman KEY ANSWER sudah terisi, silakan cek/ubah.':'Isi kunci jawaban di bawah.'}</p>
+  ${secs.map(s=>`<label>Kunci jawaban — ${esc(s)} <small>(contoh: 1A 2C 3B atau a c b d)</small><input class="input" data-keysec="${esc(s)}"></label>`).join('')}
+  <button class="btn" id="pdfApply" type="button">Terapkan Kunci</button><div>${cards}</div><button class="btn red fullbtn" id="pdfSave" type="button">Simpan ${qs.length} Soal ke Part</button>`;
+  document.querySelector('#pdfApply').onclick=()=>{document.querySelectorAll('[data-keysec]').forEach(inp=>{const k=parseKeyText(inp.value);qs.forEach((q,i)=>{if(q.sec===inp.dataset.keysec&&k[q.num]){const r=document.querySelector(`input[name=pq${i}][value="${'abcd'.indexOf(k[q.num])}"]`);if(r)r.checked=true;}});});};
+  document.querySelector('#pdfSave').onclick=async()=>{
+    const part=document.querySelector('#pdfPart').value;const missing=[];const rows=[];
+    qs.forEach((q,i)=>{const s=document.querySelector(`input[name=pq${i}]:checked`);if(!s)return missing.push(`${q.sec} no.${q.num}`);const options=q.opts.map((o,j)=>o||'ABCD'[j]);rows.push({part_id:part,prompt:esc(q.stem||'(Lihat gambar / dengarkan audio)').replace(/\n/g,'<br>'),type:'multiple_choice',options,answer:options[+s.value],reading:'',instruction:'',active:true});});
+    if(missing.length)return alert('Kunci jawaban belum diisi untuk: '+missing.slice(0,8).join(', ')+(missing.length>8?` dan ${missing.length-8} lainnya`:''));
+    const {error}=await supabase.from('questions').insert(rows);if(error)return alert(error.message);alert(`${rows.length} soal tersimpan.`);render();};
+}
+async function questions(){const r=await questions0();injectPdfImport();return r;}
+async function questions0(){
   const {data:parts}=await supabase.from('parts').select('*').order('part_number');
   const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
   const renderList=(partId)=>{
