@@ -70,3 +70,9 @@
 - Bab dibatasi 1-25 (Bab 26-50 dihapus dari tampilan). Kosakata mengikuti buku (urutan & arti) di `vocab-book.js`: sudah Bab 1-25. Admin > Kosakata untuk ubah/sembunyikan/tambah kata (jalankan supabase-kosakata.sql sekali). Bab lain sementara memakai data lama.
 - Admin > Soal: kartu "Impor Soal dari PDF" (file pdfsoal.js). PDF harus berisi teks. Bisa pilih halaman mana saja dari PDF. Kunci jawaban otomatis dibaca dari halaman KEY ANSWER bila ada, bisa diubah/diisi manual lalu Simpan.
 - Part soal: soal diurutkan & dikelompokkan per halaman PDF dengan nomor sesuai PDF (jalankan supabase-soal-nomor.sql sekali). Tiap soal ada tombol Simpan Foto & Audio.
+- Menu Soal: tiap soal punya Edit (soal, pilihan, jawaban, halaman, nomor) + Tambah Foto/Audio + Simpan.
+- Soal: nomor per halaman (1,2,3 tiap halaman), deteksi & gabung soal ganda, impor PDF tanpa teks pengganti.
+- Soal: nomor per halaman (1,2,3 tiap halaman), deteksi & gabung soal ganda, impor PDF tanpa teks pengganti.
+- Part dikembalikan seperti semula. Menu Soal: tombol 'Cocokkan dengan PDF' mengisi halaman & nomor soal lama otomatis dan menggabung salinan ganda.
+- Cocokkan PDF juga menyalin foto/audio dari soal sama di Part lain; pilihan Part di menu Soal diingat; latihan menyembunyikan teks pengganti lama.
+- Beranda: tombol Mulai belajar dihapus; nama ITCO JAPAN dibingkai ring card + efek timbul 3D transparan; font deskripsi diperbagus.
