@@ -308,11 +308,11 @@ async function partQuestions(partId){
   ]);
   if(error){const r2=await supabase.from('questions').select('*').eq('part_id',partId).order('created_at',{ascending:true});qs=r2.data;error=r2.error;}
   if(error)return alert(error.message);
-  const rows=qs||[];
+  const rows=qs||[];const seqP={};rows.forEach(r=>{const k=r.source_page??'m';seqP[k]=(seqP[k]||0)+1;r._no=seqP[k];});
   app(`<div class="admin-header"><div><div class="eyebrow">PART ${String(part?.part_number||'').padStart(2,'0')}</div><h1>${esc(part?.name||'Part')}</h1><p class="muted">${rows.length} soal · Kelola soal, foto, dan audio langsung dari Part ini.</p></div><div class="toolbar"><button id="backParts" class="btn">← Kembali ke Part</button><button id="goQuick" class="btn red">＋ Tambah Soal</button></div></div>
   <div class="card admin-card"><h3>Pengaturan Soal &amp; Timer</h3><form id="partSetupForm">${partSetupHTML(part||{})}<button class="btn red fullbtn" type="submit">Simpan Pengaturan</button></form></div>
-  <div class="card admin-card"><div class="part-question-list">${rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:16px 0 6px">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<article class="part-question-card" data-qcard="${x.id}">
-    <div class="part-question-main"><div class="question-number">${x.q_number||i+1}</div><div class="part-question-copy"><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}</div></div>
+  <div class="card admin-card"><div class="part-question-list">${rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:34px 0 8px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<article class="part-question-card" data-qcard="${x.id}">
+    <div class="part-question-main"><div class="question-number">${x._no}</div><div class="part-question-copy"><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}</div></div>
     <div class="part-media-status">${x.photo_url?'<span class="media-pill">📷 Foto tersimpan</span>':'<span class="media-pill muted-pill">📷 Belum ada foto</span>'}${x.audio_url?'<span class="media-pill">🔊 Audio tersimpan</span>':'<span class="media-pill muted-pill">🔊 Belum ada audio</span>'}</div>
     <div class="part-question-actions"><label class="btn">📷 ${x.photo_url?'Ganti Foto':'Tambah Foto'}<input hidden type="file" accept="image/*" data-part-photo="${x.id}"></label><label class="btn">🔊 ${x.audio_url?'Ganti Audio':'Tambah Audio'}<input hidden type="file" accept="audio/*" data-part-audio="${x.id}"></label><button class="btn danger" data-part-qdel="${x.id}">Hapus Soal</button></div>
     <div class="part-save-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span class="muted" data-fname>Belum ada file dipilih</span><button class="btn red" type="button" data-part-save="${x.id}">💾 Simpan Foto &amp; Audio</button></div>
@@ -356,7 +356,7 @@ function showPdfPreview(qs,out){
   document.querySelector('#pdfApply').onclick=()=>{document.querySelectorAll('[data-keysec]').forEach(inp=>{const k=parseKeyText(inp.value);qs.forEach((q,i)=>{if(q.sec===inp.dataset.keysec&&k[q.num]){const r=document.querySelector(`input[name=pq${i}][value="${'abcd'.indexOf(k[q.num])}"]`);if(r)r.checked=true;}});});};
   document.querySelector('#pdfSave').onclick=async()=>{
     const part=document.querySelector('#pdfPart').value;const missing=[];const rows=[];
-    qs.forEach((q,i)=>{const s=document.querySelector(`input[name=pq${i}]:checked`);if(!s)return missing.push(`${q.sec} no.${q.num}`);const options=q.opts.map((o,j)=>o||'ABCD'[j]);rows.push({part_id:part,prompt:esc(q.stem||'(Lihat gambar / dengarkan audio)').replace(/\n/g,'<br>'),type:'multiple_choice',options,answer:options[+s.value],reading:'',instruction:'',active:true,q_number:q.num,source_page:q.page});});
+    qs.forEach((q,i)=>{const s=document.querySelector(`input[name=pq${i}]:checked`);if(!s)return missing.push(`${q.sec} no.${q.num}`);const options=q.opts.map((o,j)=>o||'ABCD'[j]);rows.push({part_id:part,prompt:esc(q.stem||'').replace(/\n/g,'<br>'),type:'multiple_choice',options,answer:options[+s.value],reading:'',instruction:'',active:true,q_number:q.num,source_page:q.page});});
     if(missing.length)return alert('Kunci jawaban belum diisi untuk: '+missing.slice(0,8).join(', ')+(missing.length>8?` dan ${missing.length-8} lainnya`:''));
     const {error}=await supabase.from('questions').insert(rows);if(error)return alert(/q_number|source_page/.test(error.message)?'Jalankan dulu file supabase-soal-nomor.sql di Supabase (SQL Editor), lalu coba simpan lagi.':error.message);alert(`${rows.length} soal tersimpan, berurutan sesuai nomor di PDF.`);render();};
 }
@@ -366,13 +366,17 @@ async function questions0(){
   const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
   const renderList=(partId)=>{
     const rows=(qs||[]).filter(x=>!partId || String(x.part_id)===String(partId)).sort((a,b)=>{const pa=a.source_page??1e9,pb=b.source_page??1e9;if(pa!==pb)return pa-pb;const na=a.q_number??1e9,nb=b.q_number??1e9;if(na!==nb)return na-nb;return String(a.created_at||'').localeCompare(String(b.created_at||''));});
-    const seq={};rows.forEach(x=>{const k=x.source_page??'m';seq[k]=(seq[k]||0)+1;x._no=x.q_number??seq[k];});
+    const optsOf=x=>{let o=x.options;if(typeof o==='string'){try{o=JSON.parse(o);}catch{o=[];}}return Array.isArray(o)?o:[];};
+    const groupsD={};rows.forEach(x=>{if(x.type!=='multiple_choice')return;const k=JSON.stringify(optsOf(x).map(v=>String(v).trim()).sort())+'|'+String(x.answer||'').trim();(groupsD[k]=groupsD[k]||[]).push(x);});
+    const dupGroups=Object.values(groupsD).filter(g=>g.length>1);const dupCount=dupGroups.reduce((n,g)=>n+g.length-1,0);
+    const dupBanner=dupCount?`<div class="card admin-card" style="margin-bottom:12px"><b>⚠ ${dupCount} soal ganda terdeteksi</b><p class="muted">Soal yang sama tersimpan lebih dari sekali (misalnya sebagian punya foto, sebagian tidak). Gabungkan supaya foto/audio dan halaman ikut terbawa ke satu soal, lalu salinannya dihapus.</p><button class="btn red" type="button" data-dedupe>🧹 Gabungkan Soal Ganda</button></div>`:'';
+    const seq={};rows.forEach(x=>{const k=x.source_page??'m';seq[k]=(seq[k]||0)+1;x._no=seq[k];});
     const el=document.querySelector('#qList');
-    if(el)el.innerHTML=rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:16px 0 6px">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<div class="list-row" style="display:block" data-qrow="${x.id}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${x._no}. ${sanitizePromptHTML(x.prompt||'(tanpa teks — soal bergambar/audio)')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><div style="display:flex;gap:6px"><button class="btn" data-qedit="${x.id}">Edit</button><button class="btn danger" data-qdel="${x.id}">Hapus</button></div></div>
+    if(el)el.innerHTML=dupBanner+(rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:34px 0 8px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<div class="list-row" style="display:block" data-qrow="${x.id}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${x._no}. ${sanitizePromptHTML(x.prompt||'(tanpa teks — soal bergambar/audio)')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><div style="display:flex;gap:6px"><button class="btn" data-qedit="${x.id}">Edit</button><button class="btn danger" data-qdel="${x.id}">Hapus</button></div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><span class="media-pill ${x.photo_url?'':'muted-pill'}">📷 ${x.photo_url?'Foto tersimpan':'Belum ada foto'}</span><span class="media-pill ${x.audio_url?'':'muted-pill'}">🔊 ${x.audio_url?'Audio tersimpan':'Belum ada audio'}</span></div>
       ${x.photo_url?`<div style="margin-top:8px"><img src="${esc(x.photo_url)}" alt="Foto soal" loading="lazy" style="max-width:220px;border-radius:10px"></div>`:''}${x.audio_url?`<audio controls preload="metadata" src="${esc(x.audio_url)}" style="width:100%;margin-top:8px"></audio>`:''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px"><label class="btn">📷 ${x.photo_url?'Ganti Foto':'Tambah Foto'}<input hidden type="file" accept="image/*" data-photo="${x.id}"></label><label class="btn">🔊 ${x.audio_url?'Ganti Audio':'Tambah Audio'}<input hidden type="file" accept="audio/*" data-audio="${x.id}"></label><span class="muted" data-fname>Belum ada file dipilih</span><button class="btn red" type="button" data-qsave="${x.id}">💾 Simpan Foto &amp; Audio</button></div>
-      <div data-qeditbox="${x.id}" hidden></div></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
+      <div data-qeditbox="${x.id}" hidden></div></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>');
     document.querySelectorAll('[data-photo],[data-audio]').forEach(i=>i.onchange=()=>{const row=i.closest('[data-qrow]');const n=[...row.querySelectorAll('input[type=file]')].map(f=>f.files?.[0]?.name).filter(Boolean);row.querySelector('[data-fname]').textContent=n.length?n.join(' + '):'Belum ada file dipilih';});
     document.querySelectorAll('[data-qsave]').forEach(b=>b.onclick=async()=>{const row=b.closest('[data-qrow]');const ph=row.querySelector('[data-photo]'),au=row.querySelector('[data-audio]');if(!ph.files?.[0]&&!au.files?.[0])return alert('Pilih foto atau audio dulu, lalu tekan Simpan.');b.disabled=true;b.textContent='Menyimpan…';if(ph.files?.[0])await uploadMedia(ph,'photo');if(au.files?.[0])await uploadMedia(au,'audio');render();});
     document.querySelectorAll('[data-qedit]').forEach(b=>b.onclick=()=>{
@@ -389,6 +393,20 @@ async function questions0(){
         if(error&&/q_number|source_page/.test(error.message)){const r=await supabase.from('questions').update(patch).eq('id',x.id);error=r.error;if(!error)alert('Soal tersimpan, tetapi nomor/halaman belum bisa disimpan. Jalankan dulu supabase-soal-nomor.sql di Supabase.');}
         if(error)return alert(error.message);render();};
     });
+    document.querySelector('[data-dedupe]')?.addEventListener('click',async()=>{
+      if(!confirm(`Gabungkan ${dupCount} soal ganda? Salinan yang tidak dipakai akan dihapus.`))return;
+      const isPh=t=>/Lihat gambar/.test(t||'');const score=x=>(x.photo_url||x.audio_url?4:0)+(x.source_page!=null?2:0)+(((x.prompt||'').trim()&&!isPh(x.prompt))?1:0);
+      for(const g of dupGroups){
+        const sorted=[...g].sort((a,b)=>score(b)-score(a)||String(a.created_at).localeCompare(String(b.created_at)));const keep=sorted[0];const patch={};
+        for(const o of sorted.slice(1)){
+          for(const f of ['photo_url','audio_url','media_url','media_type','source_page','q_number']){if((keep[f]===null||keep[f]===undefined||keep[f]==='')&&o[f]){patch[f]=o[f];keep[f]=o[f];}}
+          if((!(keep.prompt||'').trim()||isPh(keep.prompt))&&(o.prompt||'').trim()&&!isPh(o.prompt)){patch.prompt=o.prompt;keep.prompt=o.prompt;}
+        }
+        if(isPh(keep.prompt)&&patch.prompt===undefined)patch.prompt='';
+        if(Object.keys(patch).length){let {error}=await supabase.from('questions').update(patch).eq('id',keep.id);if(error&&/q_number|source_page/.test(error.message)){delete patch.q_number;delete patch.source_page;error=Object.keys(patch).length?(await supabase.from('questions').update(patch).eq('id',keep.id)).error:null;}if(error)return alert(error.message);}
+        const {error:de}=await supabase.from('questions').delete().in('id',sorted.slice(1).map(x=>x.id));if(de)return alert(de.message);
+      }
+      render();});
     document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else render();}});
   };
   app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part untuk melihat soal dari Part tersebut saja.</p></div></div>
