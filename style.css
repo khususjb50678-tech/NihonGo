@@ -455,3 +455,6 @@ html.study-open body{overflow:hidden}
 .choice-letter{flex:0 0 28px;width:28px;height:28px;border-radius:8px;display:inline-grid;place-items:center;background:#1b1b1b;border:1px solid #333;color:#ddd;font-size:13px;font-weight:700;}
 .hira-option.selected .choice-letter,.answer.selected .choice-letter,.vocab-option.selected .choice-letter{background:#8f1717;border-color:#b71919;color:#fff;}
 .vocab-meaning{font-weight:500;}
+
+/* Media controls for questions imported from PDF */
+.question-media-admin-row{align-items:flex-start;flex-wrap:wrap}.question-media-admin-copy{flex:1;min-width:180px;overflow-wrap:anywhere}.question-media-admin-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.question-media-admin-actions .btn{white-space:normal}@media(max-width:650px){.question-media-admin-actions{width:100%}.question-media-admin-actions .btn{flex:1;min-width:130px}}

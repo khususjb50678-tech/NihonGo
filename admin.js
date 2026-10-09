@@ -361,12 +361,18 @@ function showPdfPreview(qs,out){
 async function questions(){const r=await questions0();injectPdfImport();return r;}
 async function questions0(){
   const {data:parts}=await supabase.from('parts').select('*').order('part_number');
-  const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
-  const renderList=(partId)=>{
-    const rows=(qs||[]).filter(x=>!partId || String(x.part_id)===String(partId));
+  let qs=[];
+  const renderList=async(partId)=>{
+    const {data:latest,error:loadError}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
+    if(loadError){alert(loadError.message);return;}
+    qs=latest||[];
+    const rows=qs.filter(x=>!partId || String(x.part_id)===String(partId));
     const el=document.querySelector('#qList');
-    if(el)el.innerHTML=rows.map(x=>`<div class="list-row"><div><b>${sanitizePromptHTML(x.prompt||'')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
-    document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else render();}});
+    if(el)el.innerHTML=rows.map(x=>`<div class="list-row question-media-admin-row"><div class="question-media-admin-copy"><b>${sanitizePromptHTML(x.prompt||'')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')} ${x.photo_url?'· 📷 Foto':''} ${x.audio_url?'· 🔊 Audio':''}</span></div><div class="question-media-admin-actions"><button class="btn" type="button" data-add-media="${x.id}">Tambah foto atau audio</button><input hidden type="file" accept="image/*" data-question-photo="${x.id}"><input hidden type="file" accept="audio/*" data-question-audio="${x.id}"><button class="btn danger" data-qdel="${x.id}">Hapus</button></div></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
+    document.querySelectorAll('[data-add-media]').forEach(b=>b.onclick=()=>{const choice=prompt('Pilih media yang ingin ditambahkan:\n1 = Foto\n2 = Audio');if(choice==='1')el.querySelector(`[data-question-photo="${b.dataset.addMedia}"]`)?.click();else if(choice==='2')el.querySelector(`[data-question-audio="${b.dataset.addMedia}"]`)?.click();else if(choice!==null)alert('Masukkan 1 untuk Foto atau 2 untuk Audio.');});
+    document.querySelectorAll('[data-question-photo]').forEach(i=>i.onchange=async()=>{await uploadMedia(i,'photo');await renderList(document.querySelector('#qPart').value);});
+    document.querySelectorAll('[data-question-audio]').forEach(i=>i.onchange=async()=>{await uploadMedia(i,'audio');await renderList(document.querySelector('#qPart').value);});
+    document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else renderList(document.querySelector('#qPart').value);}});
   };
   app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part untuk melihat soal dari Part tersebut saja.</p></div></div>
   <div class="card admin-card"><form id="qForm" class="form-grid">
@@ -431,7 +437,7 @@ function renderQuickList(rows,title='Soal yang berhasil diimport'){
 async function uploadMedia(input,kind){
   const file=input.files?.[0];
   if(!file)return;
-  const id=input.dataset[kind]||input.dataset[`part${kind[0].toUpperCase()}${kind.slice(1)}`];
+  const id=input.dataset[kind]||input.dataset[`question${kind[0].toUpperCase()}${kind.slice(1)}`]||input.dataset[`part${kind[0].toUpperCase()}${kind.slice(1)}`];
   const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   const path=`questions/${id}/${Date.now()}-${safe}`;
   const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type||undefined});
