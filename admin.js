@@ -365,9 +365,10 @@ async function questions0(){
   const {data:parts}=await supabase.from('parts').select('*').order('part_number');
   const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
   const renderList=(partId)=>{
-    const rows=(qs||[]).filter(x=>!partId || String(x.part_id)===String(partId));
+    const rows=(qs||[]).filter(x=>!partId || String(x.part_id)===String(partId)).sort((a,b)=>{const pa=a.source_page??1e9,pb=b.source_page??1e9;if(pa!==pb)return pa-pb;const na=a.q_number??1e9,nb=b.q_number??1e9;if(na!==nb)return na-nb;return String(a.created_at||'').localeCompare(String(b.created_at||''));});
+    const seq={};rows.forEach(x=>{const k=x.source_page??'m';seq[k]=(seq[k]||0)+1;x._no=x.q_number??seq[k];});
     const el=document.querySelector('#qList');
-    if(el)el.innerHTML=rows.map(x=>`<div class="list-row"><div><b>${sanitizePromptHTML(x.prompt||'')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
+    if(el)el.innerHTML=rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:16px 0 6px">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<div class="list-row"><div><b>${x._no}. ${sanitizePromptHTML(x.prompt||'(tanpa teks — soal bergambar/audio)')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
     document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else render();}});
   };
   app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part untuk melihat soal dari Part tersebut saja.</p></div></div>
