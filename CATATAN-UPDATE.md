@@ -76,3 +76,7 @@
 - Part dikembalikan seperti semula. Menu Soal: tombol 'Cocokkan dengan PDF' mengisi halaman & nomor soal lama otomatis dan menggabung salinan ganda.
 - Cocokkan PDF juga menyalin foto/audio dari soal sama di Part lain; pilihan Part di menu Soal diingat; latihan menyembunyikan teks pengganti lama.
 - Beranda: tombol Mulai belajar dihapus; nama ITCO JAPAN dibingkai ring card + efek timbul 3D transparan; font deskripsi diperbagus.
+
+
+## Jadwal Aktif/Nonaktif Part
+Fitur jadwal Part menambahkan kolom `scheduled_start_at` dan `scheduled_end_at`. Jalankan file `supabase-part-schedule.sql` di Supabase SQL Editor satu kali sebelum memakai jadwal aktif/nonaktif. Pada menu Part, tombol status dapat memilih aktif langsung atau memakai jadwal tanggal dan jam mulai serta opsional waktu selesai. Di halaman Pilih Part tersedia hitung mundur hingga detik dan tombol Refresh Sekarang setelah jadwal mulai.

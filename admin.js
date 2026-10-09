@@ -83,6 +83,8 @@ let current='dashboard', user=null, imported=[]; let userRefreshTimer=null; let 
 // ===== Update database (sekali saja) =====
 const DB_SQL=`alter table public.parts add column if not exists setup_mode text not null default 'admin';
 alter table public.parts add column if not exists timer_seconds integer;
+alter table public.parts add column if not exists scheduled_start_at timestamptz;
+alter table public.parts add column if not exists scheduled_end_at timestamptz;
 alter table public.kanji add column if not exists animate boolean not null default true;
 alter table public.branding add column if not exists message_enabled boolean not null default false;
 alter table public.branding add column if not exists message_title text;
@@ -92,9 +94,9 @@ alter table public.branding add column if not exists maintenance_title text;
 alter table public.branding add column if not exists maintenance_body text;
 notify pgrst, 'reload schema';`;
 const DB_NOTE='Database belum diupdate, jadi pengaturan baru belum bisa disimpan. Buka menu Dashboard, salin SQL yang tampil, lalu jalankan di Supabase → SQL Editor.';
-const PART_OPT=['setup_mode','timer_seconds'], KANJI_OPT=['animate'];
-async function dbStatus(){const [a,b]=await Promise.all([supabase.from('parts').select('setup_mode,timer_seconds').limit(1),supabase.from('kanji').select('animate').limit(1)]);return !a.error&&!b.error;}
-function dbNoticeHTML(){return `<div class="card admin-card db-notice"><h2>⚠ Update database diperlukan</h2><p class="muted">Fitur baru (pengaturan soal &amp; timer per Part, dan pilihan animasi Kanji) butuh 3 kolom baru. Salin SQL di bawah, buka Supabase → SQL Editor, tempel, lalu klik Run. Cukup dilakukan sekali.</p><pre id="dbSql">${esc(DB_SQL)}</pre><button id="copySql" class="btn" type="button">Salin SQL</button></div>`;}
+const PART_OPT=['setup_mode','timer_seconds','scheduled_start_at','scheduled_end_at'], KANJI_OPT=['animate'];
+async function dbStatus(){const [a,b]=await Promise.all([supabase.from('parts').select('setup_mode,timer_seconds,scheduled_start_at,scheduled_end_at').limit(1),supabase.from('kanji').select('animate').limit(1)]);return !a.error&&!b.error;}
+function dbNoticeHTML(){return `<div class="card admin-card db-notice"><h2>⚠ Update database diperlukan</h2><p class="muted">Fitur baru (pengaturan soal &amp; timer, jadwal aktif/nonaktif Part, dan animasi Kanji) butuh kolom database tambahan. Salin SQL di bawah, buka Supabase → SQL Editor, tempel, lalu klik Run. Cukup dilakukan sekali.</p><pre id="dbSql">${esc(DB_SQL)}</pre><button id="copySql" class="btn" type="button">Salin SQL</button></div>`;}
 async function copySql(){try{await navigator.clipboard.writeText(DB_SQL);alert('SQL tersalin. Tempel di Supabase → SQL Editor, lalu Run.');}catch{alert('Salin manual SQL yang tampil di layar.');}}
 // Simpan; kalau kolom baru belum ada di database, simpan bagian lainnya saja dan beri tahu.
 async function saveOptional(run,row,optKeys){
@@ -287,16 +289,25 @@ async function parts(){
     <button class="btn red full" type="submit">Tambah Part</button>
   </form></div>
   <div class="card admin-card table-list">${(data||[]).map(x=>`<div class="list-row part-admin-row" data-part-open="${x.id}" role="button" tabindex="0">
-    <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${partModeBadge(x)}${esc(x.description||'')} · ${x.active?'Aktif':'Nonaktif'}</span></div>
+    <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${partModeBadge(x)}${esc(x.description||'')} · ${x.active?'Aktif':'Nonaktif'}${x.scheduled_start_at?` · Mulai ${new Date(x.scheduled_start_at).toLocaleString('id-ID')}`:''}${x.scheduled_end_at?` · Selesai ${new Date(x.scheduled_end_at).toLocaleString('id-ID')}`:''}</span></div>
     <div class="media-actions">
-      <button class="btn" type="button" data-part-toggle="${x.id}" data-active="${x.active?'1':'0'}">${x.active?'✓ Aktif':'✕ Nonaktif'}</button>
+      <button class="btn" type="button" data-part-toggle="${x.id}" data-active="${x.active?'1':'0'}">${x.active?'✓ Atur Status':'✕ Aktifkan'}</button>
       <button class="btn" type="button" data-part-open-btn="${x.id}">Kelola Soal →</button>
       <button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button>
     </div>
   </div>`).join('')||'<p class="muted">Belum ada Part.</p>'}</div>`);
   bindPartSetup(document.querySelector('#pForm'));
-  document.querySelector('#pForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const o=Object.fromEntries(fd.entries());const row={part_number:Number(o.part_number),name:o.name,description:o.description||'',...readPartSetup(e.target),shuffle_questions:fd.has('shuffle_questions'),shuffle_options:fd.has('shuffle_options'),active:fd.has('active')};const {error}=await saveOptional(r=>supabase.from('parts').insert(r),row,PART_OPT);if(error)alert(error.message);else render();};
-  document.querySelectorAll('[data-part-toggle]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const next=b.dataset.active!=='1';const {error}=await supabase.from('parts').update({active:next}).eq('id',b.dataset.partToggle);if(error)alert(error.message);else render();});
+  document.querySelector('#pForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const o=Object.fromEntries(fd.entries());const row={part_number:Number(o.part_number),name:o.name,description:o.description||'',...readPartSetup(e.target),shuffle_questions:fd.has('shuffle_questions'),shuffle_options:fd.has('shuffle_options'),active:fd.has('active'),scheduled_start_at:null,scheduled_end_at:null};const {error}=await saveOptional(r=>supabase.from('parts').insert(r),row,PART_OPT);if(error)alert(error.message);else render();};
+  document.querySelectorAll('[data-part-toggle]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const isActive=b.dataset.active==='1';
+    const modal=document.createElement('div');modal.className='schedule-modal-backdrop';modal.innerHTML=`<div class="schedule-modal card admin-card" role="dialog" aria-modal="true"><h2>${isActive?'Pengaturan status Part':'Aktifkan Part'}</h2><p class="muted">Pilih apakah Part langsung aktif atau menggunakan jadwal.</p><label class="schedule-choice"><input type="radio" name="scheduleMode" value="now" checked> Aktifkan tanpa waktu</label><label class="schedule-choice"><input type="radio" name="scheduleMode" value="scheduled"> Aktifkan menggunakan jadwal</label><div class="schedule-fields" hidden><label>Mulai aktif tanggal &amp; jam<input class="input" type="datetime-local" id="scheduleStart"></label><label>Nonaktif kembali (opsional)<input class="input" type="datetime-local" id="scheduleEnd"></label><small class="muted">Gunakan waktu lokal perangkat. Waktu selesai boleh dikosongkan.</small></div><div class="media-actions"><button type="button" class="btn" data-schedule-cancel>Batal</button><button type="button" class="btn red" data-schedule-save>Simpan</button></div></div>`;document.body.appendChild(modal);
+    const fields=modal.querySelector('.schedule-fields');modal.querySelectorAll('[name="scheduleMode"]').forEach(r=>r.onchange=()=>{fields.hidden=modal.querySelector('[name="scheduleMode"]:checked').value!=='scheduled';});
+    modal.querySelector('[data-schedule-cancel]').onclick=()=>modal.remove();modal.onclick=ev=>{if(ev.target===modal)modal.remove()};
+    modal.querySelector('[data-schedule-save]').onclick=async()=>{const mode=modal.querySelector('[name="scheduleMode"]:checked').value;let patch;
+      if(mode==='scheduled'){const start=modal.querySelector('#scheduleStart').value,end=modal.querySelector('#scheduleEnd').value;if(!start)return alert('Pilih tanggal dan jam mulai aktif.');if(new Date(start)<=new Date())return alert('Waktu mulai harus di masa depan.');if(end&&new Date(end)<=new Date(start))return alert('Waktu selesai harus setelah waktu mulai.');patch={active:false,scheduled_start_at:new Date(start).toISOString(),scheduled_end_at:end?new Date(end).toISOString():null};}
+      else patch=isActive?{active:false,scheduled_start_at:null,scheduled_end_at:null}:{active:true,scheduled_start_at:null,scheduled_end_at:null};
+      const {error}=await saveOptional(r=>supabase.from('parts').update(r).eq('id',b.dataset.partToggle),patch,PART_OPT);if(error)alert(error.message);else{modal.remove();render();}
+    };
+  });
   document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm('Hapus Part dan seluruh soal di dalamnya?')){await supabase.from('parts').delete().eq('id',b.dataset.pdel);render();}});
   document.querySelectorAll('[data-part-open-btn]').forEach(b=>b.onclick=e=>{e.stopPropagation();partQuestions(b.dataset.partOpenBtn);});
   document.querySelectorAll('[data-part-open]').forEach(row=>{row.onclick=()=>partQuestions(row.dataset.partOpen);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();partQuestions(row.dataset.partOpen)}}});
