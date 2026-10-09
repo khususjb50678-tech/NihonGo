@@ -69,3 +69,4 @@
 - Kamus Indonesia per bab ada di `vocab-id.js` (sudah: Bab 1-5). Bab lain masih memakai terjemahan online sampai kamusnya ditambah.
 - Bab dibatasi 1-25 (Bab 26-50 dihapus dari tampilan). Kosakata mengikuti buku (urutan & arti) di `vocab-book.js`: sudah Bab 1-25. Admin > Kosakata untuk ubah/sembunyikan/tambah kata (jalankan supabase-kosakata.sql sekali). Bab lain sementara memakai data lama.
 - Admin > Soal: kartu "Impor Soal dari PDF" (file pdfsoal.js). PDF harus berisi teks. Bisa pilih halaman mana saja dari PDF. Kunci jawaban otomatis dibaca dari halaman KEY ANSWER bila ada, bisa diubah/diisi manual lalu Simpan.
+- Part soal: soal diurutkan & dikelompokkan per halaman PDF dengan nomor sesuai PDF (jalankan supabase-soal-nomor.sql sekali). Tiap soal ada tombol Simpan Foto & Audio.

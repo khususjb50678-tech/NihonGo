@@ -302,18 +302,20 @@ async function parts(){
   document.querySelectorAll('[data-part-open]').forEach(row=>{row.onclick=()=>partQuestions(row.dataset.partOpen);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();partQuestions(row.dataset.partOpen)}}});
 }
 async function partQuestions(partId){
-  const [{data:part},{data:qs,error}]=await Promise.all([
+  let [{data:part},{data:qs,error}]=await Promise.all([
     supabase.from('parts').select('*').eq('id',partId).single(),
-    supabase.from('questions').select('*').eq('part_id',partId).order('created_at',{ascending:true})
+    supabase.from('questions').select('*').eq('part_id',partId).order('source_page',{ascending:true,nullsFirst:false}).order('q_number',{ascending:true,nullsFirst:false}).order('created_at',{ascending:true})
   ]);
+  if(error){const r2=await supabase.from('questions').select('*').eq('part_id',partId).order('created_at',{ascending:true});qs=r2.data;error=r2.error;}
   if(error)return alert(error.message);
   const rows=qs||[];
   app(`<div class="admin-header"><div><div class="eyebrow">PART ${String(part?.part_number||'').padStart(2,'0')}</div><h1>${esc(part?.name||'Part')}</h1><p class="muted">${rows.length} soal · Kelola soal, foto, dan audio langsung dari Part ini.</p></div><div class="toolbar"><button id="backParts" class="btn">← Kembali ke Part</button><button id="goQuick" class="btn red">＋ Tambah Soal</button></div></div>
   <div class="card admin-card"><h3>Pengaturan Soal &amp; Timer</h3><form id="partSetupForm">${partSetupHTML(part||{})}<button class="btn red fullbtn" type="submit">Simpan Pengaturan</button></form></div>
-  <div class="card admin-card"><div class="part-question-list">${rows.map((x,i)=>`<article class="part-question-card" data-qcard="${x.id}">
-    <div class="part-question-main"><div class="question-number">${i+1}</div><div class="part-question-copy"><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}</div></div>
+  <div class="card admin-card"><div class="part-question-list">${rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:16px 0 6px">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<article class="part-question-card" data-qcard="${x.id}">
+    <div class="part-question-main"><div class="question-number">${x.q_number||i+1}</div><div class="part-question-copy"><b>${esc(x.prompt)}</b><span>${esc(x.type)} · jawaban: ${esc(x.answer)}</span>${x.reading?`<small>Reading: ${esc(x.reading)}</small>`:''}</div></div>
     <div class="part-media-status">${x.photo_url?'<span class="media-pill">📷 Foto tersimpan</span>':'<span class="media-pill muted-pill">📷 Belum ada foto</span>'}${x.audio_url?'<span class="media-pill">🔊 Audio tersimpan</span>':'<span class="media-pill muted-pill">🔊 Belum ada audio</span>'}</div>
     <div class="part-question-actions"><label class="btn">📷 ${x.photo_url?'Ganti Foto':'Tambah Foto'}<input hidden type="file" accept="image/*" data-part-photo="${x.id}"></label><label class="btn">🔊 ${x.audio_url?'Ganti Audio':'Tambah Audio'}<input hidden type="file" accept="audio/*" data-part-audio="${x.id}"></label><button class="btn danger" data-part-qdel="${x.id}">Hapus Soal</button></div>
+    <div class="part-save-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span class="muted" data-fname>Belum ada file dipilih</span><button class="btn red" type="button" data-part-save="${x.id}">💾 Simpan Foto &amp; Audio</button></div>
     ${x.photo_url?`<div class="part-media-preview"><img src="${esc(x.photo_url)}" alt="Foto soal" loading="lazy"></div>`:''}
     ${x.audio_url?`<div class="part-audio-preview"><audio controls preload="metadata" src="${esc(x.audio_url)}"></audio></div>`:''}
   </article>`).join('')||'<div class="empty-state">Belum ada soal di Part ini.</div>'}</div></div>`);
@@ -321,8 +323,8 @@ async function partQuestions(partId){
   bindPartSetup(document.querySelector('#partSetupForm'));
   document.querySelector('#partSetupForm').onsubmit=async e=>{e.preventDefault();const {error,degraded}=await saveOptional(r=>supabase.from('parts').update(r).eq('id',partId),readPartSetup(e.target),PART_OPT);if(error)alert(error.message);else if(!degraded){alert('Pengaturan Part tersimpan.');partQuestions(partId);}};
   document.querySelector('#goQuick').onclick=()=>{current='quick';render();setTimeout(()=>{const sel=document.querySelector('#quickPart');if(sel){sel.value=partId;}},0)};
-  document.querySelectorAll('[data-part-photo]').forEach(i=>i.onchange=()=>uploadMediaAndRefresh(i,'photo',partId));
-  document.querySelectorAll('[data-part-audio]').forEach(i=>i.onchange=()=>uploadMediaAndRefresh(i,'audio',partId));
+  document.querySelectorAll('[data-part-photo],[data-part-audio]').forEach(i=>i.onchange=()=>{const card=i.closest('article');const names=[...card.querySelectorAll('input[type=file]')].map(f=>f.files?.[0]?.name).filter(Boolean);card.querySelector('[data-fname]').textContent=names.length?names.join(' + '):'Belum ada file dipilih';});
+  document.querySelectorAll('[data-part-save]').forEach(b=>b.onclick=async()=>{const card=b.closest('article');const ph=card.querySelector('[data-part-photo]'),au=card.querySelector('[data-part-audio]');if(!ph.files?.[0]&&!au.files?.[0])return alert('Pilih foto atau audio dulu, lalu tekan Simpan.');b.disabled=true;b.textContent='Menyimpan…';if(ph.files?.[0])await uploadMedia(ph,'photo');if(au.files?.[0])await uploadMedia(au,'audio');partQuestions(partId);});
   document.querySelectorAll('[data-part-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini dari Part?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.partQdel);if(error)alert(error.message);else partQuestions(partId);}});
 }
 async function uploadMediaAndRefresh(input,kind,partId){await uploadMedia(input,kind);partQuestions(partId);}
@@ -347,25 +349,25 @@ async function handlePdf(file){
 }
 function showPdfPreview(qs,out){
   const secs=[...new Set(qs.map(q=>q.sec))];
-  const cards=qs.map((q,i)=>`<div class="list-row" style="display:block"><b>${esc(q.sec)} · No. ${q.num} <small>(hal. ${q.page})</small></b><div style="white-space:pre-wrap">${esc(q.stem||'(soal bergambar/audio — tambahkan foto atau audio setelah disimpan)')}</div>${q.opts.map((o,j)=>`<label style="display:block"><input type="radio" name="pq${i}" value="${j}" ${q.key==='abcd'[j]?'checked':''}> ${'abcd'[j]}. ${esc(o||'abcd'[j].toUpperCase())}</label>`).join('')}</div>`).join('');
+  const cards=qs.map((q,i)=>`${(i===0||qs[i-1].page!==q.page)?`<h4 style="margin:14px 0 6px">Halaman ${q.page}</h4>`:''}<div class="list-row" style="display:block"><b>${esc(q.sec)} · No. ${q.num} <small>(hal. ${q.page})</small></b><div style="white-space:pre-wrap">${esc(q.stem||'(soal bergambar/audio — tambahkan foto atau audio setelah disimpan)')}</div>${q.opts.map((o,j)=>`<label style="display:block"><input type="radio" name="pq${i}" value="${j}" ${q.key==='abcd'[j]?'checked':''}> ${'abcd'[j]}. ${esc(o||'abcd'[j].toUpperCase())}</label>`).join('')}</div>`).join('');
   out.innerHTML=`<p><b>${qs.length} soal akan dimasukkan.</b> ${qs.some(q=>q.key)?'Kunci jawaban dari halaman KEY ANSWER sudah terisi, silakan cek/ubah.':'Isi kunci jawaban di bawah.'}</p>
   ${secs.map(s=>`<label>Kunci jawaban — ${esc(s)} <small>(contoh: 1A 2C 3B atau a c b d)</small><input class="input" data-keysec="${esc(s)}"></label>`).join('')}
   <button class="btn" id="pdfApply" type="button">Terapkan Kunci</button><div>${cards}</div><button class="btn red fullbtn" id="pdfSave" type="button">Simpan ${qs.length} Soal ke Part</button>`;
   document.querySelector('#pdfApply').onclick=()=>{document.querySelectorAll('[data-keysec]').forEach(inp=>{const k=parseKeyText(inp.value);qs.forEach((q,i)=>{if(q.sec===inp.dataset.keysec&&k[q.num]){const r=document.querySelector(`input[name=pq${i}][value="${'abcd'.indexOf(k[q.num])}"]`);if(r)r.checked=true;}});});};
   document.querySelector('#pdfSave').onclick=async()=>{
     const part=document.querySelector('#pdfPart').value;const missing=[];const rows=[];
-    qs.forEach((q,i)=>{const s=document.querySelector(`input[name=pq${i}]:checked`);if(!s)return missing.push(`${q.sec} no.${q.num}`);const options=q.opts.map((o,j)=>o||'ABCD'[j]);rows.push({part_id:part,prompt:esc(q.stem||'(Lihat gambar / dengarkan audio)').replace(/\n/g,'<br>'),type:'multiple_choice',options,answer:options[+s.value],reading:'',instruction:'',active:true});});
+    qs.forEach((q,i)=>{const s=document.querySelector(`input[name=pq${i}]:checked`);if(!s)return missing.push(`${q.sec} no.${q.num}`);const options=q.opts.map((o,j)=>o||'ABCD'[j]);rows.push({part_id:part,prompt:esc(q.stem||'(Lihat gambar / dengarkan audio)').replace(/\n/g,'<br>'),type:'multiple_choice',options,answer:options[+s.value],reading:'',instruction:'',active:true,q_number:q.num,source_page:q.page});});
     if(missing.length)return alert('Kunci jawaban belum diisi untuk: '+missing.slice(0,8).join(', ')+(missing.length>8?` dan ${missing.length-8} lainnya`:''));
-    const {error}=await supabase.from('questions').insert(rows);if(error)return alert(error.message);alert(`${rows.length} soal tersimpan.`);render();};
+    const {error}=await supabase.from('questions').insert(rows);if(error)return alert(/q_number|source_page/.test(error.message)?'Jalankan dulu file supabase-soal-nomor.sql di Supabase (SQL Editor), lalu coba simpan lagi.':error.message);alert(`${rows.length} soal tersimpan, berurutan sesuai nomor di PDF.`);render();};
 }
 async function questions(){const r=await questions0();injectPdfImport();return r;}
 async function questions0(){
   const {data:parts}=await supabase.from('parts').select('*').order('part_number');
-  const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:true});
+  const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
   const renderList=(partId)=>{
     const rows=(qs||[]).filter(x=>!partId || String(x.part_id)===String(partId));
     const el=document.querySelector('#qList');
-    if(el)el.innerHTML=rows.map((x,i)=>`<div class="list-row admin-numbered-question"><div class="admin-question-number">${i+1}</div><div class="admin-question-content"><b>${sanitizePromptHTML(x.prompt||'')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span>${x.photo_url?`<div class="admin-question-media"><img src="${esc(x.photo_url)}" alt="Foto soal ${i+1}" loading="lazy"></div>`:''}${x.audio_url?`<div class="admin-question-media"><audio controls preload="metadata" src="${esc(x.audio_url)}"></audio></div>`:''}</div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
+    if(el)el.innerHTML=rows.map(x=>`<div class="list-row"><div><b>${sanitizePromptHTML(x.prompt||'')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><button class="btn danger" data-qdel="${x.id}">Hapus</button></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
     document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else render();}});
   };
   app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part untuk melihat soal dari Part tersebut saja.</p></div></div>
