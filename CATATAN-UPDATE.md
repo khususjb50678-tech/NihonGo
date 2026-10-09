@@ -80,3 +80,10 @@
 
 ## Jadwal Aktif/Nonaktif Part
 Fitur jadwal Part menambahkan kolom `scheduled_start_at` dan `scheduled_end_at`. Jalankan file `supabase-part-schedule.sql` di Supabase SQL Editor satu kali sebelum memakai jadwal aktif/nonaktif. Pada menu Part, tombol status dapat memilih aktif langsung atau memakai jadwal tanggal dan jam mulai serta opsional waktu selesai. Di halaman Pilih Part tersedia hitung mundur hingga detik dan tombol Refresh Sekarang setelah jadwal mulai.
+
+## Update Tes Hiragana & Katakana via Part 13–15
+- Tombol tes Hiragana mengarah ke Part 13 pada halaman Latihan.
+- Tombol tes Katakana mengarah ke Part 14 pada halaman Latihan.
+- Tombol tes gabungan Hiragana + Katakana mengarah ke Part 15.
+- File `supabase-kana-parts-13-15.sql` menambahkan 46 soal Hiragana di Part 13, 46 soal Katakana di Part 14, dan 92 soal gabungan di Part 15.
+- Jalankan SQL tersebut satu kali di Supabase SQL Editor setelah deployment. Script menghindari duplikasi soal dengan prompt yang sama saat dijalankan ulang.
