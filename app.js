@@ -164,15 +164,16 @@ async function developer(){
   const avatar=b.developer_logo_url?`<img class="developer-avatar-img" src="${esc(b.developer_logo_url)}" alt="Logo Developer">`:'⌘';
   shell(`<section class="section developer-page"><div class="developer-panel fx-float fx-ring"><div class="eyebrow">Di balik website ini</div><div class="developer-avatar fx-card fx-ring">${avatar}</div><h1>Developer</h1><h2>${esc(b.creator_name||'Witama Yuliananta')}</h2><p>${esc(b.developer_description)}</p><div class="socials">${links||'<span class="muted">Kontak belum ditambahkan.</span>'}</div></div>${installGuide()}</section>`);
   const ib=document.querySelector('#installBtn');
-  if(ib){ if(installEvt)ib.hidden=false; ib.onclick=async()=>{ if(!installEvt)return; installEvt.prompt(); try{await installEvt.userChoice;}catch{} installEvt=null; ib.hidden=true; }; }
+  if(ib){ ib.onclick=async()=>{ if(!installEvt)return; installEvt.prompt(); try{await installEvt.userChoice;}catch{} installEvt=null; syncInstallUI(); }; } syncInstallUI();
 }
 // Panduan memasang website sebagai aplikasi (Chrome → ⋮ → Install).
 let installEvt=null;
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;const b=document.querySelector('#installBtn');if(b)b.hidden=false;});
-window.addEventListener('appinstalled',()=>{installEvt=null;const b=document.querySelector('#installBtn');if(b)b.hidden=true;});
+function syncInstallUI(){const b=document.querySelector('#installBtn'),s=document.querySelector('#installSteps');if(b)b.hidden=!installEvt;if(s)s.hidden=!!installEvt;}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;syncInstallUI();});
+window.addEventListener('appinstalled',()=>{installEvt=null;const c=document.querySelector('.install-card');if(c)c.remove();});
 function installGuide(){
   if(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)return '';
-  return `<div class="install-card fx-float fx-ring"><div class="eyebrow">Pasang di HP</div><h2>Cara download aplikasi</h2><p class="muted">Website ini bisa dipasang seperti aplikasi biasa: ikonnya muncul di layar utama dan terbuka layar penuh.</p><ol class="install-steps"><li><span>Buka website ini di <b>Google Chrome</b>.</span></li><li><span>Ketuk <b>titik tiga (⋮)</b> di pojok kanan atas Chrome.</span></li><li><span>Pilih <b>Install aplikasi</b> (atau <b>Tambahkan ke layar utama</b>).</span></li><li><span>Ketuk <b>Install</b>. Ikon ITCO JAPAN akan muncul di layar utama.</span></li></ol><button type="button" id="installBtn" class="btn red" hidden>Install sekarang</button><p class="install-note">Pengguna iPhone: buka lewat Safari, ketuk tombol Bagikan, lalu pilih <b>Tambah ke Layar Utama</b>.</p></div>`;
+  return `<div class="install-card fx-float fx-ring"><div class="eyebrow">Pasang di HP</div><h2>Pasang aplikasi</h2><p class="muted">Website ini bisa dipasang seperti aplikasi biasa: ikonnya muncul di layar utama dan terbuka layar penuh.</p><button type="button" id="installBtn" class="btn red" hidden>Install sekarang</button><div id="installSteps"><p class="install-note">Kalau tombol Install belum muncul, pasang manual lewat Chrome:</p><ol class="install-steps"><li><span>Ketuk <b>titik tiga (⋮)</b> di pojok kanan atas Chrome.</span></li><li><span>Pilih <b>Install aplikasi</b> (atau <b>Tambahkan ke layar utama</b>).</span></li><li><span>Ketuk <b>Install</b>. Ikon ${esc((state.branding&&(state.branding.app_name||state.branding.site_name))||CONFIG.siteName)} akan muncul di layar utama.</span></li></ol></div><p class="install-note">Pengguna iPhone: buka lewat Safari, ketuk tombol Bagikan, lalu pilih <b>Tambah ke Layar Utama</b>.</p></div>`;
 }
 let kanjiShown=[];
 const kanjiStudy=x=>({glyph:x.kanji,reading:x.reading||'',meaning:x.meaning||'',animate:x.animate!==false});
