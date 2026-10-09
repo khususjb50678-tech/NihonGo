@@ -361,18 +361,15 @@ function showPdfPreview(qs,out){
 async function questions(){const r=await questions0();injectPdfImport();return r;}
 async function questions0(){
   const {data:parts}=await supabase.from('parts').select('*').order('part_number');
-  let qs=[];
-  const renderList=async(partId)=>{
-    const {data:latest,error:loadError}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
-    if(loadError){alert(loadError.message);return;}
-    qs=latest||[];
-    const rows=qs.filter(x=>!partId || String(x.part_id)===String(partId));
+  const {data:qs}=await supabase.from('questions').select('*').order('created_at',{ascending:false});
+  const renderList=(partId)=>{
+    const rows=(qs||[]).filter(x=>!partId || String(x.part_id)===String(partId));
     const el=document.querySelector('#qList');
-    if(el)el.innerHTML=rows.map(x=>`<div class="list-row question-media-admin-row"><div class="question-media-admin-copy"><b>${sanitizePromptHTML(x.prompt||'')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')} ${x.photo_url?'· 📷 Foto':''} ${x.audio_url?'· 🔊 Audio':''}</span></div><div class="question-media-admin-actions"><button class="btn" type="button" data-add-media="${x.id}">Tambah foto atau audio</button><input hidden type="file" accept="image/*" data-question-photo="${x.id}"><input hidden type="file" accept="audio/*" data-question-audio="${x.id}"><button class="btn danger" data-qdel="${x.id}">Hapus</button></div></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
+    if(el)el.innerHTML=rows.map(x=>`<div class="list-row question-media-admin-row"><div class="question-media-admin-copy"><b>${sanitizePromptHTML(x.prompt||'')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')} ${x.photo_url?'· 📷 Foto terpasang':''} ${x.audio_url?'· 🔊 Audio terpasang':''}</span>${x.photo_url?`<img src="${esc(x.photo_url)}" alt="Foto soal" loading="lazy" style="display:block;max-width:180px;max-height:140px;object-fit:contain;margin-top:8px;border-radius:8px;border:1px solid #444">`:''}${x.audio_url?`<audio controls preload="none" src="${esc(x.audio_url)}" style="display:block;max-width:240px;width:100%;margin-top:8px"></audio>`:''}</div><div class="question-media-admin-actions"><button class="btn" type="button" data-add-media="${x.id}">Tambah foto atau audio</button><input hidden type="file" accept="image/*" data-question-photo="${x.id}"><input hidden type="file" accept="audio/*" data-question-audio="${x.id}"><button class="btn danger" data-qdel="${x.id}">Hapus</button></div></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>';
     document.querySelectorAll('[data-add-media]').forEach(b=>b.onclick=()=>{const choice=prompt('Pilih media yang ingin ditambahkan:\n1 = Foto\n2 = Audio');if(choice==='1')el.querySelector(`[data-question-photo="${b.dataset.addMedia}"]`)?.click();else if(choice==='2')el.querySelector(`[data-question-audio="${b.dataset.addMedia}"]`)?.click();else if(choice!==null)alert('Masukkan 1 untuk Foto atau 2 untuk Audio.');});
-    document.querySelectorAll('[data-question-photo]').forEach(i=>i.onchange=async()=>{await uploadMedia(i,'photo');await renderList(document.querySelector('#qPart').value);});
-    document.querySelectorAll('[data-question-audio]').forEach(i=>i.onchange=async()=>{await uploadMedia(i,'audio');await renderList(document.querySelector('#qPart').value);});
-    document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else renderList(document.querySelector('#qPart').value);}});
+    document.querySelectorAll('[data-question-photo]').forEach(i=>i.onchange=async()=>{await uploadMedia(i,'photo');questions();});
+    document.querySelectorAll('[data-question-audio]').forEach(i=>i.onchange=async()=>{await uploadMedia(i,'audio');questions();});
+    document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else render();}});
   };
   app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part untuk melihat soal dari Part tersebut saja.</p></div></div>
   <div class="card admin-card"><form id="qForm" class="form-grid">
@@ -452,8 +449,8 @@ async function uploadMedia(input,kind){
   if(updateError)return alert(`Media ter-upload, tetapi data soal gagal disimpan: ${updateError.message}`);
   const ok=kind==='photo'?saved?.photo_url===publicUrl:saved?.audio_url===publicUrl;
   if(!ok)return alert('Media sudah ter-upload tetapi URL belum tersimpan pada soal. Coba upload ulang.');
-  const note=input.closest('.media-row')?.querySelector('small'); if(note)note.textContent=`${kind==='photo'?'📷 Foto':'🔊 Audio'} tersimpan dan terhubung ke soal.`;
   input.value='';
+  alert(`${kind==='photo'?'Foto':'Audio'} berhasil ditambahkan ke soal.`);
 }
 async function timer(){
   const {data}=await supabase.from('timer_settings').select('*').eq('id',1).maybeSingle();
