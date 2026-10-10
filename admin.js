@@ -277,7 +277,7 @@ async function kaiwa(){
 }
 async function parts(){
   const {data}=await supabase.from('parts').select('*').order('part_number');
-  app(`<div class="admin-header"><div><div class="eyebrow">LATIHAN</div><h1>Part</h1><p class="muted">Pilih siapa yang mengatur jumlah soal &amp; timer: Admin atau User. Klik Part untuk melihat soalnya, mengubah pengaturan, dan mengelola foto/audio.</p></div></div>
+  app(`<div class="admin-header"><div><div class="eyebrow">LATIHAN</div><h1>Part</h1><p class="muted">Pilih siapa yang mengatur jumlah soal &amp; timer: Admin atau User. Di sini hanya untuk mengaktifkan/menonaktifkan dan menghapus Part. Kelola soal, foto, dan audio ada di menu Soal.</p></div></div>
   <div class="card admin-card"><form id="pForm" class="form-grid">
     <label>Nomor Part<input class="input" name="part_number" type="number" min="1" max="20" required></label>
     <label>Nama Part<input class="input" name="name" required placeholder="Part 01"></label>
@@ -288,11 +288,10 @@ async function parts(){
     <label><input type="checkbox" name="active" checked> Aktif</label>
     <button class="btn red full" type="submit">Tambah Part</button>
   </form></div>
-  <div class="card admin-card table-list">${(data||[]).map(x=>`<div class="list-row part-admin-row" data-part-open="${x.id}" role="button" tabindex="0">
+  <div class="card admin-card table-list">${(data||[]).map(x=>`<div class="list-row part-admin-row">
     <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${partModeBadge(x)}${esc(x.description||'')} · ${x.active?'Aktif':'Nonaktif'}${x.scheduled_start_at?` · Mulai ${new Date(x.scheduled_start_at).toLocaleString('id-ID')}`:''}${x.scheduled_end_at?` · Selesai ${new Date(x.scheduled_end_at).toLocaleString('id-ID')}`:''}</span></div>
     <div class="media-actions">
       <button class="btn" type="button" data-part-toggle="${x.id}" data-active="${x.active?'1':'0'}">${x.active?'✓ Atur Status':'✕ Aktifkan'}</button>
-      <button class="btn" type="button" data-part-open-btn="${x.id}">Kelola Soal →</button>
       <button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button>
     </div>
   </div>`).join('')||'<p class="muted">Belum ada Part.</p>'}</div>`);
@@ -309,8 +308,6 @@ async function parts(){
     };
   });
   document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm('Hapus Part dan seluruh soal di dalamnya?')){await supabase.from('parts').delete().eq('id',b.dataset.pdel);render();}});
-  document.querySelectorAll('[data-part-open-btn]').forEach(b=>b.onclick=e=>{e.stopPropagation();partQuestions(b.dataset.partOpenBtn);});
-  document.querySelectorAll('[data-part-open]').forEach(row=>{row.onclick=()=>partQuestions(row.dataset.partOpen);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();partQuestions(row.dataset.partOpen)}}});
 }
 async function partQuestions(partId){
   const [{data:part},{data:qs,error}]=await Promise.all([
@@ -342,7 +339,7 @@ function injectPdfImport(){
   const form=document.querySelector('#qForm');if(!form||document.querySelector('#pdfCard'))return;
   form.closest('.card').insertAdjacentHTML('beforebegin',`<div class="card admin-card" id="pdfCard"><h3>Impor Soal dari PDF</h3><p class="muted">Pilih file PDF soal (teksnya harus bisa disalin). Nomor soal dan pilihan a–d terdeteksi otomatis. Kunci jawaban kamu isi di pratinjau.</p><label>Part tujuan<select class="input" id="pdfPart">${document.querySelector('#qPart').innerHTML}</select></label><input type="file" accept="application/pdf" id="pdfFile" class="input"><div id="pdfOut"></div><hr style="margin:16px 0;opacity:.2"><b>Sudah punya soal? Cocokkan dengan PDF</b><p class="muted">Tidak perlu impor ulang. Pilih PDF yang sama: halaman dan nomor soal yang sudah ada diisi otomatis sesuai PDF (Part tujuan di atas), foto/audio tetap aman, dan salinan ganda digabung.</p><input type="file" accept="application/pdf" id="pdfSync" class="input"></div>`);
   document.querySelector('#pdfSync').onchange=e=>syncPdf(e.target.files[0]);
-  const pp=document.querySelector('#pdfPart'),qp=document.querySelector('#qPart');pp.value=qp.value;qp.addEventListener('change',()=>{pp.value=qp.value;});
+  const pp=document.querySelector('#pdfPart'),qp=document.querySelector('#qPart');pp.value=qp.value;qp.addEventListener('change',()=>{pp.value=qp.value;});pp.addEventListener('change',()=>{if(qp.value!==pp.value){qp.value=pp.value;qp.dispatchEvent(new Event('change'));}});
   document.querySelector('#pdfFile').onchange=e=>handlePdf(e.target.files[0]);
 }
 async function handlePdf(file){
@@ -431,11 +428,14 @@ async function questions0(){
     const dupBanner=dupCount?`<div class="card admin-card" style="margin-bottom:12px"><b>⚠ ${dupCount} soal ganda terdeteksi</b><p class="muted">Soal yang sama tersimpan lebih dari sekali (misalnya sebagian punya foto, sebagian tidak). Gabungkan supaya foto/audio dan halaman ikut terbawa ke satu soal, lalu salinannya dihapus.</p><button class="btn red" type="button" data-dedupe>🧹 Gabungkan Soal Ganda</button></div>`:'';
     const seq={};rows.forEach(x=>{const k=x.source_page??'m';seq[k]=(seq[k]||0)+1;x._no=seq[k];});
     const el=document.querySelector('#qList');
-    if(el)el.innerHTML=dupBanner+(rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:34px 0 8px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<div class="list-row" style="display:block" data-qrow="${x.id}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${x._no}. ${sanitizePromptHTML(x.prompt||'(tanpa teks — soal bergambar/audio)')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><div style="display:flex;gap:6px"><button class="btn" data-qedit="${x.id}">Edit</button><button class="btn danger" data-qdel="${x.id}">Hapus</button></div></div>
+    const curPart=partId?(parts||[]).find(p=>String(p.id)===String(partId)):null;
+    const setupCard=(curPart&&rows.length)?`<div class="card admin-card" style="margin-bottom:14px"><div class="eyebrow">PART ${String(curPart.part_number||'').padStart(2,'0')}</div><h3 style="margin:4px 0 2px">${esc(curPart.name||'Part')} · ${rows.length} soal</h3><p class="muted" style="margin:0 0 10px">Pengaturan Soal &amp; Timer untuk Part ini</p><form id="partSetupForm">${partSetupHTML(curPart)}<button class="btn red fullbtn" type="submit">Simpan Pengaturan</button></form></div>`:'';
+    if(el)el.innerHTML=setupCard+dupBanner+(rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:34px 0 8px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<div class="list-row" style="display:block" data-qrow="${x.id}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${x._no}. ${sanitizePromptHTML(x.prompt||'(tanpa teks — soal bergambar/audio)')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><div style="display:flex;gap:6px"><button class="btn" data-qedit="${x.id}">Edit</button><button class="btn danger" data-qdel="${x.id}">Hapus</button></div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><span class="media-pill ${x.photo_url?'':'muted-pill'}">📷 ${x.photo_url?'Foto tersimpan':'Belum ada foto'}</span><span class="media-pill ${x.audio_url?'':'muted-pill'}">🔊 ${x.audio_url?'Audio tersimpan':'Belum ada audio'}</span></div>
       ${x.photo_url?`<div style="margin-top:8px"><img src="${esc(x.photo_url)}" alt="Foto soal" loading="lazy" style="max-width:220px;border-radius:10px"></div>`:''}${x.audio_url?`<audio controls preload="metadata" src="${esc(x.audio_url)}" style="width:100%;margin-top:8px"></audio>`:''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px"><label class="btn">📷 ${x.photo_url?'Ganti Foto':'Tambah Foto'}<input hidden type="file" accept="image/*" data-photo="${x.id}"></label><label class="btn">🔊 ${x.audio_url?'Ganti Audio':'Tambah Audio'}<input hidden type="file" accept="audio/*" data-audio="${x.id}"></label><span class="muted" data-fname>Belum ada file dipilih</span><button class="btn red" type="button" data-qsave="${x.id}">💾 Simpan Foto &amp; Audio</button></div>
       <div data-qeditbox="${x.id}" hidden></div></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>');
+    {const sf=document.querySelector('#partSetupForm');if(sf&&curPart){bindPartSetup(sf);sf.onsubmit=async e=>{e.preventDefault();const vals=readPartSetup(e.target);const {error,degraded}=await saveOptional(r=>supabase.from('parts').update(r).eq('id',curPart.id),vals,PART_OPT);if(error)alert(error.message);else if(!degraded){Object.assign(curPart,vals);alert('Pengaturan Part tersimpan.');}};}}
     document.querySelectorAll('[data-photo],[data-audio]').forEach(i=>i.onchange=()=>{const row=i.closest('[data-qrow]');const n=[...row.querySelectorAll('input[type=file]')].map(f=>f.files?.[0]?.name).filter(Boolean);row.querySelector('[data-fname]').textContent=n.length?n.join(' + '):'Belum ada file dipilih';});
     document.querySelectorAll('[data-qsave]').forEach(b=>b.onclick=async()=>{const row=b.closest('[data-qrow]');const ph=row.querySelector('[data-photo]'),au=row.querySelector('[data-audio]');if(!ph.files?.[0]&&!au.files?.[0])return alert('Pilih foto atau audio dulu, lalu tekan Simpan.');b.disabled=true;b.textContent='Menyimpan…';if(ph.files?.[0])await uploadMedia(ph,'photo');if(au.files?.[0])await uploadMedia(au,'audio');render();});
     document.querySelectorAll('[data-qedit]').forEach(b=>b.onclick=()=>{
@@ -468,7 +468,7 @@ async function questions0(){
       render();});
     document.querySelectorAll('[data-qdel]').forEach(b=>b.onclick=async()=>{if(confirm('Hapus soal ini?')){const {error}=await supabase.from('questions').delete().eq('id',b.dataset.qdel);if(error)alert(error.message);else render();}});
   };
-  app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part untuk melihat soal dari Part tersebut saja.</p></div></div>
+  app(`<div class="admin-header"><div><div class="eyebrow">SOAL</div><h1>Kelola Soal</h1><p class="muted">Pilih Part, lalu daftar soal dan pengaturan Soal &amp; Timer Part itu muncul di bawah.</p></div></div>
   <div class="card admin-card"><form id="qForm" class="form-grid">
     <label>Part<select class="input" name="part_id" id="qPart" required>${(parts||[]).map(p=>`<option value="${p.id}">Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label>
     <label>Tipe<select class="input" name="type" id="qType"><option value="multiple_choice">Ganda</option><option value="typing">Ketik jawaban sendiri</option></select></label>
