@@ -475,3 +475,10 @@ html.study-open body{overflow:hidden}
 @media(max-width:520px){.hero-inner{text-align:center}.hero-name{padding:10px 8px 12px;border-radius:20px}.hero-name h1{font-size:clamp(28px,8.5vw,48px);letter-spacing:-.8px}.hero-inner>h2,.hero-inner>p{text-align:left}}
 .brand-name{color:transparent!important;background:linear-gradient(90deg,#fff 0%,#f4f8ff 48%,#8fc6ff 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}.brand-name small{-webkit-text-fill-color:#999;color:#999!important}
 .part-card.part-disabled{pointer-events:auto}
+
+/* Ragu-ragu, mode fokus mengerjakan */
+.exercise-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.doubt-btn{flex:none;border:1px solid rgba(250,204,21,.45);background:rgba(250,204,21,.1);color:#fde68a;border-radius:999px;padding:8px 14px;font:inherit;font-size:.9rem;font-weight:700;cursor:pointer}
+.doubt-btn.on{background:rgba(250,204,21,.28);border-color:#facc15;color:#fff}
+.review-banner{margin:10px 0 0;padding:9px 12px;border-radius:12px;border:1px solid rgba(250,204,21,.35);background:rgba(250,204,21,.08);color:#fde68a;font-size:.88rem}
+body.exercise-mode .topbar .nav,body.exercise-mode .bottom{display:none!important}
