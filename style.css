@@ -523,3 +523,10 @@ body.exercise-mode .topbar .nav,body.exercise-mode .bottom{display:none!importan
 .study-actions{display:flex!important;justify-content:space-between!important;gap:12px!important;margin-top:14px!important;}
 .study-count{margin-top:10px!important;}
 @media(max-width:650px){.study-modal{padding:14px 12px 12px!important;}.study-head{padding:40px 4px 8px!important;}.study-kanji-field,.study-info .study-field{padding:10px 7px!important;}.study-glyph{padding:0 24px!important;}}
+
+
+/* Fix khusus kartu Kanji panjang: beri ruang kiri-kanan tanpa mengubah kartu lain */
+.kanji-flip .kanji-char{display:block;max-width:100%;padding-inline:10px;box-sizing:border-box;white-space:nowrap;line-height:1.12}
+.kanji-flip .kanji-char.kanji-char-medium{font-size:clamp(42px,10vw,54px)!important;letter-spacing:-1px}
+.kanji-flip .kanji-char.kanji-char-long{font-size:clamp(30px,7.5vw,42px)!important;letter-spacing:-1.5px}
+@media(max-width:420px){.kanji-flip .kanji-char.kanji-char-long{font-size:clamp(27px,7vw,36px)!important;letter-spacing:-1.7px;padding-inline:14px}}
