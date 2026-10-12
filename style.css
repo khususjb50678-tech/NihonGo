@@ -534,3 +534,20 @@ body.exercise-mode .topbar .nav,body.exercise-mode .bottom{display:none!importan
 .kanji-flip .kanji-char.kanji-char-medium{font-size:clamp(42px,10vw,54px)!important;letter-spacing:-1px}
 .kanji-flip .kanji-char.kanji-char-long{font-size:clamp(30px,7.5vw,42px)!important;letter-spacing:-1.5px}
 @media(max-width:420px){.kanji-flip .kanji-char.kanji-char-long{font-size:clamp(27px,7vw,36px)!important;letter-spacing:-1.7px;padding-inline:14px}}
+
+
+/* Fix: gunakan font Jepang standar pada semua soal dan pilihan jawaban */
+.exercise .question,
+.exercise .question-long,
+.exercise .reading,
+.exercise .answer,
+.hira-question-card .hira-prompt,
+.hira-options .hira-option,
+.kana-test-card .kana-char,
+.kana-test-card .kanji-char {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Noto Sans JP",
+    "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+}
+.exercise .answer { letter-spacing: normal !important; }
