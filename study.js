@@ -1,19 +1,15 @@
-// Panel besar untuk Kana & Kanji: Huruf + cara baca (+ arti) + animasi goresan berukuran besar.
-// Dibuka saat kartu diketuk: tampil huruf besar + arti dulu. Animasi baru jalan setelah tombol ▶ ditekan.
-import { loadKana, buildStage, playStage, stopStage, drawableChars, layout } from './kanastroke.js';
-
-let modal = null, items = [], index = 0, token = 0, lastFocus = null;
+// Panel arti Kana & Kanji: kanji, cara baca, arti satu baris masing-masing, dan audio pelafalan.
+let modal = null, items = [], index = 0, lastFocus = null;
 
 export function closeStudy() {
-  token++;
   if (!modal) return;
-  const svg = modal.querySelector('.study-stage');
-  if (svg) stopStage(svg);
   document.removeEventListener('keydown', onKey, true);
   document.documentElement.classList.remove('study-open');
   modal.remove();
   modal = null;
-  if (lastFocus && document.contains(lastFocus)) { try { lastFocus.focus({ preventScroll: true }); } catch { /* abaikan */ } }
+  if (lastFocus && document.contains(lastFocus)) {
+    try { lastFocus.focus({ preventScroll: true }); } catch { /* abaikan */ }
+  }
   lastFocus = null;
 }
 
@@ -26,21 +22,19 @@ function onKey(e) {
 
 function go(step) {
   const next = index + step;
-  if (next < 0 || next >= items.length) return;
-  show(next);
+  if (next >= 0 && next < items.length) show(next);
 }
 
-// items: [{ glyph, reading, meaning, animate }]
 export function openStudy(list, start = 0) {
   if (!Array.isArray(list) || !list.length) return;
   closeStudy();
   items = list;
   lastFocus = document.activeElement;
-  document.body.insertAdjacentHTML('beforeend', `<div class="study-backdrop" id="studyModal"><div class="study-modal" role="dialog" aria-modal="true" aria-labelledby="studyGlyph">
+  document.body.insertAdjacentHTML('beforeend', `<div class="study-backdrop" id="studyModal"><div class="study-modal study-meaning-only" role="dialog" aria-modal="true" aria-labelledby="studyGlyph">
     <button type="button" class="study-close" aria-label="Tutup">×</button>
-    <div class="study-head"><div class="study-glyph" id="studyGlyph" lang="ja"></div><div class="study-info"><div class="study-reading"></div><div class="study-meaning"></div></div></div>
-    <div class="study-stage-wrap"><svg class="study-stage" aria-hidden="true"></svg><div class="study-static" lang="ja"></div><div class="study-msg" role="status" aria-live="polite"></div></div>
-    <div class="study-actions"><button type="button" class="study-nav" data-step="-1" aria-label="Sebelumnya">‹</button><button type="button" class="study-play">▶ Putar animasi</button><button type="button" class="study-nav" data-step="1" aria-label="Berikutnya">›</button></div>
+    <div class="study-head"><div class="study-glyph" id="studyGlyph" lang="ja"></div><div class="study-info"><div class="study-reading" lang="ja"></div><div class="study-meaning"></div></div></div>
+    <button type="button" class="study-audio" aria-label="Putar pelafalan bahasa Jepang" title="Putar pelafalan">▶</button>
+    <div class="study-actions"><button type="button" class="study-nav" data-step="-1" aria-label="Sebelumnya">‹</button><span class="study-spacer"></span><button type="button" class="study-nav" data-step="1" aria-label="Berikutnya">›</button></div>
     <div class="study-count"></div>
   </div></div>`);
   modal = document.querySelector('#studyModal');
@@ -48,119 +42,56 @@ export function openStudy(list, start = 0) {
   modal.onclick = e => { if (e.target === modal) closeStudy(); };
   modal.querySelector('.study-close').onclick = closeStudy;
   modal.querySelectorAll('.study-nav').forEach(b => b.onclick = () => go(Number(b.dataset.step)));
-  modal.querySelector('.study-play').onclick = () => play(token);
+  modal.querySelector('.study-audio').onclick = speak;
   document.addEventListener('keydown', onKey, true);
   show(Math.min(Math.max(0, start), items.length - 1));
   modal.querySelector('.study-close').focus({ preventScroll: true });
 }
 
-function setWrapSize(count) {
-  const wrap = modal.querySelector('.study-stage-wrap');
-  const { cols, rows } = layout(Math.max(1, count));
-  const ratio = cols / rows;
-  wrap.style.aspectRatio = String(ratio);
-  wrap.style.width = `min(100%, calc(52vh * ${ratio}))`;
-}
-
 function show(i) {
   index = i;
   const it = items[i];
-  const my = ++token;
-  const svg = modal.querySelector('.study-stage');
-  stopStage(svg);
-  svg.textContent = '';
-
   const glyph = String(it.glyph ?? '');
-  const len = [...glyph].length;
   const gl = modal.querySelector('.study-glyph');
-  gl.textContent = glyph;
   const rd = modal.querySelector('.study-reading');
-  rd.textContent = it.reading || '';
   const mean = modal.querySelector('.study-meaning');
+  gl.textContent = glyph;
+  rd.textContent = it.reading || '';
   mean.textContent = it.meaning || '';
   mean.hidden = !it.meaning;
-  fitOne(gl, len <= 2 ? 104 : len <= 4 ? 78 : 56, 22);
-  fitOne(rd, 40, 14);
+  fitOne(gl, 92, 28);
+  fitOne(rd, 34, 16);
   fitOne(mean, 22, 12);
   modal.querySelector('.study-count').textContent = `${i + 1} / ${items.length}`;
-  modal.querySelectorAll('.study-nav').forEach(b => { b.disabled = (Number(b.dataset.step) < 0 && i === 0) || (Number(b.dataset.step) > 0 && i === items.length - 1); });
-
-  const wrap = modal.querySelector('.study-stage-wrap');
-  const stat = modal.querySelector('.study-static');
-  const play$ = modal.querySelector('.study-play');
-  const msg = modal.querySelector('.study-msg');
-  wrap.classList.remove('drawing', 'failed', 'idle');
-  msg.textContent = '';
-
-  const chars = drawableChars(glyph);
-  const animate = it.animate !== false && chars.length > 0;
-  stat.textContent = glyph;
-  const sz = Math.max(1, [...glyph].length);
-  stat.style.fontSize = sz <= 1 ? 'min(46vh,300px)' : sz <= 2 ? 'min(30vh,190px)' : sz <= 4 ? 'min(20vh,130px)' : 'min(14vh,90px)';
-
-  if (!animate) {
-    wrap.style.aspectRatio = '';
-    wrap.style.width = 'min(100%, 420px)';
-    wrap.style.minHeight = 'min(48vh, 320px)';
-    wrap.classList.add('no-anim');
-    play$.hidden = true;
-    return;
-  }
-  wrap.classList.remove('no-anim');
-  wrap.style.minHeight = '';
-  play$.hidden = false;
-  play$.disabled = false;
-  play$.textContent = '▶ Putar animasi';
-  wrap.classList.add('idle');
-  setWrapSize(chars.length);
+  modal.querySelectorAll('.study-nav').forEach(b => {
+    b.disabled = (Number(b.dataset.step) < 0 && i === 0) || (Number(b.dataset.step) > 0 && i === items.length - 1);
+  });
 }
 
-async function play(my, fresh = false) {
-  if (!modal || my !== token) return;
+function speak() {
+  if (!modal || !('speechSynthesis' in window)) return;
   const it = items[index];
-  const svg = modal.querySelector('.study-stage');
-  const wrap = modal.querySelector('.study-stage-wrap');
-  const btn = modal.querySelector('.study-play');
-  const msg = modal.querySelector('.study-msg');
-  const built = svg.childElementCount > 0 && !fresh;
-  wrap.classList.remove('idle');
-  btn.disabled = true;
-  try {
-    if (!built) {
-      btn.textContent = 'Memuat…';
-      msg.textContent = 'Memuat animasi…';
-      const sets = await loadKana(it.glyph);
-      if (!modal || my !== token) return;
-      buildStage(svg, sets);
-      setWrapSize(sets.length);
-    }
-    msg.textContent = '';
-    wrap.classList.remove('failed');
-    wrap.classList.add('drawing');
-    btn.textContent = 'Menulis…';
-    btn.disabled = false;
-    const done = await playStage(svg);
-    if (!modal || my !== token) return;
-    if (done) btn.textContent = '↻ Ulangi';
-  } catch (err) {
-    if (!modal || my !== token) return;
-    console.warn('Animasi goresan gagal dimuat:', err);
-    wrap.classList.remove('drawing');
-    wrap.classList.add('failed');
-    msg.textContent = 'Animasi belum bisa dimuat. Cek koneksi internet, lalu coba lagi.';
-    btn.textContent = '↻ Coba lagi';
-    btn.disabled = false;
-    svg.textContent = '';
-  }
+  const phrase = [it.glyph, it.reading].filter(Boolean).join('、');
+  if (!phrase) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(phrase);
+  utterance.lang = 'ja-JP';
+  utterance.rate = 0.85;
+  window.speechSynthesis.speak(utterance);
 }
 
-// Satu baris saja: kecilkan huruf sampai muat di lebar panel (tidak pernah turun ke baris kedua).
+// Paksa setiap teks tetap satu baris dan sesuaikan ukuran agar muat.
 function fitOne(el, max, min) {
   if (!el) return;
   el.style.whiteSpace = 'nowrap';
+  el.style.wordBreak = 'normal';
   let size = max;
   el.style.fontSize = size + 'px';
-  const limit = (el.parentElement ? el.parentElement.clientWidth : 0) || modal.clientWidth - 40;
+  const parent = el.parentElement;
+  const limit = (parent ? parent.clientWidth : 0) || modal.clientWidth - 40;
   let guard = 60;
-  while (size > min && el.scrollWidth > limit - 4 && guard-- > 0) { size -= 2; el.style.fontSize = size + 'px'; }
+  while (size > min && el.scrollWidth > limit - 4 && guard-- > 0) {
+    size -= 2;
+    el.style.fontSize = size + 'px';
+  }
 }
