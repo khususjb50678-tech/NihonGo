@@ -177,7 +177,26 @@ function installGuide(){
 }
 let kanjiShown=[];
 const kanjiStudy=x=>({glyph:x.kanji,reading:x.reading||'',meaning:x.meaning||'',animate:x.animate!==false});
-async function kanji(){ await loadBranding(); const {data,error}=await q('kanji',{eq:{active:true},order:'created_at'}); if(error)console.error(error); kanjiShown=data||[]; shell(`<section class="section"><div class="section-title"><div><div class="eyebrow">字 Kanji</div><h2>Kanji</h2><p class="muted">Ketuk kartu untuk melihat cara baca, arti, dan animasi urutan goresannya.</p></div></div><input id="search" class="input search" placeholder="Cari Kanji, cara baca, atau arti…"><div id="kanjiGrid" class="grid" style="margin-top:20px">${renderKanji(kanjiShown)}</div></section>`); const s=document.querySelector('#search'); s.oninput=e=>{const v=norm(e.target.value);kanjiShown=(data||[]).filter(x=>norm(`${x.kanji} ${x.reading} ${x.meaning}`).includes(v));document.querySelector('#kanjiGrid').innerHTML=renderKanji(kanjiShown);runFx();}; document.querySelector('#kanjiGrid').onclick=e=>{const c=e.target.closest('.kanji-flip'); if(!c)return; openStudy(kanjiShown.map(kanjiStudy),Number(c.dataset.i));}; }
+async function kanji(){
+  await loadBranding();
+  const {data,error}=await q('kanji',{eq:{active:true},order:'created_at'}); if(error)console.error(error);
+  const all=data||[], partOf=x=>Number(x.part_number)||1;
+  const showParts=()=>{
+    const map=new Map(); all.forEach(x=>{const n=partOf(x);map.set(n,(map.get(n)||0)+1);});
+    const nums=[...map.keys()].sort((a,b)=>a-b);
+    shell(`<section class="section"><div class="section-title"><div><div class="eyebrow">字 Kanji</div><h2>Kanji</h2><p class="muted">Pilih Part dulu, lalu ketuk kartu untuk melihat cara baca, arti, dan animasi urutan goresannya.</p></div></div>${nums.length?`<div class="part-list">${nums.map(n=>`<div class="part-card fx-card fx-ring" data-kpart="${n}" role="button" tabindex="0"><span class="tag">PART ${String(n).padStart(2,'0')}</span><h3>Kanji Part ${n}</h3><p class="part-desc">Kartu Kanji untuk Part ini.</p><b>${map.get(n)} Kanji</b></div>`).join('')}</div>`:`<div class="empty"><div class="empty-symbol">字</div><h3>Belum ada materi Kanji</h3><p>Materi akan muncul di sini setelah Admin menambahkannya.</p></div>`}</section>`);
+    document.querySelectorAll('[data-kpart]').forEach(c=>{const go=()=>showPart(Number(c.dataset.kpart));c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
+  };
+  const showPart=n=>{
+    const rows=all.filter(x=>partOf(x)===n); kanjiShown=rows;
+    shell(`<section class="section"><div class="section-title"><div><div class="eyebrow">字 Kanji · Part ${n}</div><h2>Kanji Part ${n}</h2><p class="muted">Ketuk kartu untuk melihat cara baca, arti, dan animasi urutan goresannya.</p></div></div><button type="button" class="btn" id="kBack" style="margin-bottom:14px">← Pilih Part</button><input id="search" class="input search" placeholder="Cari Kanji, cara baca, atau arti…"><div id="kanjiGrid" class="grid" style="margin-top:20px">${renderKanji(kanjiShown)}</div></section>`);
+    document.querySelector('#kBack').onclick=()=>{showParts();window.scrollTo({top:0});};
+    const s=document.querySelector('#search'); s.oninput=e=>{const v=norm(e.target.value);kanjiShown=rows.filter(x=>norm(`${x.kanji} ${x.reading} ${x.meaning}`).includes(v));document.querySelector('#kanjiGrid').innerHTML=renderKanji(kanjiShown);runFx();};
+    document.querySelector('#kanjiGrid').onclick=e=>{const c=e.target.closest('.kanji-flip'); if(!c)return; openStudy(kanjiShown.map(kanjiStudy),Number(c.dataset.i));};
+    window.scrollTo({top:0});
+  };
+  showParts();
+}
 function renderKanji(rows){ if(!rows.length)return `<div class="empty" style="grid-column:1/-1"><div class="empty-symbol">字</div><h3>Belum ada materi Kanji</h3><p>Materi akan muncul di sini setelah Admin menambahkannya.</p></div>`; return rows.map((x,i)=>`<button class="kanji-flip fx-card" type="button" data-i="${i}" aria-label="Kanji ${esc(x.kanji)}"><span class="flip-inner"><span class="flip-face flip-front"><span class="kanji-char">${esc(x.kanji)}</span><small>${x.animate!==false?'Ketuk untuk melihat arti &amp; animasi':'Ketuk untuk melihat arti'}</small></span></span></button>`).join(''); }
 
 const basicH=[['あ','a'],['い','i'],['う','u'],['え','e'],['お','o'],['か','ka'],['き','ki'],['く','ku'],['け','ke'],['こ','ko'],['さ','sa'],['し','shi'],['す','su'],['せ','se'],['そ','so'],['た','ta'],['ち','chi'],['つ','tsu'],['て','te'],['と','to'],['な','na'],['に','ni'],['ぬ','nu'],['ね','ne'],['の','no'],['は','ha'],['ひ','hi'],['ふ','fu'],['へ','he'],['ほ','ho'],['ま','ma'],['み','mi'],['む','mu'],['め','me'],['も','mo'],['や','ya'],['ゆ','yu'],['よ','yo'],['ら','ra'],['り','ri'],['る','ru'],['れ','re'],['ろ','ro'],['わ','wa'],['を','wo'],['ん','n']];
