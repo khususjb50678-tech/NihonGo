@@ -1,5 +1,5 @@
 // Panel besar untuk Kana & Kanji: Huruf + cara baca (+ arti) + animasi goresan berukuran besar.
-// Dibuka langsung saat kartu diketuk, dan animasi langsung berjalan.
+// Dibuka saat kartu diketuk: tampil huruf besar + arti dulu. Animasi baru jalan setelah tombol ▶ ditekan.
 import { loadKana, buildStage, playStage, stopStage, drawableChars, layout } from './kanastroke.js';
 
 let modal = null, items = [], index = 0, token = 0, lastFocus = null;
@@ -38,9 +38,10 @@ export function openStudy(list, start = 0) {
   lastFocus = document.activeElement;
   document.body.insertAdjacentHTML('beforeend', `<div class="study-backdrop" id="studyModal"><div class="study-modal" role="dialog" aria-modal="true" aria-labelledby="studyGlyph">
     <button type="button" class="study-close" aria-label="Tutup">×</button>
-    <div class="study-head"><div class="study-glyph" id="studyGlyph" lang="ja"></div><div class="study-info"><div class="study-reading"></div><div class="study-meaning"></div></div></div>
+    <div class="study-head"><div class="study-glyph" id="studyGlyph" lang="ja"></div><div class="study-info"><div class="study-reading"></div></div></div>
     <div class="study-stage-wrap"><svg class="study-stage" aria-hidden="true"></svg><div class="study-static" lang="ja"></div><div class="study-msg" role="status" aria-live="polite"></div></div>
-    <div class="study-actions"><button type="button" class="study-nav" data-step="-1" aria-label="Sebelumnya">‹</button><button type="button" class="study-play">▶ Putar</button><button type="button" class="study-nav" data-step="1" aria-label="Berikutnya">›</button></div>
+    <div class="study-meaning"></div>
+    <div class="study-actions"><button type="button" class="study-nav" data-step="-1" aria-label="Sebelumnya">‹</button><button type="button" class="study-play">▶ Putar animasi</button><button type="button" class="study-nav" data-step="1" aria-label="Berikutnya">›</button></div>
     <div class="study-count"></div>
   </div></div>`);
   modal = document.querySelector('#studyModal');
@@ -86,7 +87,7 @@ function show(i) {
   const stat = modal.querySelector('.study-static');
   const play$ = modal.querySelector('.study-play');
   const msg = modal.querySelector('.study-msg');
-  wrap.classList.remove('drawing', 'failed');
+  wrap.classList.remove('drawing', 'failed', 'idle');
   msg.textContent = '';
 
   const chars = drawableChars(glyph);
@@ -106,8 +107,10 @@ function show(i) {
   wrap.classList.remove('no-anim');
   wrap.style.minHeight = '';
   play$.hidden = false;
+  play$.disabled = false;
+  play$.textContent = '▶ Putar animasi';
+  wrap.classList.add('idle');
   setWrapSize(chars.length);
-  play(my, true);
 }
 
 async function play(my, fresh = false) {
@@ -118,6 +121,7 @@ async function play(my, fresh = false) {
   const btn = modal.querySelector('.study-play');
   const msg = modal.querySelector('.study-msg');
   const built = svg.childElementCount > 0 && !fresh;
+  wrap.classList.remove('idle');
   btn.disabled = true;
   try {
     if (!built) {
