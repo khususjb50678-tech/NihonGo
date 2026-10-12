@@ -494,12 +494,14 @@ body.exercise-mode .topbar .nav,body.exercise-mode .bottom{display:none!importan
 .study-actions{margin-top:14px}
 
 
-/* FIX tampilan arti: tanpa animasi kartu/goresan, tiga informasi satu baris, audio di bawah */
-.study-modal.study-meaning-only{animation:none!important;transform:none!important}
-.study-meaning-only .study-head{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:12px;padding:18px 42px 18px 4px;min-height:0}
-.study-meaning-only .study-glyph{display:block;flex:none;max-width:100%;text-align:center;line-height:1.15}
-.study-meaning-only .study-info{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;width:100%}
-.study-meaning-only .study-reading,.study-meaning-only .study-meaning{display:block;max-width:100%;text-align:center;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal}
-.study-meaning-only .study-audio{display:flex;align-items:center;justify-content:center;width:52px;height:52px;margin:4px auto 10px;border-radius:50%;border:1px solid #e0455a;background:linear-gradient(145deg,#d1263b,#8f1219);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 6px 18px rgba(209,38,59,.28)}
-.study-meaning-only .study-actions{margin-top:6px}
-.study-meaning-only .study-spacer{flex:1}
+/* Tampilan detail Kanji dan Kana: informasi dipisah per kolom/baris, glyph panjang mengecil agar punya ruang */
+.study-modal{width:min(680px,100%);}
+.study-head{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;padding:42px 10px 8px!important;}
+.study-kanji-field,.study-field{width:100%;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 12px;border:1px solid rgba(255,255,255,.13);border-radius:14px;background:rgba(255,255,255,.035);}
+.study-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#a6a6b5;font-weight:700;}
+.study-glyph{max-width:100%;width:100%;padding:0 12px;overflow:hidden;text-align:center;line-height:1.12;white-space:nowrap;}
+.study-info{display:grid!important;grid-template-columns:1fr!important;width:100%;gap:9px!important;}
+.study-reading,.study-meaning{display:block;width:100%;padding:2px 8px;line-height:1.25;}
+.study-play{width:54px;height:54px;min-width:54px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:24px;border-radius:50%;}
+.study-actions{gap:16px;margin-top:12px;}
+@media(max-width:650px){.study-modal{padding:14px 12px 12px;}.study-head{padding:38px 4px 6px!important;}.study-kanji-field,.study-field{padding:9px 8px;}.study-glyph{padding:0 18px;}.study-play{width:50px;height:50px;min-width:50px;}}
