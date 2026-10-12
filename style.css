@@ -482,3 +482,13 @@ html.study-open body{overflow:hidden}
 .doubt-btn.on{background:rgba(250,204,21,.28);border-color:#facc15;color:#fff}
 .review-banner{margin:10px 0 0;padding:9px 12px;border-radius:12px;border:1px solid rgba(250,204,21,.35);background:rgba(250,204,21,.08);color:#fde68a;font-size:.88rem}
 body.exercise-mode .topbar .nav,body.exercise-mode .bottom{display:none!important}
+
+/* Panel belajar v30: huruf, cara baca, arti — semuanya 1 baris; animasi muncul setelah ▶ ditekan */
+.study-head{display:grid!important;justify-items:center;text-align:center;gap:6px!important;padding:40px 6px 6px!important;min-height:0!important}
+.study-glyph{max-width:100%;overflow:hidden;line-height:1.1}
+.study-info{width:100%;justify-items:center;gap:6px!important}
+.study-reading,.study-meaning{white-space:nowrap!important;word-break:normal!important;max-width:100%;overflow:hidden;text-align:center}
+.study-reading{font-size:34px;font-weight:800}
+.study-meaning{margin:0!important;font-size:18px;font-weight:700;color:#f0f0f6}
+.study-stage-wrap.idle,.study-stage-wrap.no-anim{display:none!important}
+.study-actions{margin-top:14px}

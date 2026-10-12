@@ -2,7 +2,7 @@ import { supabase, sbReady } from './supabase.js';
 import { CONFIG } from './config.js';
 import { applyCardStyle, loadCachedStyle, fetchCardStyle, runFx } from './cardstyle.js';
 import { stopAllStages } from './kanastroke.js';
-import { openStudy, closeStudy } from './study.js';
+import { openStudy, closeStudy } from './study.js?v=30';
 import { currentUser, userName, renderAuth } from './auth.js';
 import { fixDesc, NEW_DESC } from './copy.js';
 import { startUserMonitor, stopUserMonitor, recordActivity, deviceLabel } from './user-monitor.js';

@@ -38,9 +38,8 @@ export function openStudy(list, start = 0) {
   lastFocus = document.activeElement;
   document.body.insertAdjacentHTML('beforeend', `<div class="study-backdrop" id="studyModal"><div class="study-modal" role="dialog" aria-modal="true" aria-labelledby="studyGlyph">
     <button type="button" class="study-close" aria-label="Tutup">×</button>
-    <div class="study-head"><div class="study-glyph" id="studyGlyph" lang="ja"></div><div class="study-info"><div class="study-reading"></div></div></div>
+    <div class="study-head"><div class="study-glyph" id="studyGlyph" lang="ja"></div><div class="study-info"><div class="study-reading"></div><div class="study-meaning"></div></div></div>
     <div class="study-stage-wrap"><svg class="study-stage" aria-hidden="true"></svg><div class="study-static" lang="ja"></div><div class="study-msg" role="status" aria-live="polite"></div></div>
-    <div class="study-meaning"></div>
     <div class="study-actions"><button type="button" class="study-nav" data-step="-1" aria-label="Sebelumnya">‹</button><button type="button" class="study-play">▶ Putar animasi</button><button type="button" class="study-nav" data-step="1" aria-label="Berikutnya">›</button></div>
     <div class="study-count"></div>
   </div></div>`);
@@ -75,11 +74,14 @@ function show(i) {
   const len = [...glyph].length;
   const gl = modal.querySelector('.study-glyph');
   gl.textContent = glyph;
-  gl.style.fontSize = len <= 2 ? '68px' : len <= 4 ? '50px' : '36px';
-  modal.querySelector('.study-reading').textContent = it.reading || '';
+  const rd = modal.querySelector('.study-reading');
+  rd.textContent = it.reading || '';
   const mean = modal.querySelector('.study-meaning');
   mean.textContent = it.meaning || '';
   mean.hidden = !it.meaning;
+  fitOne(gl, len <= 2 ? 104 : len <= 4 ? 78 : 56, 22);
+  fitOne(rd, 40, 14);
+  fitOne(mean, 22, 12);
   modal.querySelector('.study-count').textContent = `${i + 1} / ${items.length}`;
   modal.querySelectorAll('.study-nav').forEach(b => { b.disabled = (Number(b.dataset.step) < 0 && i === 0) || (Number(b.dataset.step) > 0 && i === items.length - 1); });
 
@@ -150,4 +152,15 @@ async function play(my, fresh = false) {
     btn.disabled = false;
     svg.textContent = '';
   }
+}
+
+// Satu baris saja: kecilkan huruf sampai muat di lebar panel (tidak pernah turun ke baris kedua).
+function fitOne(el, max, min) {
+  if (!el) return;
+  el.style.whiteSpace = 'nowrap';
+  let size = max;
+  el.style.fontSize = size + 'px';
+  const limit = (el.parentElement ? el.parentElement.clientWidth : 0) || modal.clientWidth - 40;
+  let guard = 60;
+  while (size > min && el.scrollWidth > limit - 4 && guard-- > 0) { size -= 2; el.style.fontSize = size + 'px'; }
 }
