@@ -48,7 +48,11 @@ export function openStudy(list, start = 0) {
   modal.onclick = e => { if (e.target === modal) closeStudy(); };
   modal.querySelector('.study-close').onclick = closeStudy;
   modal.querySelectorAll('.study-nav').forEach(b => b.onclick = () => go(Number(b.dataset.step)));
-  modal.querySelector('.study-play').onclick = () => play(token);
+  modal.querySelector('.study-play').onclick = () => {
+    // Batalkan suara lama agar satu tekanan hanya menghasilkan satu pelafalan.
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    play(token);
+  };
   document.addEventListener('keydown', onKey, true);
   show(Math.min(Math.max(0, start), items.length - 1));
   modal.querySelector('.study-close').focus({ preventScroll: true });
@@ -127,6 +131,17 @@ async function play(my, fresh = false) {
   const built = svg.childElementCount > 0 && !fresh;
   wrap.classList.remove('idle');
   btn.disabled = true;
+  // Satu pelafalan per klik, memakai cara baca; cancel mencegah suara bertumpuk.
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const reading = String(it.reading || it.glyph || '').trim();
+    if (reading) {
+      const utterance = new SpeechSynthesisUtterance(reading);
+      utterance.lang = 'ja-JP';
+      utterance.rate = 0.85;
+      window.speechSynthesis.speak(utterance);
+    }
+  }
   try {
     if (!built) {
       btn.textContent = '…';
@@ -140,10 +155,11 @@ async function play(my, fresh = false) {
     wrap.classList.remove('failed');
     wrap.classList.add('drawing');
     btn.textContent = '▶';
-    btn.disabled = false;
+    btn.disabled = true;
     const done = await playStage(svg);
     if (!modal || my !== token) return;
-    if (done) btn.textContent = '↻';
+    btn.textContent = done ? '↻' : '▶';
+    btn.disabled = false;
   } catch (err) {
     if (!modal || my !== token) return;
     console.warn('Animasi goresan gagal dimuat:', err);
