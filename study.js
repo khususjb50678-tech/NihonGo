@@ -40,7 +40,7 @@ export function openStudy(list, start = 0) {
     <button type="button" class="study-close" aria-label="Tutup">×</button>
     <div class="study-head"><div class="study-field study-kanji-field"><span class="study-label">Kanji / Kana</span><div class="study-glyph" id="studyGlyph" lang="ja"></div></div><div class="study-info"><div class="study-field"><span class="study-label">Cara baca</span><div class="study-reading"></div></div><div class="study-field"><span class="study-label">Arti</span><div class="study-meaning"></div></div></div></div>
     <div class="study-stage-wrap"><svg class="study-stage" aria-hidden="true"></svg><div class="study-static" lang="ja"></div><div class="study-msg" role="status" aria-live="polite"></div></div>
-    <div class="study-actions"><button type="button" class="study-nav" data-step="-1" aria-label="Sebelumnya">‹</button><button type="button" class="study-play" aria-label="Putar animasi" title="Putar animasi">▶</button><button type="button" class="study-nav" data-step="1" aria-label="Berikutnya">›</button></div>
+    <div class="study-actions"><button type="button" class="study-nav" data-step="-1" aria-label="Sebelumnya">‹</button><button type="button" class="study-play" aria-label="Putar animasi goresan" title="Putar animasi goresan">▶</button><button type="button" class="study-nav" data-step="1" aria-label="Berikutnya">›</button></div>
     <div class="study-count"></div>
   </div></div>`);
   modal = document.querySelector('#studyModal');
@@ -111,6 +111,8 @@ function show(i) {
   play$.hidden = false;
   play$.disabled = false;
   play$.textContent = '▶';
+  play$.setAttribute('aria-label', 'Putar animasi goresan');
+  play$.title = 'Putar animasi goresan';
   wrap.classList.add('idle');
   setWrapSize(chars.length);
 }
