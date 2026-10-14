@@ -581,3 +581,7 @@ body.exercise-mode .topbar .nav,body.exercise-mode .bottom{display:none!importan
 .review-title small{color:#9a9aa8;font-weight:600}
 .review-title.ok{color:#4ade80}.review-title.bad{color:#f87171}
 @media(prefers-reduced-motion:reduce){.result-emoji i{animation:none;opacity:.35;bottom:auto;top:calc(var(--y,50)*1%)}.score-bar i{animation:none}}
+
+/* Tingkat nilai yang bisa diatur dari Admin */
+.result-card.tier-custom{border-color:var(--tier,#f5c542)!important;box-shadow:0 0 44px var(--tier-glow,rgba(245,197,66,.3))}
+.tier-custom .score{background:linear-gradient(135deg,#ffffff,var(--tier,#f5c542));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:none}
