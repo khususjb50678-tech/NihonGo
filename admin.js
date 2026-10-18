@@ -320,6 +320,7 @@ async function parts(){
   <div class="card admin-card table-list">${(data||[]).map(x=>`<div class="list-row part-admin-row">
     <div><b>Part ${String(x.part_number).padStart(2,'0')} — ${esc(x.name)}</b><span>${partModeBadge(x)}${esc(x.description||'')} · ${x.active?'Aktif':`Nonaktif (${x.inactive_mode==='hide'?'dihilangkan':'blur'})`}${x.scheduled_start_at?` · Mulai ${new Date(x.scheduled_start_at).toLocaleString('id-ID')}`:''}${x.scheduled_end_at?` · Selesai ${new Date(x.scheduled_end_at).toLocaleString('id-ID')}`:''}</span></div>
     <div class="media-actions">
+      <button class="btn" type="button" data-pedit="${x.id}">✏️ Edit</button>
       <button class="btn" type="button" data-part-toggle="${x.id}" data-active="${x.active?'1':'0'}">${x.active?'✓ Atur Status':'✕ Aktifkan'}</button>
       <button class="btn danger" type="button" data-pdel="${x.id}">Hapus</button>
     </div>
@@ -336,6 +337,12 @@ async function parts(){
       else patch={active:mode==='now',scheduled_start_at:null,scheduled_end_at:null,inactive_mode:im};
       const {error,degraded}=await saveOptional(r=>supabase.from('parts').update(r).eq('id',b.dataset.partToggle),patch,PART_OPT);if(error)return alert(error.message);modal.remove();render();
     };
+  });
+  document.querySelectorAll('[data-pedit]').forEach(b=>b.onclick=e=>{e.stopPropagation();const part=(data||[]).find(p=>String(p.id)===b.dataset.pedit);if(!part)return;
+    const modal=document.createElement('div');modal.className='schedule-modal-backdrop';modal.innerHTML=`<div class="schedule-modal card admin-card" role="dialog" aria-modal="true"><h2>Edit Part ${String(part.part_number).padStart(2,'0')}</h2><p class="muted">Ubah nama dan deskripsi yang dilihat user.</p><label>Nama Part<input class="input" id="peName" value="${esc(part.name||'')}"></label><label style="display:block;margin-top:10px">Deskripsi<textarea class="textarea" id="peDesc" rows="3">${esc(part.description||'')}</textarea></label><div class="media-actions"><button type="button" class="btn" data-pe-cancel>Batal</button><button type="button" class="btn red" data-pe-save>Simpan</button></div></div>`;document.body.appendChild(modal);
+    modal.querySelector('[data-pe-cancel]').onclick=()=>modal.remove();modal.onclick=ev=>{if(ev.target===modal)modal.remove()};
+    modal.querySelector('[data-pe-save]').onclick=async()=>{const name=modal.querySelector('#peName').value.trim(),description=modal.querySelector('#peDesc').value.trim();if(!name)return alert('Nama Part tidak boleh kosong.');const {error}=await supabase.from('parts').update({name,description}).eq('id',part.id);if(error)return alert(error.message);modal.remove();render();};
+    setTimeout(()=>modal.querySelector('#peName')?.focus(),50);
   });
   document.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm('Hapus Part dan seluruh soal di dalamnya?')){await supabase.from('parts').delete().eq('id',b.dataset.pdel);render();}});
 }
