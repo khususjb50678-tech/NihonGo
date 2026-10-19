@@ -601,3 +601,17 @@ body.exercise-mode .topbar .nav,body.exercise-mode .bottom{display:none!importan
 .guard-warn-text{font-size:clamp(26px,8vw,40px);font-weight:900;color:#fff}
 @keyframes guardIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
 @media print{.no-copy{display:none!important}body::before{content:"Mau ngapain?? 😹🤡";display:block;font-size:32px;padding:40px}}
+
+.prompt-selection-toolbar button{padding:0 12px;white-space:nowrap;font-size:14px}
+.prompt-editor,[contenteditable="true"][data-e="prompt"]{-webkit-user-select:text;user-select:text}
+
+/* Mode Custom */
+.part-custom{grid-column:1/-1;background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(244,63,94,.14))!important;border-color:rgba(167,139,250,.5)!important}
+.part-custom h3{font-size:1.25rem}
+.custom-modal{max-height:92vh;overflow:auto}
+.custom-tools{display:flex;gap:8px;margin:6px 0}
+.custom-tools .btn{padding:6px 12px;font-size:.85rem}
+.custom-parts{display:grid;gap:6px;max-height:240px;overflow:auto;padding:4px 2px}
+.custom-part{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);cursor:pointer}
+.custom-part input{margin-top:3px;flex:none;width:18px;height:18px}
+.custom-part small{color:#9a9aa8}

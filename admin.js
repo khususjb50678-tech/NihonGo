@@ -36,11 +36,12 @@ function bindPromptToolbar(editor){
   if(!editor)return;
   const toolbar=document.createElement('div');
   toolbar.className='prompt-selection-toolbar';
-  toolbar.innerHTML='<button type="button" data-cmd="underline" aria-label="Garis bawah"><u>U</u></button><button type="button" data-cmd="remove" aria-label="Hapus tanda">T</button>';
+  toolbar.innerHTML='<button type="button" data-cmd="underline" aria-label="Garis bawah"><u>U</u> Garis bawah</button><button type="button" data-cmd="remove" aria-label="Hapus garis bawah">✖ Hapus</button>';
   document.body.appendChild(toolbar);
   let savedRange=null;
   const hide=()=>{toolbar.classList.remove('show');};
   const show=()=>{
+    if(!document.body.contains(editor)){toolbar.remove();return;}
     const sel=window.getSelection();
     if(!sel || sel.rangeCount===0 || sel.isCollapsed || !editor.contains(sel.anchorNode) || !editor.contains(sel.focusNode)){hide();return;}
     savedRange=sel.getRangeAt(0).cloneRange();
@@ -58,7 +59,7 @@ function bindPromptToolbar(editor){
     editor.innerHTML=sanitizePromptHTML(editor.innerHTML);
     setTimeout(show,20);
   });
-  editor.addEventListener('input',()=>{ editor.innerHTML=sanitizePromptHTML(editor.innerHTML); });
+  editor.addEventListener('blur',()=>{ const c=sanitizePromptHTML(editor.innerHTML); if(c!==editor.innerHTML) editor.innerHTML=c; });
   editor.addEventListener('mouseup',()=>setTimeout(show,20));
   editor.addEventListener('touchend',()=>setTimeout(show,60));
   editor.addEventListener('keyup',show);
@@ -139,7 +140,7 @@ function partModeBadge(x){
   return `<i class="mode-pill">Diatur Admin · ${esc(bits.join(' · '))}</i>`;
 }
 
-function menuFor(){const all=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['vocab','Kosakata'],['parts','Part'],['questions','Soal'],['quick','Quick Soal'],['timer','Kelola Timer'],['nilai','Pengaturan Nilai'],['users','User'],['admins','Tambah Admin'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']];return all.filter(([k])=>role==='owner'||!OWNER_ONLY.includes(k));}
+function menuFor(){const all=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['vocab','Kosakata'],['parts','Part'],['questions','Soal'],['quick','Quick Soal'],['timer','Kelola Timer'],['custom','Mode Custom'],['nilai','Pengaturan Nilai'],['users','User'],['admins','Tambah Admin'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']];return all.filter(([k])=>role==='owner'||!OWNER_ONLY.includes(k));}
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
   root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}</nav><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
@@ -176,7 +177,7 @@ async function kosakata(){
     const {error:er}=r.eid?await supabase.from('vocab_edits').update({hidden:!r.hidden}).eq('id',r.eid):await supabase.from('vocab_edits').insert(row);if(er)return alert(er.message);kosakata();});
   document.querySelectorAll('[data-vreset]').forEach(b=>b.onclick=async()=>{const r=rows[+b.dataset.vreset];if(!confirm(r.isNew?'Hapus kata tambahan ini?':'Kembalikan kata ini ke versi buku?'))return;const {error:er}=await supabase.from('vocab_edits').delete().eq('id',r.eid);if(er)return alert(er.message);kosakata();});
 }
-async function render(){if(role!=='owner'&&OWNER_ONLY.includes(current))current='dashboard';if(current==='admins')return adminsPage();if(current==='dashboard')return dashboard();if(current==='nilai')return nilai();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='vocab')return kosakata();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
+async function render(){if(role!=='owner'&&OWNER_ONLY.includes(current))current='dashboard';if(current==='admins')return adminsPage();if(current==='custom')return customPage();if(current==='dashboard')return dashboard();if(current==='nilai')return nilai();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='vocab')return kosakata();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
 
 async function tampilan(){
   let st=cleanStyle(await fetchCardStyle()||loadCachedStyle()||DEFAULT_STYLE);
@@ -493,6 +494,7 @@ async function questions0(){
       const x=rows.find(r=>String(r.id)===b.dataset.qedit);const box=document.querySelector(`[data-qeditbox="${x.id}"]`);const g=k=>box.querySelector(`[data-e="${k}"]`);
       const mc=x.type==='multiple_choice';const opts=Array.isArray(x.options)?x.options:[];
       box.hidden=false;box.innerHTML=`<div class="form-grid" style="margin-top:10px"><label>Halaman PDF<input class="input" type="number" min="1" data-e="page" value="${x.source_page??''}"></label><label>Nomor di PDF<input class="input" type="number" min="1" data-e="num" value="${x.q_number??''}"></label><label>Soal<div class="input" contenteditable="true" data-e="prompt" style="min-height:60px;white-space:pre-wrap">${sanitizePromptHTML(x.prompt||'')}</div></label>${mc?`<label>Pilihan (satu baris satu pilihan)<textarea class="input" rows="5" data-e="opts">${esc(opts.join('\n'))}</textarea></label><label>Jawaban benar<select class="input" data-e="ans">${opts.map(o=>`<option ${o===x.answer?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:`<label>Jawaban<input class="input" data-e="ans" value="${esc(x.answer||'')}"></label>`}<div style="display:flex;gap:8px"><button class="btn red" type="button" data-esave>Simpan Perubahan</button><button class="btn" type="button" data-ecancel>Batal</button></div></div>`;
+      bindPromptToolbar(g('prompt'));
       if(mc){const ta=g('opts'),sel=g('ans');ta.oninput=()=>{const cur=sel.value;sel.innerHTML=ta.value.split('\n').map(v=>v.trim()).filter(Boolean).map(v=>`<option ${v===cur?'selected':''}>${esc(v)}</option>`).join('');};}
       box.querySelector('[data-ecancel]').onclick=()=>{box.hidden=true;box.innerHTML='';};
       box.querySelector('[data-esave]').onclick=async()=>{
@@ -696,6 +698,36 @@ async function adminsPage(){
   bind();
   document.querySelector('#admSearch').oninput=e=>{document.querySelector('#admList').innerHTML=listHTML(e.target.value);bind();};
   document.querySelector('#admCopy').onclick=async()=>{const el=document.querySelector('#admLink');try{await navigator.clipboard.writeText(el.value);}catch{el.select();document.execCommand('copy');}alert('Link tersalin.');};
+}
+
+const CUSTOM_DEFAULTS={enabled:true,title:'Custom',description:'Gabungkan soal dari beberapa Part sesukamu, lalu atur jumlah soal dan waktunya.',minQuestions:1,maxQuestions:0,maxMinutes:0,allowNoTimer:true,shuffle:true,parts:'all'};
+function normCustom(v){let o=v;if(typeof o==='string'){try{o=JSON.parse(o);}catch{o=null;}}o=o&&typeof o==='object'&&!Array.isArray(o)?o:{};const n=(x,d,mn=0,mx=100000)=>{x=Number(x);return Number.isFinite(x)&&x!==null?Math.min(mx,Math.max(mn,Math.round(x))):d;};return {enabled:o.enabled!==false,title:String(o.title||CUSTOM_DEFAULTS.title).slice(0,40),description:o.description!=null?String(o.description).slice(0,200):CUSTOM_DEFAULTS.description,minQuestions:n(o.minQuestions,1,1),maxQuestions:n(o.maxQuestions,0,0),maxMinutes:n(o.maxMinutes,0,0),allowNoTimer:o.allowNoTimer!==false,shuffle:o.shuffle!==false,parts:Array.isArray(o.parts)?o.parts.map(String):'all'};}
+
+async function customPage(){
+  const [{data:ts},{data:parts}]=await Promise.all([supabase.from('timer_settings').select('*').eq('id',1).maybeSingle(),supabase.from('parts').select('id,part_number,name').order('part_number')]);
+  const cfg=normCustom(ts?.custom_settings);
+  const list=parts||[];
+  const pickAll=cfg.parts==='all';
+  app(`<div class="admin-header"><div><div class="eyebrow">MODE CUSTOM</div><h1>Mode Custom</h1><p class="muted">Kartu "Custom" di bawah daftar Part: user memilih sendiri Part mana yang digabung, jumlah soal, dan waktunya. Atur batasnya di sini.</p></div></div>
+  <form id="cuForm" class="card admin-card form-grid">
+    <label class="full check-line"><input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}> Tampilkan Mode Custom di halaman Mengerjakan Soal</label>
+    <label class="full">Judul kartu<input class="input" name="title" maxlength="40" value="${esc(cfg.title)}"></label>
+    <label class="full">Deskripsi kartu<textarea class="textarea" name="description" rows="2" maxlength="200">${esc(cfg.description)}</textarea></label>
+    <label>Jumlah soal minimal<input class="input" type="number" min="1" name="minQuestions" value="${cfg.minQuestions}"></label>
+    <label>Jumlah soal maksimal <small class="muted">(0 = tanpa batas)</small><input class="input" type="number" min="0" name="maxQuestions" value="${cfg.maxQuestions}"></label>
+    <label>Waktu maksimal, menit <small class="muted">(0 = tanpa batas)</small><input class="input" type="number" min="0" name="maxMinutes" value="${cfg.maxMinutes}"></label>
+    <label class="full check-line"><input type="checkbox" name="allowNoTimer" ${cfg.allowNoTimer?'checked':''}> User boleh mengerjakan tanpa batas waktu</label>
+    <label class="full check-line"><input type="checkbox" name="shuffle" ${cfg.shuffle?'checked':''}> Acak urutan soal (campur antar Part)</label>
+    <div class="full"><b>Part yang boleh dipilih user</b>
+      <label class="check-line" style="margin:8px 0"><input type="radio" name="cpMode" value="all" ${pickAll?'checked':''}> Semua Part (yang aktif)</label>
+      <label class="check-line" style="margin:8px 0"><input type="radio" name="cpMode" value="pick" ${pickAll?'':'checked'}> Hanya Part tertentu</label>
+      <div id="cpList" class="table-list" ${pickAll?'hidden':''}>${list.map(x=>`<label class="check-line" style="padding:6px 0"><input type="checkbox" data-cp="${x.id}" ${!pickAll&&cfg.parts.includes(String(x.id))?'checked':''}> Part ${String(x.part_number).padStart(2,'0')} · ${esc(x.name)}</label>`).join('')||'<p class="muted">Belum ada Part.</p>'}</div>
+    </div>
+    <button class="btn red full" type="submit">💾 Simpan Pengaturan Mode Custom</button>
+  </form>`);
+  const form=document.querySelector('#cuForm');
+  form.querySelectorAll('[name="cpMode"]').forEach(r=>r.onchange=()=>{document.querySelector('#cpList').hidden=form.querySelector('[name="cpMode"]:checked').value==='all';});
+  form.onsubmit=async e=>{e.preventDefault();const fd=new FormData(form);const mode=fd.get('cpMode');const picked=[...form.querySelectorAll('[data-cp]:checked')].map(b=>b.dataset.cp);if(mode==='pick'&&!picked.length)return alert('Pilih minimal 1 Part, atau pilih "Semua Part".');const next=normCustom({enabled:fd.has('enabled'),title:String(fd.get('title')||'').trim(),description:String(fd.get('description')||'').trim(),minQuestions:fd.get('minQuestions'),maxQuestions:fd.get('maxQuestions'),maxMinutes:fd.get('maxMinutes'),allowNoTimer:fd.has('allowNoTimer'),shuffle:fd.has('shuffle'),parts:mode==='all'?'all':picked});if(next.maxQuestions>0&&next.minQuestions>next.maxQuestions)return alert('Jumlah soal minimal tidak boleh lebih besar dari maksimal.');const {error}=await supabase.from('timer_settings').upsert({id:1,custom_settings:next});if(error)alert(error.message+'\n\nPastikan SQL supabase-custom-mode.sql sudah dijalankan di Supabase.');else{alert('Pengaturan Mode Custom tersimpan.');customPage();}};
 }
 
 function guide(){app(`<div class="admin-header"><div><div class="eyebrow">DOCUMENTATION</div><h1>Cara Penggunaan Admin</h1></div></div><div class="card admin-card guide-grid"><div><h2>Branding</h2><p>Atur identitas website, logo, favicon, hero, deskripsi, nama Developer, deskripsi Developer, serta link WhatsApp/Telegram/Instagram. Publik hanya melihat ikon kontak.</p></div><div><h2>Kanji</h2><p>Gunakan tiga field: Kanji, Cara Baca, Arti. Centang <b>Buat animasi urutan goresan</b> jika Kanji itu mau dianimasikan; animasi bisa dimatikan atau dihidupkan lagi dari daftar. Import dengan format <code>Kanji|Cara Baca|Arti</code>. Baris kosong dan nomor awal boleh.</p></div><div><h2>Part</h2><p>Buat maksimal 20 Part. Pilih <b>Diatur Admin</b> (kamu menentukan jumlah soal dan timer) atau <b>Diatur User</b> (user mengisi sendiri nama, jumlah soal, dan waktu sebelum mengerjakan, tanpa batas minimum). Pengaturan bisa diubah kapan saja dengan membuka menu Soal, memilih Part, lalu mengubah Pengaturan Soal &amp; Timer di bagian atas.</p></div><div><h2>Soal</h2><p>Gunakan tipe Ganda atau Ketik. Untuk Ketik, instruksi otomatis berdasarkan jawaban benar.</p></div><div><h2>Quick Soal</h2><pre>1. 食べる|Makan|ganda|Makan;Minum;Tidur;Pergi\n\n2. 飲む|Minum|ketik</pre><p>Setelah import, foto/audio dapat ditambahkan satu per satu.</p></div><div><h2>Timer</h2><p>Cara termudah: isi Timer di pengaturan Part. Halaman Kelola Timer dipakai untuk timer Tes Hiragana, Tes Katakana, Test Kotoba, timer per soal (ID atau nomor soal), dan timer global. Timeout soal lanjut ke soal berikutnya; waktu total habis mengakhiri latihan. Part yang diatur User memakai waktu pilihan user.</p></div><div><h2>Hasil & Reset</h2><p>Hasil latihan sekarang terikat ke akun user. Menu User menampilkan login, aktivitas, device, dan hasil. Tes Hiragana 46 juga tersimpan di akun masing-masing. Penghapusan Part akan ikut menghapus soal di Part tersebut.</p></div></div>`);}
