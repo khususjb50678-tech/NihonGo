@@ -615,3 +615,16 @@ body.exercise-mode .topbar .nav,body.exercise-mode .bottom{display:none!importan
 .custom-part{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);cursor:pointer}
 .custom-part input{margin-top:3px;flex:none;width:18px;height:18px}
 .custom-part small{color:#9a9aa8}
+
+/* Saat mengerjakan: bar atas = timer + deret nomor soal */
+body.exercise-mode .topbar{display:none!important}
+.exercise-bar{position:sticky;top:0;z-index:60;padding:12px 14px 8px;background:rgba(8,8,10,.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.1)}
+.exercise-bar-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.exercise-bar .timer-text{font-size:26px;min-width:0;margin:0!important;text-align:left!important}
+.eb-count{font-size:.85rem;color:#b9b9c6;font-weight:700;white-space:nowrap}
+.q-strip{display:flex;gap:8px;overflow-x:auto;padding:10px 2px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.q-strip::-webkit-scrollbar{display:none}
+.q-strip button{flex:none;min-width:40px;height:40px;padding:0 6px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:#17171c;color:#d8d8e2;font:inherit;font-weight:800;cursor:pointer}
+.q-strip button.ok{background:rgba(34,197,94,.22);border-color:#22c55e;color:#bbf7d0}
+.q-strip button.doubt{background:rgba(250,204,21,.2);border-color:#facc15;color:#fde68a}
+.q-strip button.cur{background:#b91c1c;border-color:#f87171;color:#fff;box-shadow:0 0 0 2px rgba(248,113,113,.35)}
