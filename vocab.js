@@ -166,8 +166,9 @@ function selectionModal(initial=[1]){
   return modal;
 }
 
-export async function kosakata({state,shell,esc=vesc,norm=vnorm}){
-  shell(`<section class="section vocab-page"><div class="section-title"><div><div class="eyebrow">📖 KOSAKATA</div><h2>Minna no Nihongo I · Bab 1–25</h2><p class="muted">Klik kartu Bab untuk membaliknya. Pilih Pelajari untuk melihat kosakata atau Test untuk langsung menguji bab tersebut.</p></div></div><div id="vocabMount"><div id="vocabLoading" class="card vocab-loading">Memuat data kosakata…</div></div></section>`);
+async function kosakataMinna({state,shell,esc=vesc,norm=vnorm,ctx={}}){
+  shell(`<section class="section vocab-page">${ctx.onBack?'<button type="button" class="btn" id="backParts" style="margin-bottom:14px">← Pilih Part</button>':''}<div class="section-title"><div><div class="eyebrow">📖 KOSAKATA${ctx.partNo?` · PART ${String(ctx.partNo).padStart(2,'0')}`:''}</div><h2>${vesc(ctx.title||'Minna no Nihongo I · Bab 1–25')}</h2><p class="muted">Klik kartu Bab untuk membaliknya. Pilih Pelajari untuk melihat kosakata atau Test untuk langsung menguji bab tersebut.</p></div></div><div id="vocabMount"><div id="vocabLoading" class="card vocab-loading">Memuat data kosakata…</div></div></section>`);
+  document.querySelector('#backParts')?.addEventListener('click',()=>{window.scrollTo({top:0});ctx.onBack&&ctx.onBack();});
   try{
     const data=await loadVocab();
     const byLesson=n=>data.filter(x=>x.lesson===n);
@@ -208,4 +209,46 @@ export async function tesKotoba({state,shell,recordActivity,supabase,sbReady}){
     await render();
   }catch(e){stopKotobaTimer();window.__finishKotoba=null;shell(`<section class="section"><div class="card"><h2>Test Kotoba tidak bisa dimulai</h2><p class="muted">${vesc(e.message||'Data belum tersedia.')}</p><a class="btn" href="#kosakata">Kembali ke Kosakata</a></div></section>`);}
 }
+
+// ===== Kosakata berbentuk Part: Part 1 = Minna no Nihongo (bawaan), Part 2+ diatur Admin =====
+async function fetchVocabParts(supabase,sbReady){
+  const out={settings:{title:'Kosakata',description:'Pilih Part, lalu pelajari kosakata atau uji dirimu.'},parts:[]};
+  if(!sbReady||!supabase)return out.parts=[minnaDefault()],out;
+  try{const {data}=await supabase.from('vocab_settings').select('*').eq('id',1).maybeSingle();if(data){if(data.title)out.settings.title=data.title;if(data.description!=null)out.settings.description=data.description;}}catch{}
+  let rows=[];try{const r=await supabase.from('vocab_parts').select('*').order('part_number');rows=r.data||[];}catch{}
+  const hasMinna=rows.some(p=>p.kind==='minna');
+  out.parts=rows.filter(p=>p.active!==false);
+  if(!hasMinna)out.parts.unshift(minnaDefault());
+  out.parts.sort((a,b)=>(a.part_number||0)-(b.part_number||0));
+  return out;
+}
+function minnaDefault(){return {id:null,part_number:1,name:'Minna no Nihongo I · Bab 1–25',description:'Kosakata sesuai buku Minna no Nihongo I. Pelajari per bab atau langsung Test.',kind:'minna',active:true};}
+function customWordCard(x,p){return `<article class="vocab-word-card fx-card fx-ring"><div class="vocab-card-top"><span class="vocab-tag">PART ${vesc(p.part_number)}</span><span class="vocab-type">${vesc(toRomaji(x.kana||''))}</span></div><div class="vocab-jp">${vesc(x.kanji||x.kana)}</div>${x.kanji&&x.kana?`<div class="vocab-kana">${vesc(x.kana)}</div>`:''}<div class="vocab-meaning">${vesc(x.arti||'')}</div></article>`;}
+export async function kosakata({state,shell,esc=vesc,norm=vnorm,supabase,sbReady}){
+  const cfg=await fetchVocabParts(supabase,sbReady);
+  const counts={};
+  await Promise.all(cfg.parts.filter(p=>p.kind!=='minna'&&p.id).map(async p=>{try{const {count}=await supabase.from('vocab_part_words').select('id',{count:'exact',head:true}).eq('part_id',p.id);counts[p.id]=count||0;}catch{counts[p.id]=0;}}));
+  const nn=p=>String(p.part_number).padStart(2,'0');
+  const showParts=()=>{
+    shell(`<section class="section vocab-page"><div class="section-title"><div><div class="eyebrow">📖 KOSAKATA</div><h2>${vesc(cfg.settings.title)}</h2><p class="muted">${vesc(cfg.settings.description)}</p></div></div>${cfg.parts.length?`<div class="part-list">${cfg.parts.map((p,i)=>`<div class="part-card fx-card fx-ring" data-vpart="${i}" role="button" tabindex="0"><span class="tag">PART ${nn(p)}</span><h3>${vesc(p.name)}</h3><p class="part-desc">${vesc(p.description||'')}</p><b>${p.kind==='minna'?'Bab 1–25':`${counts[p.id]||0} kata`}</b></div>`).join('')}</div>`:'<div class="empty"><h3>Belum ada Part kosakata</h3></div>'}</section>`);
+    runFx();
+    document.querySelectorAll('[data-vpart]').forEach(c=>{const go=()=>openPart(cfg.parts[Number(c.dataset.vpart)]);c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
+    window.scrollTo({top:0});
+  };
+  const showCustom=async p=>{
+    shell(`<section class="section vocab-page"><button type="button" class="btn" id="backParts" style="margin-bottom:14px">← Pilih Part</button><div class="section-title"><div><div class="eyebrow">📖 KOSAKATA · PART ${nn(p)}</div><h2>${vesc(p.name)}</h2><p class="muted">${vesc(p.description||'')}</p></div></div><div id="vocabMount"><div class="card vocab-loading">Memuat kosakata…</div></div></section>`);
+    document.querySelector('#backParts').onclick=()=>showParts();
+    window.scrollTo({top:0});
+    let rows=[];
+    try{const r=await supabase.from('vocab_part_words').select('*').eq('part_id',p.id).order('sort',{ascending:true}).order('created_at',{ascending:true});if(r.error)throw r.error;rows=r.data||[];}
+    catch(e){const m=document.querySelector('#vocabMount');if(m)m.innerHTML=`<div class="card vocab-loading"><b>Gagal memuat kosakata.</b><p class="muted">${vesc(e.message||'Coba buka kembali halaman ini.')}</p></div>`;return;}
+    const mount=document.querySelector('#vocabMount');if(!mount)return;
+    mount.innerHTML=`<input id="vcSearch" class="input search" placeholder="Cari kata, cara baca, atau arti…" style="margin:0 0 16px"><p class="muted" id="vcCount" style="margin:0 0 12px">${rows.length} kata tersedia.</p><div class="vocab-grid" id="vcGrid">${rows.map(x=>customWordCard(x,p)).join('')||'<div class="empty">Belum ada kosakata di Part ini.</div>'}</div>`;
+    runFx();
+    document.querySelector('#vcSearch').oninput=e=>{const s=norm(e.target.value);const f=rows.filter(x=>norm(`${x.kanji||''} ${x.kana||''} ${x.arti||''}`).includes(s));document.querySelector('#vcGrid').innerHTML=f.map(x=>customWordCard(x,p)).join('')||'<div class="empty">Tidak ada yang cocok.</div>';document.querySelector('#vcCount').textContent=`${f.length} kata ditampilkan.`;runFx();};
+  };
+  const openPart=p=>{if(!p)return;if(p.kind==='minna')return kosakataMinna({state,shell,esc,norm,ctx:{title:p.name,partNo:p.part_number,onBack:showParts}});return showCustom(p);};
+  showParts();
+}
+
 export function openKotobaSetup(initial=[1]){loadVocab().then(()=>selectionModal(initial));}
