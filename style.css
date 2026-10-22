@@ -674,3 +674,26 @@ body.exercise-mode .topbar{display:none!important}
 .sp-opt{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.25);cursor:pointer;font-weight:700}
 .sp-opt.on{background:#d62828;border-color:#d62828;color:#fff}
 .sp-audio{margin-top:8px;display:inline-flex}
+
+/* ===== Soal PDF mode halaman (digulir) ===== */
+.sheet-scroll{max-width:900px;margin:0 auto;padding-bottom:96px}
+.sheet-hint{margin:6px 0 12px}
+.sheet-page{position:relative;background:#fff;border-radius:12px;overflow:hidden;margin:0 0 14px;box-shadow:0 6px 22px rgba(0,0,0,.28)}
+.sheet-page img{display:block;width:100%;height:auto;-webkit-user-drag:none;user-select:none}
+.sheet-slot{position:absolute;transform:translate(-50%,-50%);min-width:46px;min-height:34px;padding:0 6px;border:2px solid #d62828;border-radius:10px;background:rgba(214,40,40,.12);color:#d62828;font-weight:800;font-size:clamp(14px,4.4vw,22px);line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sheet-slot i{font-style:normal;font-size:.62em;opacity:.8}
+.sheet-slot.filled{background:#d62828;color:#fff}
+.sheet-finish{display:flex;justify-content:center;margin-top:10px}
+.sheet-finish .btn{min-width:200px;font-size:1.1rem;padding:14px 22px}
+.sheet-pick{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center}
+.sheet-pick-box{width:100%;max-width:560px;background:#17171c;color:#fff;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 30px rgba(0,0,0,.45)}
+.sheet-pick-title{font-weight:800;margin-bottom:12px}
+.sheet-pick-row{display:flex;gap:10px}
+.sheet-pick-row .btn{flex:1;font-size:1.6rem;font-weight:800;padding:16px 0;justify-content:center;text-align:center}
+.sheet-pick-foot{display:flex;justify-content:space-between;gap:10px;margin-top:12px}
+/* admin: halaman utuh */
+.sp-page{position:relative;background:#fff;border-radius:10px;overflow:hidden}
+.sp-page img{display:block;width:100%;height:auto}
+.sp-page .sheet-hot{animation:none;pointer-events:none}
+.sp-slot{position:absolute;border:2px solid #2b8a3e;background:rgba(43,138,62,.2);border-radius:6px;pointer-events:none}
+.sp-audio-row{margin-top:10px}
