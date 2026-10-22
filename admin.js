@@ -777,26 +777,28 @@ async function vocabParts(){
   }
 }
 
-const GUARD_DEFAULTS={enabled:true,photo:'',audio:'',top:'',middle:'Mau ngapain?? 😹🤡',bottom:'',duration:4};
-function normGuard(v){let o=v;if(typeof o==='string'){try{o=JSON.parse(o);}catch{o=null;}}o=o&&typeof o==='object'&&!Array.isArray(o)?o:{};const d=Number(o.duration);return {enabled:o.enabled!==false,photo:typeof o.photo==='string'?o.photo:'',audio:typeof o.audio==='string'?o.audio:'',top:o.top!=null?String(o.top).slice(0,80):GUARD_DEFAULTS.top,middle:o.middle!=null?String(o.middle).slice(0,80):GUARD_DEFAULTS.middle,bottom:o.bottom!=null?String(o.bottom).slice(0,80):GUARD_DEFAULTS.bottom,duration:Number.isFinite(d)&&d>=1?Math.min(20,Math.round(d)):GUARD_DEFAULTS.duration};}
+const GUARD_DEFAULTS={enabled:true,photo:'',audio:'',top:'',middle:'Mau ngapain?? 😹🤡',bottom:'',duration:4,volume:200};
+function normGuard(v){let o=v;if(typeof o==='string'){try{o=JSON.parse(o);}catch{o=null;}}o=o&&typeof o==='object'&&!Array.isArray(o)?o:{};const d=Number(o.duration);return {enabled:o.enabled!==false,photo:typeof o.photo==='string'?o.photo:'',audio:typeof o.audio==='string'?o.audio:'',top:o.top!=null?String(o.top).slice(0,80):GUARD_DEFAULTS.top,middle:o.middle!=null?String(o.middle).slice(0,80):GUARD_DEFAULTS.middle,bottom:o.bottom!=null?String(o.bottom).slice(0,80):GUARD_DEFAULTS.bottom,duration:Number.isFinite(d)&&d>=1?Math.min(20,Math.round(d)):GUARD_DEFAULTS.duration,volume:(()=>{const vv=Number(o.volume);return Number.isFinite(vv)&&vv>=100?Math.min(300,Math.round(vv)):GUARD_DEFAULTS.volume;})()};}
 
 function showGuardPreview(c){
   document.querySelector('#guardWarn')?.remove();
   document.body.insertAdjacentHTML('beforeend',`<div id="guardWarn" class="guard-full${c.photo?'':' no-photo'}">${c.photo?`<img class="gw-photo" src="${esc(c.photo)}" alt="">`:''}<div class="gw-shade"></div><div class="gw-top">${esc(c.top)}</div><div class="gw-mid">${esc(c.middle)}</div><div class="gw-bottom">${esc(c.bottom)}</div></div>`);
-  let au=null;if(c.audio){try{au=new Audio(c.audio);au.play().catch(()=>{});}catch{}}
-  const close=()=>{clearTimeout(t);try{au&&au.pause();}catch{}document.querySelector('#guardWarn')?.remove();};
+  let closed=false,ctx=null,src=null,au=null;
+  if(c.audio){(async()=>{try{const AC=window.AudioContext||window.webkitAudioContext;ctx=new AC();const r=await fetch(c.audio);const ab=await r.arrayBuffer();const buf=await new Promise((res,rej)=>{const pr=ctx.decodeAudioData(ab,res,rej);if(pr&&pr.catch)pr.catch(rej);});if(closed)return;src=ctx.createBufferSource();src.buffer=buf;const g=ctx.createGain();g.gain.value=Math.max(1,(c.volume||100)/100);const comp=ctx.createDynamicsCompressor();comp.threshold.value=-8;comp.knee.value=0;comp.ratio.value=20;src.connect(g);g.connect(comp);comp.connect(ctx.destination);src.start(0);}catch{try{au=new Audio(c.audio);au.volume=1;au.play().catch(()=>{});}catch{}}})();}
+  const close=()=>{closed=true;clearTimeout(t);try{src&&src.stop();}catch{}try{ctx&&ctx.close();}catch{}try{au&&au.pause();}catch{}document.querySelector('#guardWarn')?.remove();};
   const t=setTimeout(close,Math.max(1,c.duration||4)*1000);
   document.querySelector('#guardWarn').addEventListener('click',close);
 }
 async function guardPage(){
   const {data:ts}=await supabase.from('timer_settings').select('guard_settings').eq('id',1).maybeSingle();
   let cfg=normGuard(ts?.guard_settings);
-  const collect=()=>{cfg.enabled=document.querySelector('#gEnabled').checked;cfg.top=document.querySelector('#gTop').value;cfg.middle=document.querySelector('#gMid').value;cfg.bottom=document.querySelector('#gBot').value;cfg.duration=Math.min(20,Math.max(1,Math.round(Number(document.querySelector('#gDur').value)||4)));};
+  const collect=()=>{cfg.enabled=document.querySelector('#gEnabled').checked;cfg.top=document.querySelector('#gTop').value;cfg.middle=document.querySelector('#gMid').value;cfg.bottom=document.querySelector('#gBot').value;cfg.duration=Math.min(20,Math.max(1,Math.round(Number(document.querySelector('#gDur').value)||4)));cfg.volume=Math.min(300,Math.max(100,Math.round(Number(document.querySelector('#gVol').value)||200)));};
   const draw=()=>{
     app(`<div class="admin-header"><div><div class="eyebrow">KEAMANAN</div><h1>Peringatan Salin</h1><p class="muted">Tampilan layar penuh yang muncul saat user mencoba menyalin, menekan lama teks, atau menekan PrintScreen di halaman soal. Foto dan suara dipilih langsung dari file HP.</p></div></div>
     <div class="card admin-card"><label class="check-line" style="margin:0 0 12px"><input type="checkbox" id="gEnabled" ${cfg.enabled?'checked':''}> Tampilkan peringatan (penyalinan tetap diblokir walau dimatikan)</label>
       <h3>Foto (layar penuh)</h3><div class="upload-row"><input id="gPhotoFile" class="input" type="file" accept="image/png,image/jpeg,image/webp"><button class="btn" type="button" id="gPhotoUp">📁 Upload Foto</button></div><div id="gPhotoSt" class="upload-status">${cfg.photo?'Foto tersimpan.':'Belum ada foto (memakai latar gelap).'}</div>${cfg.photo?`<img class="upload-preview" src="${esc(cfg.photo)}" alt="Foto peringatan" style="max-height:220px;width:auto"><br><button class="btn danger" type="button" id="gPhotoDel" style="margin-top:8px">Hapus Foto</button>`:''}
       <h3 style="margin-top:18px">Suara</h3><div class="upload-row"><input id="gAudioFile" class="input" type="file" accept="audio/*"><button class="btn" type="button" id="gAudioUp">📁 Upload Suara</button></div><div id="gAudioSt" class="upload-status">${cfg.audio?'Suara tersimpan.':'Belum ada suara.'}</div>${cfg.audio?`<audio controls src="${esc(cfg.audio)}" style="width:100%;margin-top:6px"></audio><br><button class="btn danger" type="button" id="gAudioDel" style="margin-top:8px">Hapus Suara</button>`:''}
+      <label style="display:block;margin-top:14px">Volume suara: <b id="gVolV">${cfg.volume}%</b><input type="range" id="gVol" min="100" max="300" step="25" value="${cfg.volume}" style="width:100%"></label><p class="muted" style="margin:4px 0 0">100% = volume asli file. Lebih dari 100% memperkeras suara di dalam website. Volume HP user sendiri tidak bisa diubah oleh website.</p>
       <h3 style="margin-top:18px">Teks (3 bagian)</h3>
       <label>Teks atas<input class="input" id="gTop" maxlength="80" value="${esc(cfg.top)}" placeholder="(kosongkan jika tidak perlu)"></label>
       <label style="display:block;margin-top:10px">Teks tengah<input class="input" id="gMid" maxlength="80" value="${esc(cfg.middle)}"></label>
@@ -804,6 +806,7 @@ async function guardPage(){
       <label style="display:block;margin-top:10px">Lama tampil (detik, 1–20)<input class="input" id="gDur" type="number" min="1" max="20" value="${cfg.duration}"></label>
     </div>
     <div class="card admin-card" style="display:grid;gap:10px"><button class="btn" type="button" id="gTest">👁 Uji Peringatan</button><button class="btn red" type="button" id="gSave">💾 Simpan Peringatan</button><p class="muted" style="margin:0">Foto dikecilkan otomatis. Suara maksimal 6 MB (mp3, m4a, ogg, atau wav). Tekan layar peringatan untuk menutupnya lebih cepat.</p></div>`);
+    document.querySelector('#gVol').oninput=e=>{document.querySelector('#gVolV').textContent=e.target.value+'%';};
     document.querySelector('#gTest').onclick=()=>{collect();showGuardPreview(cfg);};
     document.querySelector('#gSave').onclick=async()=>{collect();const {error}=await supabase.from('timer_settings').upsert({id:1,guard_settings:cfg});if(error)alert(error.message+'\n\nPastikan SQL supabase-guard-warning.sql sudah dijalankan di Supabase.');else alert('Peringatan tersimpan.');};
     document.querySelector('#gPhotoDel')?.addEventListener('click',()=>{collect();cfg.photo='';draw();});
