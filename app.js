@@ -21,8 +21,17 @@ function sheetSlotHTML(q,k){
   const s=parseJSON(q.sheet_slot,null)||{x:.7,y:.9,w:.2,h:.02},v=state.answers[q.id];
   return `<button type="button" class="sheet-slot${v?' filled':''}" data-k="${k}" aria-label="Jawaban soal ${k+1}" style="left:${(s.x+s.w/2)*100}%;top:${(s.y+s.h/2)*100}%;width:${Math.max(s.w,.12)*100}%">${v?esc(sheetShown(v)):`<i>${k+1}</i>`}</button>`;
 }
+function sheetOrder(a,b){
+  const ga=String(a.sheet_group||''),gb=String(b.sheet_group||'');
+  if(ga!==gb)return ga<gb?-1:1;
+  const na=Number(a.q_number)||0,nb=Number(b.q_number)||0;
+  if(na!==nb)return na-nb;
+  const ca=String(a.created_at||''),cb=String(b.created_at||'');
+  return ca<cb?-1:ca>cb?1:0;
+}
 function renderSheetScroll(){
   stopSheetAudio();state.qOn=false;state.perQ={};
+  state.questions.sort(sheetOrder); // selalu urut sesuai PDF, apa pun pengaturan acak Part
   const qs=state.questions,pages=[],seen={};
   qs.forEach((q,k)=>{let p=pages.find(p=>p.url===q.sheet_page_url);if(!p){p={url:q.sheet_page_url,items:[]};pages.push(p);}p.items.push({q,k});});
   const pagesHTML=pages.map(p=>{
@@ -437,7 +446,7 @@ async function openSetup(id,parts){
   };
   document.querySelector('#suName').focus({preventScroll:true});
 }
-async function startExercise(qsOverride){ let qs; if(Array.isArray(qsOverride)&&qsOverride.length){qs=[...qsOverride];}else{ const {data,error}=await q('questions',{eq:{part_id:state.part.id,active:true},order:'created_at'}); if(error){alert(error.message);return} if(!data?.length){alert('Part ini belum memiliki soal aktif.');return} qs=[...data]; if(state.part.shuffle_questions)qs.sort(()=>Math.random()-.5); const user=state.part.setup_mode==='user'; const limit=user?state.setup?.count:state.part.question_limit; if(limit)qs=qs.slice(0,limit); } state.questions=qs;state.index=0;state.answers={};state.doubts={};state.reviewed={};state.review=false;state.timedOut=false;state.exerciseActive=true;state.exerciseHash=location.hash||'#latihan';await recordActivity('exercise_start',{part:state.part?.name,part_id:state.part?.id||null,custom:!!state.part?.custom,total_questions:qs.length});await loadTimerSettings();initTimers();renderExercise(); }
+async function startExercise(qsOverride){ let qs; if(Array.isArray(qsOverride)&&qsOverride.length){qs=[...qsOverride];}else{ const {data,error}=await q('questions',{eq:{part_id:state.part.id,active:true},order:'created_at'}); if(error){alert(error.message);return} if(!data?.length){alert('Part ini belum memiliki soal aktif.');return} qs=[...data]; if(qs.some(q=>q.sheet_page_url)&&qs.every(q=>q.sheet_page_url||q.sheet_url))qs=qs.filter(q=>q.sheet_page_url); const isSheet=qs.some(q=>q.sheet_url||q.sheet_page_url); if(state.part.shuffle_questions&&!isSheet)qs.sort(()=>Math.random()-.5); const user=state.part.setup_mode==='user'; const limit=user?state.setup?.count:state.part.question_limit; if(limit&&!isSheet)qs=qs.slice(0,limit); } state.questions=qs;state.index=0;state.answers={};state.doubts={};state.reviewed={};state.review=false;state.timedOut=false;state.exerciseActive=true;state.exerciseHash=location.hash||'#latihan';await recordActivity('exercise_start',{part:state.part?.name,part_id:state.part?.id||null,custom:!!state.part?.custom,total_questions:qs.length});await loadTimerSettings();initTimers();renderExercise(); }
 async function loadTimerSettings(){ state.timerSettings=null; if(!sbReady||state.part.setup_mode==='user')return; const {data}=await supabase.from('timer_settings').select('*').eq('id',1).maybeSingle();state.timerSettings=data||null; }
 // Timer total (satu Part) berjalan terus selama latihan; timer per soal (opsional dari Kelola Timer) mulai ulang tiap pindah soal.
 // Part "Diatur User": hanya waktu pilihan user yang dipakai.
