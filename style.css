@@ -644,3 +644,7 @@ body.exercise-mode .topbar{display:none!important}
 .guard-full .gw-top,.guard-full .gw-mid,.guard-full .gw-bottom{grid-row:auto!important;align-self:auto!important;max-width:92%}
 .guard-full .gw-top:empty,.guard-full .gw-mid:empty,.guard-full .gw-bottom:empty{display:none}
 .guard-full .gw-shade{background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.3) 50%,rgba(0,0,0,.25))}
+
+/* Safari iPhone lama: pengganti "inset" */
+.guard-full{top:0;right:0;bottom:0;left:0;-webkit-backdrop-filter:none}
+.guard-full .gw-photo,.guard-full .gw-shade{top:0;right:0;bottom:0;left:0}
