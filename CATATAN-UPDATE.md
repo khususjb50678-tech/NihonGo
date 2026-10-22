@@ -87,3 +87,27 @@ Fitur jadwal Part menambahkan kolom `scheduled_start_at` dan `scheduled_end_at`.
 - Tombol tes gabungan Hiragana + Katakana mengarah ke Part 15.
 - File `supabase-kana-parts-13-15.sql` menambahkan 46 soal Hiragana di Part 13, 46 soal Katakana di Part 14, dan 92 soal gabungan di Part 15.
 - Jalankan SQL tersebut satu kali di Supabase SQL Editor setelah deployment. Script menghindari duplikasi soal dengan prompt yang sama saat dijalankan ulang.
+
+---
+## Urutan SQL (jalankan di Supabase → SQL Editor, sekali saja per file)
+File lama (supabase-accounts, user-monitor, update, kosakata, part-schedule, soal-nomor, kana-parts) cukup dijalankan kalau belum pernah.
+File baru, jalankan hanya yang belum pernah:
+1. supabase-app-name.sql        — nama & ikon aplikasi
+2. supabase-kanji-part.sql      — Part Kanji + nama Part Kanji
+3. supabase-result-settings.sql — pengaturan nilai
+4. supabase-part-inactive-mode.sql — blur / dihilangkan saat Part nonaktif
+5. supabase-custom-mode.sql     — Mode Custom
+6. supabase-admin-roles.sql     — Admin Utama & Sensei (buat akun witamatama411@gmail.com dulu sebelum Run)
+7. supabase-vocab-parts.sql      — Kosakata berbentuk Part (Admin → Part Kosakata)
+8. supabase-guard-warning.sql   — pengaturan Peringatan Salin (foto, suara, teks)
+9. supabase-fix-bunpou.sql      — memperbaiki error RLS saat menambah Kaiwa & Bunpou
+
+## v55 — Soal PDF (Mirip Asli)
+Menu admin baru: **Soal PDF (Mirip Asli)**.
+1. Jalankan `supabase-lembar-pdf.sql` SEKALI di Supabase (SQL Editor).
+2. Admin → Soal PDF (Mirip Asli) → pilih Part → upload PDF. Tiap halaman difoto dan dipotong per soal (nomor （１）（２）… dan judul bagian terdeteksi otomatis).
+3. Admin memilih jawaban benar (A/B/C/D atau ○/×), bisa mengubah jumlah jawaban per soal (mis. ① ②), lalu Simpan.
+4. Soal yang punya kode audio 【Y15-10】 mendapat tombol "Pilih audio dari HP". Di sisi user, ikon suara pada gambar soal bisa diketuk untuk memutar audio.
+5. Di sisi user, soal tampil seperti PDF dan jawaban cukup klik A/B/C. Nilai, timer, ragu-ragu, dan hasil memakai sistem Part yang sudah ada.
+File baru: lembarpdf.js, supabase-lembar-pdf.sql. File diubah: admin.js, app.js, style.css.
+Catatan: butuh internet untuk memuat pdf.js; PDF harus berisi teks (bukan scan).

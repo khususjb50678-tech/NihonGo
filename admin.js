@@ -3,6 +3,7 @@ import { CONFIG } from './config.js';
 import { defaultBunpou } from './default-bunpou.js';
 import { BOOK } from './vocab-book.js';
 import { readPdfPages, parsePdfQuestions, parseKeyText } from './pdfsoal.js';
+import { sheetPdfPage } from './lembarpdf.js';
 import { PRESETS, DEFAULT_STYLE, cleanStyle, applyCardStyle, saveCardStyle, fetchCardStyle, loadCachedStyle, runFx } from './cardstyle.js';
 import { NEW_DESC, NEW_DEV, OLD_DESC, OLD_DEV } from './copy.js';
 const root=document.querySelector('#admin-app');
@@ -140,7 +141,7 @@ function partModeBadge(x){
   return `<i class="mode-pill">Diatur Admin · ${esc(bits.join(' · '))}</i>`;
 }
 
-function menuFor(){const all=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['vocab','Kosakata'],['vocabparts','Part Kosakata'],['parts','Part'],['questions','Soal'],['quick','Quick Soal'],['timer','Kelola Timer'],['custom','Mode Custom'],['guard','Peringatan Salin'],['nilai','Pengaturan Nilai'],['users','User'],['admins','Tambah Admin'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']];return all.filter(([k])=>role==='owner'||!OWNER_ONLY.includes(k));}
+function menuFor(){const all=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['vocab','Kosakata'],['vocabparts','Part Kosakata'],['parts','Part'],['questions','Soal'],['sheetpdf','Soal PDF (Mirip Asli)'],['quick','Quick Soal'],['timer','Kelola Timer'],['custom','Mode Custom'],['guard','Peringatan Salin'],['nilai','Pengaturan Nilai'],['users','User'],['admins','Tambah Admin'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']];return all.filter(([k])=>role==='owner'||!OWNER_ONLY.includes(k));}
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
   root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}</nav><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
@@ -177,7 +178,7 @@ async function kosakata(){
     const {error:er}=r.eid?await supabase.from('vocab_edits').update({hidden:!r.hidden}).eq('id',r.eid):await supabase.from('vocab_edits').insert(row);if(er)return alert(er.message);kosakata();});
   document.querySelectorAll('[data-vreset]').forEach(b=>b.onclick=async()=>{const r=rows[+b.dataset.vreset];if(!confirm(r.isNew?'Hapus kata tambahan ini?':'Kembalikan kata ini ke versi buku?'))return;const {error:er}=await supabase.from('vocab_edits').delete().eq('id',r.eid);if(er)return alert(er.message);kosakata();});
 }
-async function render(){if(role!=='owner'&&OWNER_ONLY.includes(current))current='dashboard';if(current==='admins')return adminsPage();if(current==='custom')return customPage();if(current==='guard')return guardPage();if(current==='dashboard')return dashboard();if(current==='nilai')return nilai();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='vocab')return kosakata();if(current==='vocabparts')return vocabParts();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
+async function render(){if(role!=='owner'&&OWNER_ONLY.includes(current))current='dashboard';if(current==='admins')return adminsPage();if(current==='custom')return customPage();if(current==='guard')return guardPage();if(current==='dashboard')return dashboard();if(current==='nilai')return nilai();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='vocab')return kosakata();if(current==='vocabparts')return vocabParts();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='sheetpdf')return sheetPdfPage({app,esc,supabase});if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
 
 async function tampilan(){
   let st=cleanStyle(await fetchCardStyle()||loadCachedStyle()||DEFAULT_STYLE);

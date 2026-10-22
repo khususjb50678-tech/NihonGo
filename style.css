@@ -648,3 +648,29 @@ body.exercise-mode .topbar{display:none!important}
 /* Safari iPhone lama: pengganti "inset" */
 .guard-full{top:0;right:0;bottom:0;left:0;-webkit-backdrop-filter:none}
 .guard-full .gw-photo,.guard-full .gw-shade{top:0;right:0;bottom:0;left:0}
+
+/* ===== Soal PDF mirip asli ===== */
+.sheet-wrap{display:grid;gap:10px;margin:12px 0}
+.sheet-card{position:relative;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 6px 22px rgba(0,0,0,.18)}
+.sheet-card img{display:block;width:100%;height:auto;-webkit-user-drag:none;user-select:none}
+.sheet-more summary{cursor:pointer;font-weight:700;padding:8px 2px}
+.sheet-tip{margin:0;font-size:.85rem;opacity:.75;text-align:center}
+.sheet-hot{position:absolute;display:block;padding:0;border:2px solid rgba(214,40,40,.55);border-radius:14px;background:rgba(214,40,40,.08);cursor:pointer;animation:sheetPulse 1.8s ease-in-out infinite}
+.sheet-hot.playing{background:rgba(214,40,40,.28);border-color:#d62828;animation:none}
+@keyframes sheetPulse{0%,100%{box-shadow:0 0 0 0 rgba(214,40,40,.35)}50%{box-shadow:0 0 0 7px rgba(214,40,40,0)}}
+.sheet-answers{display:flex;gap:10px;flex-wrap:wrap}
+.sheet-answers .btn.answer{flex:1 1 0;min-width:70px;font-size:1.35rem;font-weight:800;text-align:center;justify-content:center}
+.sheet-marks .btn.answer{font-size:1.6rem}
+/* admin */
+.sp-card{margin-top:14px}
+.sp-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.sp-img{position:relative;background:#fff;border-radius:10px;overflow:hidden}
+.sp-img img,.sp-head img{display:block;width:100%;height:auto;background:#fff;border-radius:8px}
+.sp-img .sheet-hot{animation:none;pointer-events:none}
+.sp-ctrl{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.sp-ctrl label{flex:1 1 130px}
+.sp-key{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+.sp-key>span{min-width:92px;font-weight:700}
+.sp-opt{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.25);cursor:pointer;font-weight:700}
+.sp-opt.on{background:#d62828;border-color:#d62828;color:#fff}
+.sp-audio{margin-top:8px;display:inline-flex}
