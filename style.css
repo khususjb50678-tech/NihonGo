@@ -773,3 +773,10 @@ body.exercise-mode .topbar{display:none!important}
 .prank-ov[data-style^=scare] .prank-x{z-index:3;top:calc(env(safe-area-inset-top,0px) + 10px);background:rgba(0,0,0,.45)}
 .prank-ov[data-style^=scare] .prank-play{position:absolute;z-index:3;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);margin:0}
 .prank-ov[data-style^=scare] .prank-tag{position:absolute;z-index:3;left:0;right:0;bottom:6px;margin:0}
+
+/* ===== Fitur Admin Tambahan ===== */
+.ak-card{margin-top:14px}
+.ak-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:8px 0}
+.ak-opt{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.16);border-radius:10px;cursor:pointer}
+.ak-pwbox{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.14)}
+.ak-pwbox h3{margin:0 0 6px}

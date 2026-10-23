@@ -108,6 +108,26 @@ Menu admin baru: **Soal PDF (Mirip Asli)**.
 2. Admin → Soal PDF (Mirip Asli) → pilih Part → upload PDF. Tiap halaman difoto dan dipotong per soal (nomor （１）（２）… dan judul bagian terdeteksi otomatis).
 3. Admin memilih jawaban benar (A/B/C/D atau ○/×), bisa mengubah jumlah jawaban per soal (mis. ① ②), lalu Simpan.
 4. Soal yang punya kode audio 【Y15-10】 mendapat tombol "Pilih audio dari HP". Di sisi user, ikon suara pada gambar soal bisa diketuk untuk memutar audio.
-5. Di sisi user, soal tampil seperti PDF dan jawaban cukup klik A/B/C. Nilai, timer, ragu-ragu, dan hasil memakai sistem Part yang sudah ada.
-File baru: lembarpdf.js, supabase-lembar-pdf.sql. File diubah: admin.js, app.js, style.css.
+5. Di sisi user, halaman PDF tampil utuh dan digulir dari atas ke bawah; jawaban dipilih dengan mengetuk kotak jawaban di halaman (muncul pilihan A/B/C). Mode ini aktif bila SEMUA soal di Part berasal dari Soal PDF; kalau Part dicampur dengan soal biasa, tampilan kembali satu-satu. Nilai, timer, ragu-ragu, dan hasil memakai sistem Part yang sudah ada.
+Jalankan ulang supabase-lembar-pdf.sql jika sudah pernah menjalankan versi sebelumnya (aman diulang). File baru: lembarpdf.js, supabase-lembar-pdf.sql. File diubah: admin.js, app.js, style.css.
 Catatan: butuh internet untuk memuat pdf.js; PDF harus berisi teks (bukan scan).
+
+## v55 — Kerjain Teman (khusus Admin Utama) + menu User untuk Sensei
+1. Jalankan `supabase-kerjain-teman.sql` SEKALI di Supabase (SQL Editor). Butuh `supabase-admin-roles.sql` (fungsi is_owner) sudah pernah dijalankan.
+2. Admin Utama: menu baru **Kerjain Teman 😈** → pilih target (semua / user tertentu, ada penanda online), isi teks/foto/video/suara dari HP, pilih gaya (popup, layar penuh, banner), atur batas waktu berlaku, lalu Pratinjau / Kirim. Riwayat kiriman bisa dihentikan atau dihapus.
+3. Sisi user: kiriman muncul otomatis (dicek tiap ±6 detik) di halaman mana pun saat web terbuka. Selalu ada tombol ✕ (juga ESC); tidak ada label. Tiap kiriman hanya tampil sekali per user dan kedaluwarsa sesuai pengaturan.
+4. Menu **User** sudah tampil untuk Sensei; menu Kerjain Teman tidak. Sidebar admin kini menampilkan "Panel v55 · Admin Utama/Sensei" untuk memastikan versi yang ter-deploy.
+File baru: prank-client.js, kerjainteman.js, supabase-kerjain-teman.sql. Diubah: admin.js, user-monitor.js, style.css.
+
+### Kerjain Teman: jumpscare layar penuh (update)
+- Gaya baru **Jumpscare** (default): foto/video memenuhi seluruh layar (potong tepi), tanpa label, tanpa fade. Pilihan "gambar utuh" juga ada.
+- Media diunduh dulu di belakang layar (maks ±3,5 detik), lalu foto + suara + video tampil bersamaan, jadi tidak ada layar kosong atau jeda.
+- Sinyal instan lewat Realtime broadcast (kanal `itco-kerjain`); polling 4 detik tetap sebagai cadangan.
+- Foto besar otomatis dikecilkan (maks 1920 px) saat dikirim supaya cepat terunduh. Tidak perlu SQL tambahan.
+
+## v55 — Fitur Admin Tambahan, review hasil mirip tampilan user, dan password
+1. Jalankan `supabase-akses-admin.sql` SEKALI di Supabase (SQL Editor). Butuh `supabase-admin-roles.sql` sudah pernah dijalankan.
+2. Menu baru **Fitur Admin Tambahan** (khusus Admin Utama): centang menu apa saja yang boleh dibuka tiap admin tambahan (Sensei) — bisa "Pilih semua", "Hanya soal", "Kosongkan", atau "Terapkan ke semua Sensei". Tersimpan otomatis. Menu khusus Admin Utama (Branding, Tampilan Kolom, Pengaturan Nilai, Peringatan Salin, Tambah Admin, Kerjain Teman, dan halaman ini) tidak pernah bisa diberikan ke Sensei, dikunci di kode maupun di database.
+3. Menu **User** → detail seorang user → **Hasil Latihan**: hasil dari soal PDF sekarang ditampilkan sama persis seperti yang dilihat user sendiri (halaman PDF dengan lingkaran hijau/merah menandai benar/salah, plus jawaban yang benar). Hasil latihan biasa (bukan soal PDF) tetap memakai daftar seperti sebelumnya. File baru `review-view.js` dipakai bersama oleh `app.js` dan `admin.js` supaya tampilannya selalu identik.
+4. **Kata Sandi**: password user disimpan terenkripsi satu arah oleh Supabase Auth dan tidak bisa dilihat siapa pun (termasuk lewat database) — ini bukan batasan aplikasi, tapi cara kerja sistem keamanan. Sebagai gantinya, di detail user (khusus Admin Utama) ada tombol **"Kirim Link Reset Kata Sandi"** yang mengirim email reset resmi dari Supabase. Catatan: website belum punya halaman "buat kata sandi baru" setelah link diklik — kalau mau dilengkapi, perlu ditambahkan terpisah.
+File baru: review-view.js, aksesadmin.js, menuaccess.js, supabase-akses-admin.sql. Diubah: admin.js, app.js, style.css.
