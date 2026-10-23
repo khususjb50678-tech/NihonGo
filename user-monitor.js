@@ -1,4 +1,5 @@
 import { supabase, sbReady } from './supabase.js';
+import { startPrankListener, stopPrankListener } from './prank-client.js';
 
 let timer = null;
 let started = false;
@@ -41,6 +42,7 @@ export async function startUserMonitor({login=false}={}){
   }else await heartbeat();
   if(login)recordActivity('login',{device:deviceLabel()});
   timer=setInterval(heartbeat,15000);
+  startPrankListener();
   document.removeEventListener('visibilitychange',onVisible);
   document.addEventListener('visibilitychange',onVisible);
 }
@@ -48,6 +50,7 @@ export async function startUserMonitor({login=false}={}){
 export async function stopUserMonitor({logout=false}={}){
   if(timer)clearInterval(timer);
   timer=null;
+  stopPrankListener();
   document.removeEventListener('visibilitychange',onVisible);
   if(logout&&sbReady&&started){try{await supabase.rpc('record_user_logout');}catch{}}
   started=false;
