@@ -123,6 +123,11 @@ export function relabelPlan(rows) {
   const rs = [...rows].sort(cmpRow), base = baseOf(rs[0]?.prompt), many = rs.length > 1;
   return rs.map((r, i) => ({ id: r.id, prompt: many ? `${base} · ${CIRC[i] || i + 1}` : base, sheet_label: many ? `Jawaban ${CIRC[i] || i + 1}` : '' }));
 }
+function toast(msg) {
+  let el = document.querySelector('#spToast');
+  if (!el) { el = document.createElement('div'); el.id = 'spToast'; el.className = 'sp-toast'; document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 1700);
+}
 const labelOf = g => `Hal ${g.page} · Soal ${g.sec}-(${g.no})`;
 const slimHot = h => { if (!h || h.m) return h; if (h.w > .09) h = { x: h.x + .005, w: .06, y: h.y + Math.max(0, (h.h - .04) / 2), h: Math.min(h.h, .04) }; else if (h.w >= .07) return h; return { ...h, x: h.x + .006, y: h.y + .012 }; };
 const hotHTML = h0 => { const h = slimHot(h0); return h ? `<span class="sheet-hot" style="left:${h.x * 100}%;top:${h.y * 100}%;width:${h.w * 100}%;height:${h.h * 100}%" title="Area ikon suara"></span>` : ''; };
@@ -297,17 +302,17 @@ export async function sheetPdfPage({ app, esc, supabase }) {
     if (d.eopt) {
       const opts = CHOICES[t.value], { data: cur } = await supabase.from('questions').select('answer').eq('id', d.eopt).single();
       const { error } = await supabase.from('questions').update({ options: opts, answer: opts.includes(cur?.answer) ? cur.answer : opts[0] }).eq('id', d.eopt);
-      if (error) return alert(error.message); listExisting();
+      if (error) return alert(error.message); toast('✓ Pilihan tersimpan'); listExisting();
     }
-    else if (d.ek) { const { error } = await supabase.from('questions').update({ answer: t.value }).eq('id', d.ek); if (error) return alert(error.message); t.closest('.sp-key').querySelectorAll('.sp-opt').forEach(l => l.classList.toggle('on', l.contains(t))); }
+    else if (d.ek) { const { error } = await supabase.from('questions').update({ answer: t.value }).eq('id', d.ek); if (error) return alert(error.message); toast('✓ Jawaban tersimpan'); t.closest('.sp-key').querySelectorAll('.sp-opt').forEach(l => l.classList.toggle('on', l.contains(t))); }
     else if (d.eaids && t.files?.[0]) {
       const f = t.files[0];
-      try { const u = await upl(supabase, `sheets/audio/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`, f, f.type); const { error } = await supabase.from('questions').update({ audio_url: u }).in('id', d.eaids.split(',')); if (error) throw error; listExisting(); }
+      try { const u = await upl(supabase, `sheets/audio/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`, f, f.type); const { error } = await supabase.from('questions').update({ audio_url: u }).in('id', d.eaids.split(',')); if (error) throw error; toast('✓ Audio tersimpan'); listExisting(); }
       catch (err) { alert('Audio gagal disimpan: ' + (err.message || err)); }
     }
     else if (d.eau && t.files?.[0]) {
       const f = t.files[0];
-      try { const u = await upl(supabase, `sheets/audio/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`, f, f.type); const { error } = await supabase.from('questions').update({ audio_url: u, sheet_hot: HOT[d.eau] || { ...DEF_HOT } }).eq('sheet_url', d.eau).eq('part_id', partSel.value); if (error) throw error; listExisting(); }
+      try { const u = await upl(supabase, `sheets/audio/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`, f, f.type); const { error } = await supabase.from('questions').update({ audio_url: u, sheet_hot: HOT[d.eau] || { ...DEF_HOT } }).eq('sheet_url', d.eau).eq('part_id', partSel.value); if (error) throw error; toast('✓ Audio tersimpan'); listExisting(); }
       catch (err) { alert('Audio gagal disimpan: ' + (err.message || err)); }
     }
   });
@@ -337,14 +342,14 @@ export async function sheetPdfPage({ app, esc, supabase }) {
   ex.addEventListener('click', async e => {
     try {
       const ps = e.target.closest('[data-pos]'); if (ps) { posRow = posRow === ps.dataset.pos ? null : ps.dataset.pos; markPos(); return; }
-      const ad = e.target.closest('[data-add]'); if (ad) { await addAnswer(ad.dataset.add); return listExisting(); }
-      const dr = e.target.closest('[data-delrow]'); if (dr) { if (!confirm('Hapus jawaban ini dari soal?')) return; await delAnswer(dr.dataset.delrow); return listExisting(); }
+      const ad = e.target.closest('[data-add]'); if (ad) { await addAnswer(ad.dataset.add); toast('✓ Jawaban ditambahkan'); return listExisting(); }
+      const dr = e.target.closest('[data-delrow]'); if (dr) { if (!confirm('Hapus jawaban ini dari soal?')) return; await delAnswer(dr.dataset.delrow); toast('✓ Jawaban dihapus'); return listExisting(); }
       const pim = e.target.closest('.sp-page img');
       if (pim && posRow) {
         const rc = pim.getBoundingClientRect(), cx = (e.clientX - rc.left) / rc.width, cy = (e.clientY - rc.top) / rc.height, id = posRow; posRow = null;
         const s0 = ROWS[id]?.sheet_slot || {}, w = Math.min(.3, s0.w || .16), h = s0.h || .02;
         const { error } = await supabase.from('questions').update({ sheet_slot: { x: cl(cx - w / 2), y: cl(cy - h / 2), w, h } }).eq('id', id); if (error) throw error;
-        return listExisting();
+        toast('✓ Posisi tersimpan'); return listExisting();
       }
     } catch (err) { alert('Gagal: ' + (err.message || err)); return listExisting(); }
     const im = e.target.closest('.sp-img img'), card = im && im.closest('[data-url]');
