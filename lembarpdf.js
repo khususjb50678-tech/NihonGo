@@ -46,9 +46,10 @@ export async function analyzePdf(file, onProgress) {
     const page = await pdf.getPage(p), vp = page.getViewport({ scale: SC });
     const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
     await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-    const W = cv.width, H = cv.height, tc = await page.getTextContent(), rows = [];
+    const W = cv.width, H = cv.height, tc = await page.getTextContent(), rows = [], labs = [];
     for (const it of tc.items) {
       if (!String(it.str || '').trim()) continue;
+      { const lm = T(it.str).trim().match(/^([a-d])\s*\.?$/); if (lm) labs.push({ c: lm[1], y: vp.convertToViewportPoint(it.transform[4], it.transform[5])[1] }); }
       const fs = Math.abs(it.transform[3]) || it.height || 0; if (fs < 8) continue; // lewati furigana kecil
       const [px, py] = vp.convertToViewportPoint(it.transform[4], it.transform[5]);
       let r = rows.find(r => Math.abs(r.y - py) <= 5); if (!r) { r = { y: py, fs: 0, items: [] }; rows.push(r); }
@@ -83,6 +84,7 @@ export async function analyzePdf(file, onProgress) {
       const c = await cropBlob(cv, start, end);
       const inr = lines.filter(l => l.top >= start && l.top < end), txt = inr.map(l => l.text).join('\n');
       const letters = new Set(); for (const mm of txt.matchAll(/(?:^|\s)([a-d])\s*\./g)) letters.add(mm[1]);
+      labs.forEach(lb => { if (lb.y >= start && lb.y < end) letters.add(lb.c); });
       const mx = letters.size ? Math.max(...[...letters].map(ch => ch.charCodeAt(0) - 96)) : 0;
       const marks = /○/.test(txt) && /×/.test(txt);
       const ctype = marks ? 'marks' : mx >= 4 ? 'abcd' : mx === 2 ? 'ab' : 'abc';
@@ -108,20 +110,18 @@ export async function analyzePdf(file, onProgress) {
 const labelOf = g => `Hal ${g.page} · Soal ${g.sec}-(${g.no})`;
 const hotHTML = (h) => h ? `<span class="sheet-hot" style="left:${h.x * 100}%;top:${h.y * 100}%;width:${h.w * 100}%;height:${h.h * 100}%" title="Area ikon suara"></span>` : '';
 
-function cardHTML(g, i, esc) {
+function grpHTML(g, i, esc) {
   const ch = CHOICES[g.ctype];
   const keys = Array.from({ length: g.blanks }, (_, b) => `<div class="sp-key"><span>${g.blanks > 1 ? (g.ctype === 'marks' ? 'Gambar ' : 'Jawaban ') + CIRC[b] : 'Jawaban benar'}</span>${ch.map(v => `<label class="sp-opt${g.keys[b] === v ? ' on' : ''}"><input type="radio" name="k${i}_${b}" value="${esc(v)}" data-k="${i}" data-b="${b}" ${g.keys[b] === v ? 'checked' : ''}>${g.ctype === 'marks' ? v : v.toUpperCase()}</label>`).join('')}</div>`).join('');
-  return `<article class="card admin-card sp-card" data-g="${i}">
+  return `<div class="sp-grp" data-g="${i}">
     <div class="sp-top"><label><input type="checkbox" data-inc="${i}" ${g.include ? 'checked' : ''}> Masukkan</label><b>${esc(labelOf(g))}</b></div>
-    <div class="sp-img"><img src="${g.url}" alt="">${hotHTML(g.hot)}</div>
     <div class="sp-ctrl">
       <label>Jumlah jawaban <input class="input" type="number" min="1" max="8" value="${g.blanks}" data-bl="${i}"></label>
       <label>Pilihan <select class="input" data-ct="${i}">${Object.keys(CHOICES).map(k => `<option value="${k}" ${g.ctype === k ? 'selected' : ''}>${CT_LABEL[k]}</option>`).join('')}</select></label>
     </div>
     ${keys}
-    <p class="muted" style="margin:6px 0">🔊 Soal ini ada audio? Ketuk gambar tepat di ikon suara untuk menandai posisinya, lalu pilih audio.</p>
     <label class="btn sp-audio">🔊 ${g.audioFile ? esc(g.audioFile.name) : 'Pilih audio dari HP'}<input hidden type="file" accept="audio/*" data-au="${i}"></label>
-  </article>`;
+  </div>`;
 }
 
 async function upl(supabase, path, blob, type) {
@@ -136,6 +136,7 @@ export async function sheetPdfPage({ app, esc, supabase }) {
     <p class="muted">Upload PDF: tiap halaman difoto utuh. User menggulir halaman dari atas ke bawah seperti PDF, lalu mengetuk kotak jawaban untuk memilih A/B/C. Kamu tinggal memilih jawaban yang benar, dan memasang audio (dari file HP) untuk soal yang punya ikon suara.</p></div></div>
     <div class="card admin-card"><label>Part tujuan<select class="input" id="spPart">${(parts || []).map(p => `<option value="${p.id}">Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label>
     <label>File PDF soal<input type="file" accept="application/pdf" id="spFile" class="input"></label><div id="spOut"></div></div>
+    <div class="card admin-card"><h3>Sudah terlanjur impor (tampilan lama)?</h3><p class="muted">Ubah soal lama di Part ini ke tampilan halaman utuh yang digulir. Pilih PDF yang sama. Jawaban benar dan audio yang sudah kamu isi tetap dipakai.</p><input type="file" accept="application/pdf" id="spUpg" class="input"><div id="spUpgOut"></div></div>
     <div id="spExisting"></div>`);
   const partSel = document.querySelector('#spPart'), out = document.querySelector('#spOut'), ex = document.querySelector('#spExisting');
   let G = [], PG = {}; const HOT = {};
@@ -147,18 +148,50 @@ export async function sheetPdfPage({ app, esc, supabase }) {
     out.innerHTML = '<p class="muted">Membaca PDF…</p>';
     try {
       const r = await analyzePdf(f, (p, n) => { out.innerHTML = `<p class="muted">Memfoto halaman ${p} dari ${n}…</p>`; });
-      G = r.groups; PG = r.pages;
+      G = r.groups; PG = r.pages; Object.values(PG).forEach(pg => { pg.url = URL.createObjectURL(pg.blob); });
       if (!G.length) { out.innerHTML = '<p class="muted">Tidak ada soal terdeteksi. Pastikan PDF berisi teks (bukan hasil scan) dan nomor soal berbentuk （１）（２）…</p>'; return; }
-      const html = G.map((g, i) => cardHTML(g, i, esc)).join('');
-      out.innerHTML = `<p><b>${G.length} soal terdeteksi dari ${r.count} halaman.</b> Periksa gambar, jumlah jawaban, dan pilih jawaban yang benar. Matikan "Masukkan" untuk soal yang tidak dipakai.</p>${html}<button class="btn red fullbtn" id="spSave" type="button">Simpan ke Part</button><p id="spMsg" class="muted"></p>`;
+      const html = [...new Set(G.map(g => g.page))].map(p => `<article class="card admin-card sp-card"><div class="sp-top"><b>Halaman ${p}</b></div>
+        <div class="sp-page" data-pgimg="${p}"><img src="${PG[p].url}" alt="">${overlayHTML(p)}</div>
+        <p class="muted" style="margin:6px 0">Kotak hijau = tempat user menjawab. Soal ada audio? Ketuk halaman tepat di ikon suara 🔊 untuk menandai posisinya (kotak merah), lalu pilih audio di bawah.</p>
+        ${G.map((g, i) => g.page === p ? grpHTML(g, i, esc) : '').join('')}</article>`).join('');
+      out.innerHTML = `<p><b>${G.length} soal terdeteksi dari ${r.count} halaman.</b> Periksa halaman, jumlah jawaban, dan pilih jawaban yang benar. Matikan "Masukkan" untuk soal yang tidak dipakai.</p>${html}<button class="btn red fullbtn" id="spSave" type="button">Simpan ke Part</button><p id="spMsg" class="muted"></p>`;
       document.querySelector('#spSave').onclick = save;
     } catch (err) { out.innerHTML = `<p class="muted">${esc(err.message || err)}</p>`; }
   };
 
-  const redraw = i => { const el = out.querySelector(`[data-g="${i}"]`); if (el) el.outerHTML = cardHTML(G[i], i, esc); };
+  document.querySelector('#spUpg').onchange = async e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const o = document.querySelector('#spUpgOut'); o.innerHTML = '<p class="muted">Membaca PDF…</p>';
+    try {
+      const part = partSel.value;
+      const { data: old, error } = await supabase.from('questions').select('*').eq('part_id', part).not('sheet_url', 'is', null).is('sheet_page_url', null).order('created_at');
+      if (error) throw new Error(/sheet_/.test(error.message) ? 'Jalankan supabase-lembar-pdf.sql (versi terbaru) di Supabase dulu.' : error.message);
+      if (!old.length) { o.innerHTML = '<p class="muted">Tidak ada soal format lama di Part ini.</p>'; return; }
+      const r = await analyzePdf(f, (p, n) => { o.innerHTML = `<p class="muted">Memfoto halaman ${p} dari ${n}…</p>`; });
+      const byLabel = new Map(r.groups.map(g => [labelOf(g), g])), plan = []; let miss = 0;
+      for (const row of old) {
+        const g = byLabel.get(String(row.prompt || '').replace(/ · [①-⑧]$/, '')); if (!g) { miss++; continue; }
+        const bi = (String(row.prompt).match(/ · ([①-⑧])$/) || [])[1]; plan.push({ row, g, b: bi ? CIRC.indexOf(bi) : 0 });
+      }
+      if (!plan.length) { o.innerHTML = '<p class="muted">Tidak ada soal lama yang cocok dengan PDF ini. Pastikan PDF-nya sama dengan yang dulu di-import.</p>'; return; }
+      const batch = Date.now().toString(36), pageUrl = {};
+      for (const p of [...new Set(plan.map(x => x.g.page))]) { o.innerHTML = `<p class="muted">Mengunggah halaman ${p}…</p>`; pageUrl[p] = await upl(supabase, `sheets/${batch}/page-${p}.jpg`, r.pages[p].blob, 'image/jpeg'); }
+      let ok = 0;
+      for (const { row, g, b } of plan) {
+        const gg = row.sheet_hot ? { ...g, hot: row.sheet_hot } : g;
+        const { error: ue } = await supabase.from('questions').update({ sheet_page_url: pageUrl[g.page], sheet_slot: slotOf(g, b), sheet_hot: hotPage(gg), sheet_url: null, sheet_head_url: null }).eq('id', row.id);
+        if (ue) throw ue; ok++;
+      }
+      o.innerHTML = `<p><b>${ok} jawaban diubah ke tampilan halaman utuh.</b>${miss ? ` ${miss} soal lama tidak cocok dengan PDF (tidak diubah).` : ''}</p>`; listExisting();
+    } catch (err) { o.innerHTML = `<p class="muted">${esc(err.message || err)}</p>`; }
+  };
+
+  const overlayHTML = p => G.filter(g => g.page === p && g.include).map(g => Array.from({ length: g.blanks }, (_, b) => { const s = slotOf(g, b); return `<span class="sp-slot" style="left:${s.x * 100}%;top:${s.y * 100}%;width:${s.w * 100}%;height:${s.h * 100}%"></span>`; }).join('') + hotHTML(hotPage(g))).join('');
+  const drawOverlay = p => { const el = out.querySelector(`[data-pgimg="${p}"]`); if (!el) return; el.querySelectorAll('.sp-slot,.sheet-hot').forEach(n => n.remove()); el.insertAdjacentHTML('beforeend', overlayHTML(p)); };
+  const redraw = i => { const el = out.querySelector(`.sp-grp[data-g="${i}"]`); if (el) el.outerHTML = grpHTML(G[i], i, esc); drawOverlay(G[i].page); };
   out.addEventListener('change', e => {
     const t = e.target, d = t.dataset;
-    if (d.inc != null) G[d.inc].include = t.checked;
+    if (d.inc != null) { G[d.inc].include = t.checked; drawOverlay(G[d.inc].page); }
     else if (d.bl != null) { const g = G[d.bl]; g.blanks = Math.max(1, Math.min(8, +t.value || 1)); g.keys.length = Math.min(g.keys.length, g.blanks); redraw(d.bl); }
     else if (d.ct != null) { const g = G[d.ct]; g.ctype = t.value; g.keys = []; redraw(d.ct); }
     else if (d.k != null) { G[d.k].keys[+d.b] = t.value; t.closest('.sp-key').querySelectorAll('.sp-opt').forEach(l => l.classList.toggle('on', l.contains(t))); }
@@ -166,8 +199,13 @@ export async function sheetPdfPage({ app, esc, supabase }) {
   });
 
   out.addEventListener('click', e => {
-    const im = e.target.closest('.sp-img img'), card = im && im.closest('[data-g]'); if (!card) return;
-    const i = +card.dataset.g; G[i].hot = tapHot(im, e); redraw(i);
+    const im = e.target.closest('.sp-page img'), box = im && im.closest('[data-pgimg]'); if (!box) return;
+    const p = +box.dataset.pgimg, r = im.getBoundingClientRect(), tx = (e.clientX - r.left) / r.width, ty = (e.clientY - r.top) / r.height;
+    const g = G.find(g => g.page === p && ty >= g.crop.y0 / g.H - .01 && ty <= (g.crop.y0 + g.crop.h) / g.H + .01);
+    if (!g) return alert('Ketuk di area soal, tepat di ikon suara.');
+    const w = .075, h = w * g.W / g.H, x = Math.min(cl(tx - w / 2), 1 - w), y = Math.min(cl(ty - h / 2), 1 - h);
+    g.hot = { x: cl((x * g.W - g.crop.x0) / g.crop.w0), y: cl((y * g.H - g.crop.y0) / g.crop.h), w: Math.min(1, w * g.W / g.crop.w0), h: Math.min(1, h * g.H / g.crop.h) };
+    drawOverlay(p);
   });
 
   async function save() {
@@ -216,7 +254,8 @@ export async function sheetPdfPage({ app, esc, supabase }) {
       if (r.sheet_page_url) { if (!pages.has(r.sheet_page_url)) pages.set(r.sheet_page_url, []); pages.get(r.sheet_page_url).push(r); }
       else { if (!crops.has(r.sheet_url)) { crops.set(r.sheet_url, []); HOT[r.sheet_url] = r.sheet_hot || null; } crops.get(r.sheet_url).push(r); }
     });
-    const keyRow = (r, lab) => { const o = Array.isArray(r.options) ? r.options : ['a','b','c']; return `<div class="sp-key"><span>${lab}</span>${o.map(v => `<label class="sp-opt${r.answer === v ? ' on' : ''}"><input type="radio" name="e${r.id}" value="${esc(v)}" data-ek="${r.id}" ${r.answer === v ? 'checked' : ''}>${/[○×]/.test(v) ? v : v.toUpperCase()}</label>`).join('')}</div>`; };
+    const ctypeOf = o => Object.keys(CHOICES).find(k => CHOICES[k].join() === (Array.isArray(o) ? o : []).join()) || 'abc';
+    const keyRow = (r, lab) => { const o = Array.isArray(r.options) ? r.options : ['a','b','c']; return `<div class="sp-key"><span>${lab}</span>${o.map(v => `<label class="sp-opt${r.answer === v ? ' on' : ''}"><input type="radio" name="e${r.id}" value="${esc(v)}" data-ek="${r.id}" ${r.answer === v ? 'checked' : ''}>${/[○×]/.test(v) ? v : v.toUpperCase()}</label>`).join('')}<select class="input sp-optsel" data-eopt="${r.id}" title="Jumlah pilihan">${Object.keys(CHOICES).map(k => `<option value="${k}" ${ctypeOf(r.options) === k ? 'selected' : ''}>${CT_LABEL[k]}</option>`).join('')}</select></div>`; };
     const pageCard = ([url, rs], n) => {
       const hg = new Map(); rs.forEach(r => { if (r.sheet_hot) { const k = JSON.stringify(r.sheet_hot); if (!hg.has(k)) hg.set(k, []); hg.get(k).push(r); } });
       const ov = rs.map(r => { const s = r.sheet_slot; return s ? `<span class="sp-slot" style="left:${s.x * 100}%;top:${s.y * 100}%;width:${s.w * 100}%;height:${s.h * 100}%"></span>` : ''; }).join('') + [...hg.keys()].map(k => hotHTML(JSON.parse(k))).join('');
@@ -237,7 +276,12 @@ export async function sheetPdfPage({ app, esc, supabase }) {
   }
   ex.addEventListener('change', async e => {
     const t = e.target, d = t.dataset;
-    if (d.ek) { const { error } = await supabase.from('questions').update({ answer: t.value }).eq('id', d.ek); if (error) return alert(error.message); t.closest('.sp-key').querySelectorAll('.sp-opt').forEach(l => l.classList.toggle('on', l.contains(t))); }
+    if (d.eopt) {
+      const opts = CHOICES[t.value], { data: cur } = await supabase.from('questions').select('answer').eq('id', d.eopt).single();
+      const { error } = await supabase.from('questions').update({ options: opts, answer: opts.includes(cur?.answer) ? cur.answer : opts[0] }).eq('id', d.eopt);
+      if (error) return alert(error.message); listExisting();
+    }
+    else if (d.ek) { const { error } = await supabase.from('questions').update({ answer: t.value }).eq('id', d.ek); if (error) return alert(error.message); t.closest('.sp-key').querySelectorAll('.sp-opt').forEach(l => l.classList.toggle('on', l.contains(t))); }
     else if (d.eaids && t.files?.[0]) {
       const f = t.files[0];
       try { const u = await upl(supabase, `sheets/audio/${Date.now()}-${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`, f, f.type); const { error } = await supabase.from('questions').update({ audio_url: u }).in('id', d.eaids.split(',')); if (error) throw error; listExisting(); }

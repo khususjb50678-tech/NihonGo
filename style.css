@@ -697,3 +697,7 @@ body.exercise-mode .topbar{display:none!important}
 .sp-page .sheet-hot{animation:none;pointer-events:none}
 .sp-slot{position:absolute;border:2px solid #2b8a3e;background:rgba(43,138,62,.2);border-radius:6px;pointer-events:none}
 .sp-audio-row{margin-top:10px}
+
+.sp-grp{border-top:1px solid rgba(255,255,255,.14);padding-top:10px;margin-top:12px}
+
+.sp-optsel{width:auto;max-width:130px;margin-left:auto;padding:6px 8px}
