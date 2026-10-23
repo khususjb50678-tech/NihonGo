@@ -15,11 +15,32 @@ const norm = s => String(s ?? '').trim().toLowerCase().replace(/\s+/g,' ');
 const choiceLabel = i => String.fromCharCode(65 + Number(i));
 
 // ===== Soal PDF mode halaman: halaman utuh digulir, ketuk kotak jawaban =====
+function slimHot(h){return h&&h.w>.09?{x:h.x+.005,w:.06,y:h.y+Math.max(0,(h.h-.04)/2),h:Math.min(h.h,.04)}:h;}
+function fitSheetFonts(){document.querySelectorAll('.sheet-page').forEach(p=>p.style.setProperty('--sfs',Math.min(18,Math.max(11,p.clientWidth*.03))+'px'));}
+window.addEventListener('resize',()=>fitSheetFonts());
+const sheetBox=s=>`left:${(s.x+s.w/2)*100}%;top:${(s.y+s.h/2)*100}%;width:max(${s.w*100}%,38px);height:max(${s.h*100}%,20px)`;
+function sheetReviewHTML(r){
+  const rs=r.reviews,pages=[],seen={};
+  rs.forEach((x,i)=>{let p=pages.find(p=>p.url===x.sheet_page_url);if(!p){p={url:x.sheet_page_url,items:[]};pages.push(p);}p.items.push({x,i});});
+  const bad=rs.map((x,i)=>({x,i})).filter(o=>!o.x.ok);
+  const body=pages.map(p=>{
+    const spots=p.items.map(({x})=>{const h=slimHot(parseJSON(x.sheet_hot,null));if(!h||!x.audio_url)return '';const key=`${x.audio_url}|${h.x.toFixed(3)}|${h.y.toFixed(3)}`;if(seen[key])return '';seen[key]=1;return `<div class="sheet-hot" role="button" tabindex="0" data-audio="${esc(x.audio_url)}" aria-label="Putar audio" style="left:${h.x*100}%;top:${h.y*100}%;width:${h.w*100}%;height:${h.h*100}%"></div>`;}).join('');
+    const slots=p.items.map(({x,i})=>{
+      const s=parseJSON(x.sheet_slot,null)||{x:.7,y:.9,w:.2,h:.02},blank=!String(x.user||'').trim(),cls=x.ok?'rv-ok':blank?'rv-blank':'rv-bad';
+      const mine=blank?'–':(x.ok?'✓ ':'✗ ')+esc(sheetShown(x.user));
+      const fix=x.ok?'':`<span class="sheet-fix${s.x+s.w>.86?' l':''}">${esc(sheetShown(x.answer))}</span>`;
+      return `<div class="sheet-slot ${cls}" data-i="${i}" style="${sheetBox(s)}">${mine}${fix}</div>`;
+    }).join('');
+    return `<div class="sheet-page"><img src="${esc(p.url)}" alt="Halaman soal" decoding="async">${spots}${slots}</div>`;
+  }).join('');
+  const chips=bad.length?`<div class="rv-chips"><span>Salah / kosong:</span>${bad.map(o=>`<button type="button" class="rv-chip" data-rv="${o.i}">${o.i+1}</button>`).join('')}</div>`:'<p class="muted">Tidak ada yang salah. Sempurna! 🎉</p>';
+  return `<div class="review-list sheet-review"><h2>Review Jawaban</h2><p class="muted sheet-hint">Hijau ✓ = benar. Merah ✗ = salah, dan kotak hijau kecil di sebelahnya adalah jawaban yang benar. Abu-abu = tidak dijawab.</p>${chips}${body}</div>`;
+}
 function sheetScrollMode(){return state.questions.length>0&&state.questions.every(q=>q.sheet_page_url);}
 function sheetShown(v){return /^[a-d]$/i.test(String(v))?String(v).toUpperCase():String(v);}
 function sheetSlotHTML(q,k){
   const s=parseJSON(q.sheet_slot,null)||{x:.7,y:.9,w:.2,h:.02},v=state.answers[q.id];
-  return `<button type="button" class="sheet-slot${v?' filled':''}" data-k="${k}" aria-label="Jawaban soal ${k+1}" style="left:${(s.x+s.w/2)*100}%;top:${(s.y+s.h/2)*100}%;width:${Math.max(s.w,.12)*100}%">${v?esc(sheetShown(v)):`<i>${k+1}</i>`}</button>`;
+  return `<div class="sheet-slot${v?' filled':''}" role="button" tabindex="0" data-k="${k}" aria-label="Jawaban soal ${k+1}" style="${sheetBox(s)}">${v?esc(sheetShown(v)):`<i>${k+1}</i>`}</div>`;
 }
 function sheetOrder(a,b){
   const ga=String(a.sheet_group||''),gb=String(b.sheet_group||'');
@@ -35,13 +56,13 @@ function renderSheetScroll(){
   const qs=state.questions,pages=[],seen={};
   qs.forEach((q,k)=>{let p=pages.find(p=>p.url===q.sheet_page_url);if(!p){p={url:q.sheet_page_url,items:[]};pages.push(p);}p.items.push({q,k});});
   const pagesHTML=pages.map(p=>{
-    const spots=p.items.map(({q})=>{const h=parseJSON(q.sheet_hot,null);if(!h||!q.audio_url)return '';const key=`${q.audio_url}|${h.x.toFixed(3)}|${h.y.toFixed(3)}`;if(seen[key])return '';seen[key]=1;return `<button type="button" class="sheet-hot" data-audio="${esc(q.audio_url)}" aria-label="Putar audio" style="left:${h.x*100}%;top:${h.y*100}%;width:${h.w*100}%;height:${h.h*100}%"></button>`;}).join('');
+    const spots=p.items.map(({q})=>{const h=slimHot(parseJSON(q.sheet_hot,null));if(!h||!q.audio_url)return '';const key=`${q.audio_url}|${h.x.toFixed(3)}|${h.y.toFixed(3)}`;if(seen[key])return '';seen[key]=1;return `<div class="sheet-hot" role="button" tabindex="0" data-audio="${esc(q.audio_url)}" aria-label="Putar audio" style="left:${h.x*100}%;top:${h.y*100}%;width:${h.w*100}%;height:${h.h*100}%"></div>`;}).join('');
     return `<div class="sheet-page"><img src="${esc(p.url)}" alt="Halaman soal" decoding="async">${spots}${p.items.map(({q,k})=>sheetSlotHTML(q,k)).join('')}</div>`;
   }).join('');
   const strip=qs.map((q,k)=>`<button type="button" data-q="${k}" class="${hasAnswer(q)?'ok':''}">${k+1}</button>`).join('');
   document.body.classList.add('exercise-mode');
   shell(`<div class="exercise-bar"><div class="exercise-bar-top"><div id="timerText" class="timer-text">⏱ Tanpa batas waktu</div><span class="eb-count">${qs.filter(hasAnswer).length}/${qs.length} terjawab</span></div><div class="q-strip" id="qStrip">${strip}</div></div><section class="section exercise sheet-scroll no-copy notranslate" translate="no"><div class="eyebrow">${esc(state.part.name)}</div><p class="muted sheet-hint">Baca soal, lalu ketuk kotak jawaban di halaman untuk memilih. Ketuk ikon 🔊 untuk memutar audio.</p>${pagesHTML}<div class="sheet-finish"><button type="button" class="btn red" id="sheetFinish">Selesai</button></div></section>`);
-  renderTimerOnly();bindSheet();
+  renderTimerOnly();bindSheet();fitSheetFonts();
   document.querySelectorAll('.sheet-slot').forEach(b=>b.onclick=()=>openSheetPick(+b.dataset.k));
   document.querySelectorAll('#qStrip [data-q]').forEach(b=>b.onclick=()=>{document.querySelector(`.sheet-slot[data-k="${b.dataset.q}"]`)?.scrollIntoView({block:'center',behavior:'smooth'});});
   document.querySelector('#sheetFinish').onclick=()=>{const blank=qs.filter(x=>!hasAnswer(x)).length;if(blank>0&&!confirm(`Masih ada ${blank} soal yang belum dijawab. Selesaikan sekarang?`))return;finish();};
@@ -74,10 +95,10 @@ function updateSheetUI(k){
 let __sheetAudio=null;
 function stopSheetAudio(){try{if(__sheetAudio){__sheetAudio.pause();__sheetAudio=null;}}catch{}}
 function sheetHTML(x){
-  const hot=parseJSON(x.sheet_hot,null),prev=state.questions[state.index-1];
+  const hot=slimHot(parseJSON(x.sheet_hot,null)),prev=state.questions[state.index-1];
   const first=!prev||prev.sheet_head_url!==x.sheet_head_url;
   const head=x.sheet_head_url?((first||x.sheet_head_tall)?`<div class="sheet-card sheet-head"><img src="${esc(x.sheet_head_url)}" alt="Petunjuk soal" decoding="async"></div>`:`<details class="sheet-more"><summary>📄 Lihat petunjuk / wacana</summary><div class="sheet-card"><img src="${esc(x.sheet_head_url)}" alt="Petunjuk soal" loading="lazy"></div></details>`):'';
-  const spot=(hot&&x.audio_url)?`<button type="button" class="sheet-hot" data-audio="${esc(x.audio_url)}" aria-label="Putar audio" style="left:${hot.x*100}%;top:${hot.y*100}%;width:${hot.w*100}%;height:${hot.h*100}%"></button>`:'';
+  const spot=(hot&&x.audio_url)?`<div class="sheet-hot" role="button" tabindex="0" data-audio="${esc(x.audio_url)}" aria-label="Putar audio" style="left:${hot.x*100}%;top:${hot.y*100}%;width:${hot.w*100}%;height:${hot.h*100}%"></div>`:'';
   return `<div class="sheet-wrap">${head}<div class="sheet-card sheet-q"><img src="${esc(x.sheet_url)}" alt="Soal" decoding="async">${spot}</div>${(hot&&x.audio_url)?'<p class="sheet-tip">🔊 Ketuk ikon suara pada soal untuk memutar audio.</p>':''}</div>`;
 }
 function sheetBody(x,current){
@@ -533,9 +554,11 @@ function renderResult(){
   const pool=String(T.emoji||'').split(/[\s,;]+/).filter(Boolean);
   const emojis=(cfg.enabled&&cfg.count>0&&pool.length)?Array.from({length:cfg.count},(_,i)=>{const em=pool[(i+Math.floor(Math.random()*pool.length))%pool.length],dur=6+Math.random()*7;return `<i style="left:${(Math.random()*100).toFixed(1)}%;font-size:${(20+Math.random()*30).toFixed(0)}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-Math.random()*dur).toFixed(1)}s;--rot:${Math.round(Math.random()*60-30)}deg;--y:${Math.round(Math.random()*90)}">${esc(em)}</i>`;}).join(''):'';
   const item=(x,i)=>`<article class="review ${x.ok?'ok':'bad'}"><b>${i+1}. ${renderPromptHTML(x.prompt)}</b><span>Jawaban kamu: ${esc(formatAnswer(x.user,x.type))||'— (tidak dijawab)'}</span><span>Jawaban benar: ${esc(formatAnswer(x.answer,x.type))}</span></article>`;
+  const sheetRev=r.reviews.length>0&&r.reviews.every(x=>x.sheet_page_url);
   const all=r.reviews.map((x,i)=>({x,i})),okL=all.filter(o=>o.x.ok),badL=all.filter(o=>!o.x.ok);
-  shell(`<section class="section result notranslate" translate="no"><div class="result-card tier-custom fx-float fx-ring" style="--tier:${T.color};--tier-glow:${glow}"><div class="result-emoji" aria-hidden="true">${emojis}</div><div class="eyebrow">HASIL LATIHAN</div><div class="result-medal" aria-hidden="true">${esc(T.icon)}</div><h1>${esc(state.name)}</h1><p class="result-title">${esc(T.title)}</p><p class="result-sub">${esc(T.sub)}</p>${state.timedOut?'<p class="muted">⏰ Waktu habis. Soal yang belum dijawab dihitung kosong.</p>':''}<div class="score"><span class="score-num">${r.accuracy}</span><small>/100</small></div><div class="score-bar"><i style="--w:${r.accuracy}%"></i></div><div class="result-stats"><span class="rs-ok">✅ Benar <b>${r.correct}</b></span><span class="rs-bad">❌ Salah <b>${wrong}</b></span><span class="rs-blank">➖ Tidak dijawab <b>${unanswered}</b></span></div></div><div class="review-list"><h2>Review Jawaban</h2><h3 class="review-title ok">✅ Jawaban Benar <small>(${okL.length})</small></h3>${okL.length?okL.map(o=>item(o.x,o.i)).join(''):'<p class="muted">Belum ada jawaban yang benar.</p>'}<h3 class="review-title bad">❌ Jawaban Salah <small>(${badL.length})</small></h3>${badL.length?badL.map(o=>item(o.x,o.i)).join(''):'<p class="muted">Tidak ada yang salah. Sempurna! 🎉</p>'}</div><button class="cta" type="button" id="backToLatihan">Kembali ke Mengerjakan Soal</button></section>`);
-  document.querySelector('#backToLatihan')?.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();backToLatihan();});
+  shell(`<section class="section result notranslate" translate="no"><div class="result-card tier-custom fx-float fx-ring" style="--tier:${T.color};--tier-glow:${glow}"><div class="result-emoji" aria-hidden="true">${emojis}</div><div class="eyebrow">HASIL LATIHAN</div><div class="result-medal" aria-hidden="true">${esc(T.icon)}</div><h1>${esc(state.name)}</h1><p class="result-title">${esc(T.title)}</p><p class="result-sub">${esc(T.sub)}</p>${state.timedOut?'<p class="muted">⏰ Waktu habis. Soal yang belum dijawab dihitung kosong.</p>':''}<div class="score"><span class="score-num">${r.accuracy}</span><small>/100</small></div><div class="score-bar"><i style="--w:${r.accuracy}%"></i></div><div class="result-stats"><span class="rs-ok">✅ Benar <b>${r.correct}</b></span><span class="rs-bad">❌ Salah <b>${wrong}</b></span><span class="rs-blank">➖ Tidak dijawab <b>${unanswered}</b></span></div></div>${sheetRev?sheetReviewHTML(r):''}<div class="review-list" ${sheetRev?'style="display:none"':''}><h2>Review Jawaban</h2><h3 class="review-title ok">✅ Jawaban Benar <small>(${okL.length})</small></h3>${okL.length?okL.map(o=>item(o.x,o.i)).join(''):'<p class="muted">Belum ada jawaban yang benar.</p>'}<h3 class="review-title bad">❌ Jawaban Salah <small>(${badL.length})</small></h3>${badL.length?badL.map(o=>item(o.x,o.i)).join(''):'<p class="muted">Tidak ada yang salah. Sempurna! 🎉</p>'}</div><button class="cta" type="button" id="backToLatihan">Kembali ke Mengerjakan Soal</button></section>`);
+  document.querySelector('#backToLatihan')?.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();stopSheetAudio();backToLatihan();});
+  if(sheetRev){bindSheet();fitSheetFonts();document.querySelectorAll('.rv-chip').forEach(b=>b.onclick=()=>document.querySelector(`.sheet-page .sheet-slot[data-i="${b.dataset.rv}"]`)?.scrollIntoView({block:'center',behavior:'smooth'}));}
   const num=document.querySelector('.score-num');
   if(num&&r.accuracy>0&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const t0=performance.now(),dur=900;num.textContent='0';const step=t=>{const k=Math.min(1,(t-t0)/dur);num.textContent=String(Math.round(r.accuracy*(1-Math.pow(1-k,3))));if(k<1&&num.isConnected)requestAnimationFrame(step);else num.textContent=String(r.accuracy);};requestAnimationFrame(step);}
 }

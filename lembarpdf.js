@@ -98,7 +98,7 @@ export async function analyzePdf(file, onProgress) {
       if (marks) { const bl = [...inr].reverse().find(l => /^[\s()]+$/.test(l.text)); blanks = bl ? Math.max(1, (bl.text.match(/\(/g) || []).length) : 4; }
       let hot = null; const al = inr.find(l => /Y\s*\d{1,3}\s*[^\d\s]?\s*\d{1,3}/.test(l.text));
       if (al) {
-        const hx0 = al.x0 - 54 * SC, hx1 = al.x1 + 6 * SC, hy0 = al.y - 26 * SC, hy1 = al.y + 14 * SC;
+        const hx0 = al.x0 - 50 * SC, hx1 = al.x0 - 16 * SC, hy0 = al.y - 20 * SC, hy1 = al.y + 12 * SC;
         const x = cl((hx0 - c.x0) / c.w0), y = cl((hy0 - c.y0) / c.h);
         hot = { x, y, w: Math.min(1 - x, (hx1 - hx0) / c.w0), h: Math.min(1 - y, (hy1 - hy0) / c.h) };
       }
@@ -124,7 +124,8 @@ export function relabelPlan(rows) {
   return rs.map((r, i) => ({ id: r.id, prompt: many ? `${base} · ${CIRC[i] || i + 1}` : base, sheet_label: many ? `Jawaban ${CIRC[i] || i + 1}` : '' }));
 }
 const labelOf = g => `Hal ${g.page} · Soal ${g.sec}-(${g.no})`;
-const hotHTML = (h) => h ? `<span class="sheet-hot" style="left:${h.x * 100}%;top:${h.y * 100}%;width:${h.w * 100}%;height:${h.h * 100}%" title="Area ikon suara"></span>` : '';
+const slimHot = h => h && h.w > .09 ? { x: h.x + .005, w: .06, y: h.y + Math.max(0, (h.h - .04) / 2), h: Math.min(h.h, .04) } : h;
+const hotHTML = h0 => { const h = slimHot(h0); return h ? `<span class="sheet-hot" style="left:${h.x * 100}%;top:${h.y * 100}%;width:${h.w * 100}%;height:${h.h * 100}%" title="Area ikon suara"></span>` : ''; };
 
 function grpHTML(g, i, esc) {
   const ch = CHOICES[g.ctype];

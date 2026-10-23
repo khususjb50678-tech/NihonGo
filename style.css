@@ -655,8 +655,8 @@ body.exercise-mode .topbar{display:none!important}
 .sheet-card img{display:block;width:100%;height:auto;-webkit-user-drag:none;user-select:none}
 .sheet-more summary{cursor:pointer;font-weight:700;padding:8px 2px}
 .sheet-tip{margin:0;font-size:.85rem;opacity:.75;text-align:center}
-.sheet-hot{position:absolute;display:block;padding:0;border:2px solid rgba(214,40,40,.55);border-radius:14px;background:rgba(214,40,40,.08);cursor:pointer;animation:sheetPulse 1.8s ease-in-out infinite}
-.sheet-hot.playing{background:rgba(214,40,40,.28);border-color:#d62828;animation:none}
+
+
 @keyframes sheetPulse{0%,100%{box-shadow:0 0 0 0 rgba(214,40,40,.35)}50%{box-shadow:0 0 0 7px rgba(214,40,40,0)}}
 .sheet-answers{display:flex;gap:10px;flex-wrap:wrap}
 .sheet-answers .btn.answer{flex:1 1 0;min-width:70px;font-size:1.35rem;font-weight:800;text-align:center;justify-content:center}
@@ -680,9 +680,9 @@ body.exercise-mode .topbar{display:none!important}
 .sheet-hint{margin:6px 0 12px}
 .sheet-page{position:relative;background:#fff;border-radius:12px;overflow:hidden;margin:0 0 14px;box-shadow:0 6px 22px rgba(0,0,0,.28)}
 .sheet-page img{display:block;width:100%;height:auto;-webkit-user-drag:none;user-select:none}
-.sheet-slot{position:absolute;transform:translate(-50%,-50%);min-width:46px;min-height:34px;padding:0 6px;border:2px solid #d62828;border-radius:10px;background:rgba(214,40,40,.12);color:#d62828;font-weight:800;font-size:clamp(14px,4.4vw,22px);line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.sheet-slot i{font-style:normal;font-size:.62em;opacity:.8}
-.sheet-slot.filled{background:#d62828;color:#fff}
+
+
+
 .sheet-finish{display:flex;justify-content:center;margin-top:10px}
 .sheet-finish .btn{min-width:200px;font-size:1.1rem;padding:14px 22px}
 .sheet-pick{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center}
@@ -704,3 +704,21 @@ body.exercise-mode .topbar{display:none!important}
 
 .sp-acts{display:flex;gap:6px;flex-wrap:wrap;width:100%}
 .sp-mini{padding:6px 10px;font-size:.85rem}
+
+/* ===== kotak jawaban & ikon suara: kecil, mengikuti garis kolom ===== */
+.sheet-slot{position:absolute;transform:translate(-50%,-50%);box-sizing:border-box;display:flex;align-items:center;justify-content:center;margin:0;padding:0;border:1.5px solid #d62828;border-radius:5px;background:rgba(214,40,40,.10);color:#d62828;font-weight:800;line-height:1;font-size:var(--sfs,12px);cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;white-space:nowrap}
+.sheet-slot::before{content:"";position:absolute;inset:-8px -6px}
+.sheet-slot i{font-style:normal;font-weight:700;font-size:.85em;opacity:.8}
+.sheet-slot.filled{background:#d62828;color:#fff}
+.sheet-slot.rv-ok{background:#1f9d55;border-color:#1f9d55;color:#fff;cursor:default}
+.sheet-slot.rv-bad{background:#d62828;border-color:#d62828;color:#fff;cursor:default}
+.sheet-slot.rv-blank{background:#6b7280;border-color:#6b7280;color:#fff;cursor:default}
+.sheet-slot.rv-ok::before,.sheet-slot.rv-bad::before,.sheet-slot.rv-blank::before{display:none}
+.sheet-fix{position:absolute;top:50%;left:calc(100% + 4px);transform:translateY(-50%);background:#1f9d55;color:#fff;border-radius:5px;padding:2px 6px;font-weight:800;line-height:1}
+.sheet-fix.l{left:auto;right:calc(100% + 4px)}
+.sheet-hot{position:absolute;box-sizing:border-box;display:block;margin:0;padding:0;border:1.5px solid rgba(214,40,40,.65);border-radius:50%;background:rgba(214,40,40,.10);cursor:pointer;animation:sheetPulse 1.8s ease-in-out infinite;-webkit-tap-highlight-color:transparent}
+.sheet-hot::before{content:"";position:absolute;inset:-6px}
+.sheet-hot.playing{background:rgba(214,40,40,.3);border-color:#d62828;animation:none}
+.rv-chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+.rv-chip{min-width:42px;padding:8px 12px;border-radius:10px;border:1px solid #d62828;background:rgba(214,40,40,.18);color:#fff;font-weight:800;cursor:pointer}
+.sheet-review .sheet-page{margin-bottom:14px}
