@@ -10,6 +10,26 @@ function toast(msg) {
   if (!el) { el = document.createElement('div'); el.id = 'spToast'; el.className = 'sp-toast'; document.body.appendChild(el); }
   el.textContent = msg; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 1800);
 }
+// Perkecil foto besar supaya cepat terunduh di HP teman (tanpa jeda saat muncul). GIF dibiarkan agar tetap bergerak.
+async function shrinkImage(file) {
+  try {
+    if (!/^image\/(jpe?g|png|webp)$/i.test(file.type) || file.size < 350 * 1024) return file;
+    const bmp = await createImageBitmap(file), k = Math.min(1, 1920 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .82));
+    return blob && blob.size < file.size ? new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
+  } catch { return file; }
+}
+// Kirim sinyal instan ke semua user yang sedang membuka web (Realtime broadcast). Gagal pun tidak masalah: user tetap menerima lewat polling.
+async function ping() {
+  try {
+    const ch = supabase.channel('itco-kerjain');
+    await new Promise(res => { const t = setTimeout(res, 2500); ch.subscribe(s => { if (s === 'SUBSCRIBED') { clearTimeout(t); res(); } }); });
+    await ch.send({ type: 'broadcast', event: 'ping', payload: { t: Date.now() } });
+    setTimeout(() => { try { supabase.removeChannel(ch); } catch {} }, 1500);
+  } catch { /* abaikan */ }
+}
 async function upload(file, kind) {
   const path = `prank/${Date.now()}-${kind}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   const up = await supabase.storage.from('media').upload(path, file, { upsert: true, contentType: file.type || undefined, cacheControl: '31536000' });
@@ -22,7 +42,7 @@ export async function prankPage({ app, esc }) {
   const users = (Array.isArray(ud) ? ud : []).sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0) || String(a.name || '').localeCompare(String(b.name || '')));
   const picked = new Set(), files = { image: null, video: null, audio: null };
   app(`<div class="admin-header"><div><div class="eyebrow">KHUSUS ADMIN UTAMA</div><h1>Kerjain Teman 😈</h1>
-    <p class="muted">Kirim kejutan (foto, video, suara, teks) ke user yang sedang membuka web, di halaman mana pun. User selalu bisa menutupnya dengan tombol ✕, dan tampilannya diberi label "Pesan dari Admin".</p></div></div>
+    <p class="muted">Kirim kejutan (foto, video, suara, teks) ke user yang sedang membuka web, di halaman mana pun. Tampil langsung begitu dikirim; user selalu bisa menutupnya dengan tombol ✕ di pojok kanan atas.</p></div></div>
     <div class="card admin-card"><h3>1. Pilih target</h3>
       <label class="kt-row"><input type="radio" name="ktT" value="all" checked> Semua user (${users.length})</label>
       <label class="kt-row"><input type="radio" name="ktT" value="pick"> Pilih user tertentu</label>
@@ -43,7 +63,7 @@ export async function prankPage({ app, esc }) {
         <label class="btn sp-audio">🎬 <span id="ktFv">Video dari HP</span><input hidden type="file" accept="video/*" data-kf="video"></label>
         <label class="btn sp-audio">🔊 <span id="ktFa">Suara dari HP</span><input hidden type="file" accept="audio/*" data-kf="audio"></label>
       </div>
-      <label>Gaya tampil<select class="input" id="ktStyle"><option value="modal">Popup di tengah</option><option value="full">Layar penuh</option><option value="banner">Banner di atas</option></select></label>
+      <label>Gaya tampil<select class="input" id="ktStyle"><option value="scare">Jumpscare: layar penuh, langsung muncul</option><option value="scare-fit">Layar penuh, gambar utuh (ada pinggir hitam)</option><option value="modal">Popup di tengah</option><option value="full">Layar penuh dengan teks</option><option value="banner">Banner di atas</option></select></label>
       <label>Tutup otomatis setelah (detik, 0 = menunggu user menutup)<input class="input" id="ktAuto" type="number" min="0" max="120" value="0"></label>
       <div class="kt-actions"><button type="button" class="btn" id="ktPrev">👁 Pratinjau</button><button type="button" class="btn red" id="ktSend">🚀 Kirim sekarang</button></div>
       <p class="muted" id="ktMsg"></p>
@@ -89,11 +109,11 @@ export async function prankPage({ app, esc }) {
     const btn = $('#ktSend'), msg = $('#ktMsg'); btn.disabled = true;
     try {
       const row = { ...m, target_all: all, target_ids: all ? [] : [...picked], expires_at: new Date(Date.now() + Math.max(1, Math.min(120, +$('#ktExp').value || 3)) * 60000).toISOString() };
-      for (const [kind, key] of [['image', 'image_url'], ['video', 'video_url'], ['audio', 'audio_url']]) if (files[kind]) { msg.textContent = `Mengunggah ${kind === 'image' ? 'foto' : kind === 'video' ? 'video' : 'suara'}…`; row[key] = await upload(files[kind], kind); }
+      for (const [kind, key] of [['image', 'image_url'], ['video', 'video_url'], ['audio', 'audio_url']]) if (files[kind]) { msg.textContent = `Mengunggah ${kind === 'image' ? 'foto' : kind === 'video' ? 'video' : 'suara'}…`; row[key] = await upload(kind === 'image' ? await shrinkImage(files[kind]) : files[kind], kind); }
       msg.textContent = 'Mengirim…';
       const { error } = await supabase.from('prank_messages').insert(row);
       if (error) throw new Error(/prank_messages|schema cache|does not exist/i.test(error.message) ? 'Jalankan supabase-kerjain-teman.sql di Supabase (SQL Editor) satu kali dulu.' : error.message);
-      msg.textContent = ''; toast('✓ Terkirim'); history();
+      msg.textContent = ''; ping(); toast('✓ Terkirim'); history();
     } catch (err) { msg.textContent = ''; alert('Gagal mengirim: ' + (err.message || err)); }
     btn.disabled = false;
   };

@@ -761,3 +761,15 @@ body.exercise-mode .topbar{display:none!important}
 .kt-hist{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid rgba(255,255,255,.12)}
 .kt-hbtn{display:flex;gap:6px;flex-wrap:wrap}
 .side-ver{font-size:.72rem;opacity:.55;padding:8px 12px}
+
+/* ===== Kerjain Teman: jumpscare layar penuh ===== */
+.prank-ov[data-style^=scare]{padding:0;background:#000;align-items:stretch;justify-content:stretch;animation:none}
+.prank-ov[data-style^=scare] .prank-box{max-width:none;max-height:none;width:100%;height:100%;padding:0;border-radius:0;background:#000;display:block;overflow:hidden;box-shadow:none}
+.prank-ov[data-style^=scare] .prank-box img,.prank-ov[data-style^=scare] .prank-box video{position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;border-radius:0;object-fit:cover}
+.prank-ov[data-style=scare-fit] .prank-box img,.prank-ov[data-style=scare-fit] .prank-box video{object-fit:contain}
+.prank-ov[data-style^=scare] .prank-box h3,.prank-ov[data-style^=scare] .prank-box p{position:absolute;left:12px;right:12px;margin:0;z-index:1;text-shadow:0 2px 12px #000,0 0 4px #000}
+.prank-ov[data-style^=scare] .prank-box h3{top:14%}
+.prank-ov[data-style^=scare] .prank-box p{bottom:12%}
+.prank-ov[data-style^=scare] .prank-x{z-index:3;top:calc(env(safe-area-inset-top,0px) + 10px);background:rgba(0,0,0,.45)}
+.prank-ov[data-style^=scare] .prank-play{position:absolute;z-index:3;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);margin:0}
+.prank-ov[data-style^=scare] .prank-tag{position:absolute;z-index:3;left:0;right:0;bottom:6px;margin:0}
