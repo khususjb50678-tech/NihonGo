@@ -39,7 +39,7 @@ export function subBlanks(lines, W, H) {
   for (const l of lines) { if (!/^\s*[①-⑧]/.test(l.raw || '')) continue; const ps = parenSlots(l, W, H); if (ps.length) out.push(ps[ps.length - 1]); }
   return out;
 }
-const hotPage = g => g.hot ? { x: (g.crop.x0 + g.hot.x * g.crop.w0) / g.W, y: (g.crop.y0 + g.hot.y * g.crop.h) / g.H, w: g.hot.w * g.crop.w0 / g.W, h: g.hot.h * g.crop.h / g.H } : null;
+const hotPage = g => g.hot ? { x: (g.crop.x0 + g.hot.x * g.crop.w0) / g.W, y: (g.crop.y0 + g.hot.y * g.crop.h) / g.H, w: g.hot.w * g.crop.w0 / g.W, h: g.hot.h * g.crop.h / g.H, m: g.hot.m } : null;
 const slotOf = (g, b) => g.slots[b] || { x: .72, y: Math.min(.97, (g.crop.y0 + g.crop.h) / g.H - .02 - (b - g.slots.length) * .03), w: .2, h: .02 };
 
 // Membaca PDF: foto tiap halaman + posisi teks -> potongan per soal.
@@ -124,7 +124,7 @@ export function relabelPlan(rows) {
   return rs.map((r, i) => ({ id: r.id, prompt: many ? `${base} · ${CIRC[i] || i + 1}` : base, sheet_label: many ? `Jawaban ${CIRC[i] || i + 1}` : '' }));
 }
 const labelOf = g => `Hal ${g.page} · Soal ${g.sec}-(${g.no})`;
-const slimHot = h => h && h.w > .09 ? { x: h.x + .005, w: .06, y: h.y + Math.max(0, (h.h - .04) / 2), h: Math.min(h.h, .04) } : h;
+const slimHot = h => { if (!h || h.m) return h; if (h.w > .09) h = { x: h.x + .005, w: .06, y: h.y + Math.max(0, (h.h - .04) / 2), h: Math.min(h.h, .04) }; else if (h.w >= .07) return h; return { ...h, x: h.x + .006, y: h.y + .012 }; };
 const hotHTML = h0 => { const h = slimHot(h0); return h ? `<span class="sheet-hot" style="left:${h.x * 100}%;top:${h.y * 100}%;width:${h.w * 100}%;height:${h.h * 100}%" title="Area ikon suara"></span>` : ''; };
 
 function grpHTML(g, i, esc) {
@@ -221,7 +221,7 @@ export async function sheetPdfPage({ app, esc, supabase }) {
     const g = G.find(g => g.page === p && ty >= g.crop.y0 / g.H - .01 && ty <= (g.crop.y0 + g.crop.h) / g.H + .01);
     if (!g) return alert('Ketuk di area soal, tepat di ikon suara.');
     const w = .075, h = w * g.W / g.H, x = Math.min(cl(tx - w / 2), 1 - w), y = Math.min(cl(ty - h / 2), 1 - h);
-    g.hot = { x: cl((x * g.W - g.crop.x0) / g.crop.w0), y: cl((y * g.H - g.crop.y0) / g.crop.h), w: Math.min(1, w * g.W / g.crop.w0), h: Math.min(1, h * g.H / g.crop.h) };
+    g.hot = { x: cl((x * g.W - g.crop.x0) / g.crop.w0), y: cl((y * g.H - g.crop.y0) / g.crop.h), w: Math.min(1, w * g.W / g.crop.w0), h: Math.min(1, h * g.H / g.crop.h), m: 1 };
     drawOverlay(p);
   });
 

@@ -15,10 +15,10 @@ const norm = s => String(s ?? '').trim().toLowerCase().replace(/\s+/g,' ');
 const choiceLabel = i => String.fromCharCode(65 + Number(i));
 
 // ===== Soal PDF mode halaman: halaman utuh digulir, ketuk kotak jawaban =====
-function slimHot(h){return h&&h.w>.09?{x:h.x+.005,w:.06,y:h.y+Math.max(0,(h.h-.04)/2),h:Math.min(h.h,.04)}:h;}
-function fitSheetFonts(){document.querySelectorAll('.sheet-page').forEach(p=>p.style.setProperty('--sfs',Math.min(18,Math.max(11,p.clientWidth*.03))+'px'));}
+function slimHot(h){if(!h||h.m)return h;if(h.w>.09)h={x:h.x+.005,w:.06,y:h.y+Math.max(0,(h.h-.04)/2),h:Math.min(h.h,.04)};else if(h.w>=.07)return h;return {...h,x:h.x+.006,y:h.y+.012};}
+function fitSheetFonts(){document.querySelectorAll('.sheet-page').forEach(p=>{const d=Math.min(30,Math.max(20,p.clientWidth*.052));p.style.setProperty('--sdia',d+'px');p.style.setProperty('--sfs',(d*.58)+'px');});}
 window.addEventListener('resize',()=>fitSheetFonts());
-const sheetBox=s=>`left:${(s.x+s.w/2)*100}%;top:${(s.y+s.h/2)*100}%;width:max(${s.w*100}%,38px);height:max(${s.h*100}%,20px)`;
+const sheetBox=s=>`left:${(s.x+s.w/2)*100}%;top:${(s.y+s.h/2)*100}%`;
 function sheetReviewHTML(r){
   const rs=r.reviews,pages=[],seen={};
   rs.forEach((x,i)=>{let p=pages.find(p=>p.url===x.sheet_page_url);if(!p){p={url:x.sheet_page_url,items:[]};pages.push(p);}p.items.push({x,i});});
@@ -27,14 +27,14 @@ function sheetReviewHTML(r){
     const spots=p.items.map(({x})=>{const h=slimHot(parseJSON(x.sheet_hot,null));if(!h||!x.audio_url)return '';const key=`${x.audio_url}|${h.x.toFixed(3)}|${h.y.toFixed(3)}`;if(seen[key])return '';seen[key]=1;return `<div class="sheet-hot" role="button" tabindex="0" data-audio="${esc(x.audio_url)}" aria-label="Putar audio" style="left:${h.x*100}%;top:${h.y*100}%;width:${h.w*100}%;height:${h.h*100}%"></div>`;}).join('');
     const slots=p.items.map(({x,i})=>{
       const s=parseJSON(x.sheet_slot,null)||{x:.7,y:.9,w:.2,h:.02},blank=!String(x.user||'').trim(),cls=x.ok?'rv-ok':blank?'rv-blank':'rv-bad';
-      const mine=blank?'–':(x.ok?'✓ ':'✗ ')+esc(sheetShown(x.user));
-      const fix=x.ok?'':`<span class="sheet-fix${s.x+s.w>.86?' l':''}">${esc(sheetShown(x.answer))}</span>`;
+      const mine=blank?'–':esc(sheetShown(x.user));
+      const fix=x.ok?'':`<span class="sheet-fix${s.x+s.w>.80?' l':''}">${esc(sheetShown(x.answer))}</span>`;
       return `<div class="sheet-slot ${cls}" data-i="${i}" style="${sheetBox(s)}">${mine}${fix}</div>`;
     }).join('');
     return `<div class="sheet-page"><img src="${esc(p.url)}" alt="Halaman soal" decoding="async">${spots}${slots}</div>`;
   }).join('');
   const chips=bad.length?`<div class="rv-chips"><span>Salah / kosong:</span>${bad.map(o=>`<button type="button" class="rv-chip" data-rv="${o.i}">${o.i+1}</button>`).join('')}</div>`:'<p class="muted">Tidak ada yang salah. Sempurna! 🎉</p>';
-  return `<div class="review-list sheet-review"><h2>Review Jawaban</h2><p class="muted sheet-hint">Hijau ✓ = benar. Merah ✗ = salah, dan kotak hijau kecil di sebelahnya adalah jawaban yang benar. Abu-abu = tidak dijawab.</p>${chips}${body}</div>`;
+  return `<div class="review-list sheet-review"><h2>Review Jawaban</h2><p class="muted sheet-hint">Lingkaran hijau = benar. Lingkaran merah = salah, dan lingkaran hijau kecil di sebelahnya adalah jawaban yang benar. Abu-abu = tidak dijawab.</p>${chips}${body}</div>`;
 }
 function sheetScrollMode(){return state.questions.length>0&&state.questions.every(q=>q.sheet_page_url);}
 function sheetShown(v){return /^[a-d]$/i.test(String(v))?String(v).toUpperCase():String(v);}
