@@ -33,6 +33,12 @@ function parenSlots(line, W, H) {
   const h = line.fs * 1.25 / H, cy = (line.y - line.fs * .35) / H;
   return out.map(o => ({ x: cl(o.x0 / W), y: cl(cy - h / 2), w: Math.min(1, (o.x1 - o.x0) / W), h }));
 }
+// Baris yang diawali ①②… dan punya pasangan （ ） = satu kotak jawaban per baris
+export function subBlanks(lines, W, H) {
+  const out = [];
+  for (const l of lines) { if (!/^\s*[①-⑧]/.test(l.raw || '')) continue; const ps = parenSlots(l, W, H); if (ps.length) out.push(ps[ps.length - 1]); }
+  return out;
+}
 const hotPage = g => g.hot ? { x: (g.crop.x0 + g.hot.x * g.crop.w0) / g.W, y: (g.crop.y0 + g.hot.y * g.crop.h) / g.H, w: g.hot.w * g.crop.w0 / g.W, h: g.hot.h * g.crop.h / g.H } : null;
 const slotOf = (g, b) => g.slots[b] || { x: .72, y: Math.min(.97, (g.crop.y0 + g.crop.h) / g.H - .02 - (b - g.slots.length) * .03), w: .2, h: .02 };
 
@@ -57,7 +63,7 @@ export async function analyzePdf(file, onProgress) {
     }
     const lines = rows.map(r => {
       r.items.sort((a, b) => a.x - b.x);
-      return { y: r.y, fs: r.fs, items: r.items, top: r.y - r.fs * .95, bottom: r.y + r.fs * .3, x0: r.items[0].x, x1: Math.max(...r.items.map(i => i.x + i.w)),
+      return { y: r.y, fs: r.fs, items: r.items, raw: r.items.map(i => i.s).join(' '), top: r.y - r.fs * .95, bottom: r.y + r.fs * .3, x0: r.items[0].x, x1: Math.max(...r.items.map(i => i.x + i.w)),
         text: T(r.items.map(i => i.s).join(' ')).replace(/\s+/g, ' ').trim() };
     }).sort((a, b) => a.top - b.top);
     let ftop = H;
@@ -87,7 +93,7 @@ export async function analyzePdf(file, onProgress) {
       labs.forEach(lb => { if (lb.y >= start && lb.y < end) letters.add(lb.c); });
       const mx = letters.size ? Math.max(...[...letters].map(ch => ch.charCodeAt(0) - 96)) : 0;
       const marks = /○/.test(txt) && /×/.test(txt);
-      const ctype = marks ? 'marks' : mx >= 4 ? 'abcd' : mx === 2 ? 'ab' : 'abc';
+      let ctype = marks ? 'marks' : mx >= 4 ? 'abcd' : mx === 2 ? 'ab' : 'abc';
       let blanks = Math.max(1, inr.filter(l => /答\s*え\s*\(/.test(l.text)).length);
       if (marks) { const bl = [...inr].reverse().find(l => /^[\s()]+$/.test(l.text)); blanks = bl ? Math.max(1, (bl.text.match(/\(/g) || []).length) : 4; }
       let hot = null; const al = inr.find(l => /Y\s*\d{1,3}\s*[^\d\s]?\s*\d{1,3}/.test(l.text));
@@ -97,7 +103,9 @@ export async function analyzePdf(file, onProgress) {
         hot = { x, y, w: Math.min(1 - x, (hx1 - hx0) / c.w0), h: Math.min(1 - y, (hy1 - hy0) / c.h) };
       }
       const slotLines = inr.filter(l => /答\s*え\s*\(/.test(l.text)); let slots = [];
-      if (marks) { const bl = [...inr].reverse().find(l => /^[\s()]+$/.test(l.text)); if (bl) slots = parenSlots(bl, W, H); }
+      const sub = subBlanks(inr, W, H);
+      if (sub.length) { slots = sub; blanks = sub.length; if (/[○〇◯×]|tulislah|berilah/i.test(txt)) ctype = 'marks'; }
+      else if (marks) { const bl = [...inr].reverse().find(l => /^[\s()]+$/.test(l.text)); if (bl) slots = parenSlots(bl, W, H); }
       else slotLines.forEach(l => { const ps = parenSlots(l, W, H); if (ps.length) slots.push(ps[ps.length - 1]); });
       groups.push({ id: uid(), page: p, sec: curSec, no: k.no, blob: c.blob, url: URL.createObjectURL(c.blob),
         W, H, crop: { x0: c.x0, y0: c.y0, w0: c.w0, h: c.h }, slots, blanks, ctype, hot, audioFile: null, keys: [], include: true });
@@ -107,6 +115,14 @@ export async function analyzePdf(file, onProgress) {
   return { groups, pages, count: pdf.numPages };
 }
 
+const baseOf = p => String(p || '').replace(/ · [①-⑧]$/, '');
+const tms = r => Date.parse(r.created_at) || 0;
+function cmpRow(a, b) { const d = (Number(a.q_number) || 0) - (Number(b.q_number) || 0); return d || tms(a) - tms(b); }
+// Beri label ulang ①②… pada semua jawaban milik satu soal
+export function relabelPlan(rows) {
+  const rs = [...rows].sort(cmpRow), base = baseOf(rs[0]?.prompt), many = rs.length > 1;
+  return rs.map((r, i) => ({ id: r.id, prompt: many ? `${base} · ${CIRC[i] || i + 1}` : base, sheet_label: many ? `Jawaban ${CIRC[i] || i + 1}` : '' }));
+}
 const labelOf = g => `Hal ${g.page} · Soal ${g.sec}-(${g.no})`;
 const hotHTML = (h) => h ? `<span class="sheet-hot" style="left:${h.x * 100}%;top:${h.y * 100}%;width:${h.w * 100}%;height:${h.h * 100}%" title="Area ikon suara"></span>` : '';
 
@@ -139,7 +155,7 @@ export async function sheetPdfPage({ app, esc, supabase }) {
     <div class="card admin-card"><h3>Sudah terlanjur impor (tampilan lama)?</h3><p class="muted">Ubah soal lama di Part ini ke tampilan halaman utuh yang digulir. Pilih PDF yang sama. Jawaban benar dan audio yang sudah kamu isi tetap dipakai.</p><input type="file" accept="application/pdf" id="spUpg" class="input"><div id="spUpgOut"></div></div>
     <div id="spExisting"></div>`);
   const partSel = document.querySelector('#spPart'), out = document.querySelector('#spOut'), ex = document.querySelector('#spExisting');
-  let G = [], PG = {}; const HOT = {};
+  let G = [], PG = {}; const HOT = {}, ROWS = {}; let posRow = null;
   partSel.onchange = () => listExisting();
   listExisting();
 
@@ -248,14 +264,15 @@ export async function sheetPdfPage({ app, esc, supabase }) {
     const part = partSel.value;
     const { data, error } = await supabase.from('questions').select('*').eq('part_id', part).or('sheet_url.not.is.null,sheet_page_url.not.is.null').order('created_at');
     if (error) { ex.innerHTML = `<div class="card admin-card"><p class="muted">${esc(/sheet_/.test(error.message) ? 'Jalankan supabase-lembar-pdf.sql di Supabase (SQL Editor) satu kali dulu.' : error.message)}</p></div>`; return; }
-    Object.keys(HOT).forEach(k => delete HOT[k]);
+    Object.keys(HOT).forEach(k => delete HOT[k]); Object.keys(ROWS).forEach(k => delete ROWS[k]); posRow = null;
+    (data || []).forEach(r => { ROWS[r.id] = r; });
     const pages = new Map(), crops = new Map();
     (data || []).forEach(r => {
       if (r.sheet_page_url) { if (!pages.has(r.sheet_page_url)) pages.set(r.sheet_page_url, []); pages.get(r.sheet_page_url).push(r); }
       else { if (!crops.has(r.sheet_url)) { crops.set(r.sheet_url, []); HOT[r.sheet_url] = r.sheet_hot || null; } crops.get(r.sheet_url).push(r); }
     });
     const ctypeOf = o => Object.keys(CHOICES).find(k => CHOICES[k].join() === (Array.isArray(o) ? o : []).join()) || 'abc';
-    const keyRow = (r, lab) => { const o = Array.isArray(r.options) ? r.options : ['a','b','c']; return `<div class="sp-key"><span>${lab}</span>${o.map(v => `<label class="sp-opt${r.answer === v ? ' on' : ''}"><input type="radio" name="e${r.id}" value="${esc(v)}" data-ek="${r.id}" ${r.answer === v ? 'checked' : ''}>${/[○×]/.test(v) ? v : v.toUpperCase()}</label>`).join('')}<select class="input sp-optsel" data-eopt="${r.id}" title="Jumlah pilihan">${Object.keys(CHOICES).map(k => `<option value="${k}" ${ctypeOf(r.options) === k ? 'selected' : ''}>${CT_LABEL[k]}</option>`).join('')}</select></div>`; };
+    const keyRow = (r, lab) => { const o = Array.isArray(r.options) ? r.options : ['a','b','c']; return `<div class="sp-key"><span>${lab}</span>${o.map(v => `<label class="sp-opt${r.answer === v ? ' on' : ''}"><input type="radio" name="e${r.id}" value="${esc(v)}" data-ek="${r.id}" ${r.answer === v ? 'checked' : ''}>${/[○×]/.test(v) ? v : v.toUpperCase()}</label>`).join('')}<select class="input sp-optsel" data-eopt="${r.id}" title="Jumlah pilihan">${Object.keys(CHOICES).map(k => `<option value="${k}" ${ctypeOf(r.options) === k ? 'selected' : ''}>${CT_LABEL[k]}</option>`).join('')}</select>${r.sheet_page_url ? `<span class="sp-acts"><button class="btn sp-mini" type="button" data-pos="${r.id}">📍 Posisi</button><button class="btn sp-mini" type="button" data-add="${r.id}">＋ Jawaban</button><button class="btn sp-mini danger" type="button" data-delrow="${r.id}">🗑</button></span>` : ''}</div>`; };
     const pageCard = ([url, rs], n) => {
       const hg = new Map(); rs.forEach(r => { if (r.sheet_hot) { const k = JSON.stringify(r.sheet_hot); if (!hg.has(k)) hg.set(k, []); hg.get(k).push(r); } });
       const ov = rs.map(r => { const s = r.sheet_slot; return s ? `<span class="sp-slot" style="left:${s.x * 100}%;top:${s.y * 100}%;width:${s.w * 100}%;height:${s.h * 100}%"></span>` : ''; }).join('') + [...hg.keys()].map(k => hotHTML(JSON.parse(k))).join('');
@@ -293,7 +310,42 @@ export async function sheetPdfPage({ app, esc, supabase }) {
       catch (err) { alert('Audio gagal disimpan: ' + (err.message || err)); }
     }
   });
+  const markPos = () => ex.querySelectorAll('[data-pos]').forEach(b => { const on = b.dataset.pos === posRow; b.classList.toggle('red', on); b.textContent = on ? 'Ketuk halaman di tempat jawaban…' : '📍 Posisi'; });
+  async function relabelGroup(rows) {
+    for (const u of relabelPlan(rows)) { const { error } = await supabase.from('questions').update({ prompt: u.prompt, sheet_label: u.sheet_label }).eq('id', u.id); if (error) throw error; }
+  }
+  const sameQ = (a, b) => a.sheet_page_url === b.sheet_page_url && a.sheet_group === b.sheet_group && baseOf(a.prompt) === baseOf(b.prompt);
+  async function addAnswer(id) {
+    const src = ROWS[id]; if (!src) return;
+    const grp = Object.values(ROWS).filter(r => sameQ(r, src)).sort(cmpRow), last = grp[grp.length - 1], s0 = last.sheet_slot || { x: .72, y: .9, w: .2, h: .02 };
+    const opts = Array.isArray(last.options) && last.options.length ? last.options : CHOICES.abc;
+    const nr = { id: uid(), part_id: last.part_id, prompt: baseOf(last.prompt), reading: '', instruction: '', type: 'multiple_choice', options: opts, answer: opts[0], active: last.active !== false,
+      created_at: new Date(tms(last) + 1).toISOString(), source_page: last.source_page, q_number: last.q_number,
+      sheet_page_url: last.sheet_page_url, sheet_slot: { ...s0, y: Math.min(.97, s0.y + s0.h + .012) }, sheet_hot: last.sheet_hot, sheet_label: '', sheet_group: last.sheet_group, audio_url: last.audio_url };
+    let r = await supabase.from('questions').insert([nr]);
+    if (r.error && /source_page|q_number/.test(r.error.message)) { const { source_page, q_number, ...x } = nr; r = await supabase.from('questions').insert([x]); }
+    if (r.error) throw r.error;
+    await relabelGroup([...grp, nr]);
+  }
+  async function delAnswer(id) {
+    const src = ROWS[id]; if (!src) return;
+    const rest = Object.values(ROWS).filter(r => sameQ(r, src) && r.id !== id);
+    const { error } = await supabase.from('questions').delete().eq('id', id); if (error) throw error;
+    if (rest.length) await relabelGroup(rest);
+  }
   ex.addEventListener('click', async e => {
+    try {
+      const ps = e.target.closest('[data-pos]'); if (ps) { posRow = posRow === ps.dataset.pos ? null : ps.dataset.pos; markPos(); return; }
+      const ad = e.target.closest('[data-add]'); if (ad) { await addAnswer(ad.dataset.add); return listExisting(); }
+      const dr = e.target.closest('[data-delrow]'); if (dr) { if (!confirm('Hapus jawaban ini dari soal?')) return; await delAnswer(dr.dataset.delrow); return listExisting(); }
+      const pim = e.target.closest('.sp-page img');
+      if (pim && posRow) {
+        const rc = pim.getBoundingClientRect(), cx = (e.clientX - rc.left) / rc.width, cy = (e.clientY - rc.top) / rc.height, id = posRow; posRow = null;
+        const s0 = ROWS[id]?.sheet_slot || {}, w = Math.min(.3, s0.w || .16), h = s0.h || .02;
+        const { error } = await supabase.from('questions').update({ sheet_slot: { x: cl(cx - w / 2), y: cl(cy - h / 2), w, h } }).eq('id', id); if (error) throw error;
+        return listExisting();
+      }
+    } catch (err) { alert('Gagal: ' + (err.message || err)); return listExisting(); }
     const im = e.target.closest('.sp-img img'), card = im && im.closest('[data-url]');
     if (card) { const { error } = await supabase.from('questions').update({ sheet_hot: tapHot(im, e) }).eq('sheet_url', card.dataset.url).eq('part_id', partSel.value); if (error) return alert(error.message); return listExisting(); }
     const dp = e.target.closest('[data-delpage]');
