@@ -31,10 +31,36 @@ async function ping() {
   } catch { /* abaikan */ }
 }
 async function upload(file, kind) {
-  const path = `prank/${Date.now()}-${kind}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-  const up = await supabase.storage.from('media').upload(path, file, { upsert: true, contentType: file.type || undefined, cacheControl: '31536000' });
-  if (up.error) throw new Error(up.error.message);
-  return supabase.storage.from('media').getPublicUrl(path).data?.publicUrl || '';
+  // Nama unik mencegah bentrok bila admin mengirim file dengan nama yang sama.
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_') || `${kind}.bin`;
+  const path = `prank/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${kind}-${safeName}`;
+  let lastError;
+  // Koneksi seluler kadang putus sesaat saat upload. Coba ulang maksimal 3 kali.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const up = await supabase.storage.from('media').upload(path, file, {
+        upsert: true, contentType: file.type || undefined, cacheControl: '31536000'
+      });
+      if (up.error) throw new Error(up.error.message);
+      const url = supabase.storage.from('media').getPublicUrl(path).data?.publicUrl;
+      if (!url) throw new Error('Supabase tidak mengembalikan URL file.');
+      return url;
+    } catch (err) {
+      lastError = err;
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 700 * attempt));
+    }
+  }
+  const detail = String(lastError?.message || lastError || 'Kesalahan tidak diketahui');
+  if (/failed to fetch|networkerror|load failed|fetch failed/i.test(detail)) {
+    throw new Error('Koneksi ke Supabase Storage gagal (Failed to fetch). Periksa internet HP, lalu pastikan proyek Supabase aktif dan bucket Storage bernama "media" tersedia. Upload dicoba 3 kali.');
+  }
+  if (/bucket not found|not found/i.test(detail)) {
+    throw new Error('Bucket Storage "media" tidak ditemukan. Buka Supabase → Storage dan pastikan bucket bernama media sudah tersedia.');
+  }
+  if (/row-level security|permission|unauthorized|forbidden|403/i.test(detail)) {
+    throw new Error(`Supabase menolak upload: ${detail}. Periksa policy Storage untuk bucket "media" agar Admin Utama boleh mengunggah ke folder prank/.`);
+  }
+  throw new Error(detail);
 }
 
 export async function prankPage({ app, esc }) {
@@ -114,8 +140,12 @@ export async function prankPage({ app, esc }) {
       const { error } = await supabase.from('prank_messages').insert(row);
       if (error) throw new Error(/prank_messages|schema cache|does not exist/i.test(error.message) ? 'Jalankan supabase-kerjain-teman.sql di Supabase (SQL Editor) satu kali dulu.' : error.message);
       msg.textContent = ''; ping(); toast('✓ Terkirim'); history();
-    } catch (err) { msg.textContent = ''; alert('Gagal mengirim: ' + (err.message || err)); }
-    btn.disabled = false;
+    } catch (err) {
+      msg.textContent = '';
+      alert('Gagal mengirim: ' + (err.message || err) + '\n\nKejutan belum tersimpan di riwayat. File yang sudah ter-upload mungkin tetap berada di Storage.');
+    } finally {
+      btn.disabled = false;
+    }
   };
 
   async function history() {
