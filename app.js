@@ -602,6 +602,7 @@ function hideSplash(){
   setTimeout(()=>{ sp.classList.add('hide'); setTimeout(()=>sp.remove(),600); },wait);
 }
 async function boot(){
+  window.__itcoBootStarted=true;
   try{
     const b=await loadBranding(); updateSplash(b);
     if(sbReady){
@@ -612,7 +613,13 @@ async function boot(){
     if(b.maintenance_enabled===true) showMaintenance(b);
     else if(sbReady&&!state.user) showLogin();
     else {await renderRoute();await checkResumeSession();}
-  }catch(err){ console.error(err); }
+  }catch(err){
+    console.error('Akemi startup error:', err);
+    const target=document.querySelector('#app');
+    if(target && !target.children.length && window.__itcoStartupFallback){
+      window.__itcoStartupFallback(err?.message || 'gagal memulai aplikasi');
+    }
+  }
   finally{ hideSplash(); }
 }
 window.addEventListener('hashchange',()=>{ if(sbReady&&!state.user)return; if(state.exerciseActive){const target=location.hash;try{history.replaceState(null,'',state.exerciseHash||'#latihan');}catch{}showLeaveModal({target});return;} renderRoute(); });
