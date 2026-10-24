@@ -7,7 +7,7 @@ import { currentUser, userName, renderAuth } from './auth.js';
 import { fixDesc, NEW_DESC } from './copy.js';
 import { startUserMonitor, stopUserMonitor, recordActivity, deviceLabel } from './user-monitor.js';
 import { kosakata, tesKotoba, openKotobaSetup, stopKotobaTimer } from './vocab.js';
-import { sheetReviewHTML, bindSheetReviewAudio, fitSheetFonts as fitSheetFontsShared, sheetShown, slimHot, sheetBox } from './review-view.js';
+import { sheetReviewHTML, bindSheetReviewAudio, fitSheetFonts as fitSheetFontsShared, sheetShown, slimHot, sheetBox, sanitizePromptHTML, formatAnswer, plainReviewHTML, hasSheetReview, fromSavedDetails, scoreBadgeHTML, statRowHTML } from './review-view.js';
 
 const app = document.querySelector('#app');
 const state = { user: null, page: location.hash.slice(1) || 'home', branding: null, part: null, name: '', questions: [], index: 0, answers: {}, result: null, timer: null, timerLeft: 0, timerSettings: null, setup: null, totalOn: false, totalLeft: 0, qOn: false, qLeft: 0, qFor: -1, perQ: {}, timedOut: false };
@@ -177,27 +177,8 @@ async function loadBranding(force=false){
   return b;
 }
 async function q(table,opts={}){ if(!sbReady)return {data:[],error:null}; let x=supabase.from(table).select(opts.select||'*'); if(opts.eq)for(const [k,v] of Object.entries(opts.eq))x=x.eq(k,v); if(opts.order)x=x.order(opts.order,{ascending:opts.asc!==false}); return x; }
-function renderPromptHTML(value){
-  const t=document.createElement('template');
-  t.innerHTML=String(value||'');
-  const walk=node=>{
-    if(node.nodeType===Node.TEXT_NODE)return;
-    if(node.nodeType!==Node.ELEMENT_NODE){node.remove();return;}
-    const tag=node.tagName.toLowerCase();
-    if(!['u','br'].includes(tag)){
-      const frag=document.createDocumentFragment();
-      while(node.firstChild)frag.appendChild(node.firstChild);
-      node.replaceWith(frag);
-      return;
-    }
-    [...node.attributes].forEach(a=>node.removeAttribute(a.name));
-    [...node.childNodes].forEach(walk);
-  };
-  [...t.content.childNodes].forEach(walk);
-  return t.innerHTML;
-}
 function promptText(value){
-  const t=document.createElement('template'); t.innerHTML=renderPromptHTML(value);
+  const t=document.createElement('template'); t.innerHTML=sanitizePromptHTML(value);
   return (t.content.textContent||'').replace(/\s+/g,' ').trim();
 }
 
@@ -516,7 +497,7 @@ async function checkResumeSession(){const s=readSession();if(s&&!state.exerciseA
 document.addEventListener('visibilitychange',()=>{if(document.hidden){state.leftAt=Date.now();return;}if(state.exerciseActive&&state.leftAt&&Date.now()-state.leftAt>1500){state.leftAt=0;showLeaveModal({});}});
 window.addEventListener('beforeunload',e=>{if(state.exerciseActive){saveSession();e.preventDefault();e.returnValue='';}});
 function syncLive(){const d=`-${((performance.now()%20000)/1000).toFixed(3)}s`;document.querySelectorAll('.live-card').forEach(e=>e.style.setProperty('--fxd',d));}
-async function finish(){stopSheetAudio();closeSheetPick();stopTimer();exerciseEnd();let correct=0;const reviews=state.questions.map(x=>{let user=state.answers[x.id]??'';let ans=answerFor(x);let ok=false;if(x.type==='matching'){const a=parseJSON(user,{}),b=parseJSON(ans,{});ok=matchingPairs(x).every(p=>norm(a[p.left])===norm(p.right));}else ok=norm(user)===norm(ans);if(ok)correct++;return {...x,user,ok};});const total=reviews.length,unanswered=reviews.filter(x=>!String(x.user||'').trim()).length,accuracy=total?Math.round(correct/total*100):0;state.result={correct,total,accuracy,reviews};await recordActivity('exercise_finish',{part:state.part?.name,score:accuracy,correct,total});if(sbReady){await supabase.from('user_names').upsert({name:state.name},{onConflict:'name'});const resultRow={user_id:state.user?.id||null,name:state.name,part_id:state.part.id||null,score:accuracy,correct_count:correct,wrong_count:total-correct-unanswered,unanswered_count:unanswered,details:reviews.map(x=>({question:x.prompt,user_answer:x.user,correct_answer:x.answer,correct:x.ok,type:x.type,...(x.sheet_page_url?{sheet_page_url:x.sheet_page_url,sheet_slot:x.sheet_slot,sheet_hot:x.sheet_hot,audio_url:x.audio_url}:{})}))};const saved=await supabase.from('results').insert(resultRow);if(saved.error&&/user_id|column/i.test(saved.error.message||'')){delete resultRow.user_id;await supabase.from('results').insert(resultRow);}}renderResult();}
+async function finish(){stopSheetAudio();closeSheetPick();stopTimer();exerciseEnd();let correct=0;const reviews=state.questions.map(x=>{let user=state.answers[x.id]??'';let ans=answerFor(x);let ok=false;if(x.type==='matching'){const a=parseJSON(user,{}),b=parseJSON(ans,{});ok=matchingPairs(x).every(p=>norm(a[p.left])===norm(p.right));}else ok=norm(user)===norm(ans);if(ok)correct++;return {...x,user,ok};});const total=reviews.length,unanswered=reviews.filter(x=>!String(x.user||'').trim()).length,accuracy=total?Math.round(correct/total*100):0;state.result={correct,total,accuracy,reviews};await recordActivity('exercise_finish',{part:state.part?.name,score:accuracy,correct,total});if(sbReady){await supabase.from('user_names').upsert({name:state.name},{onConflict:'name'});const resultRow={user_id:state.user?.id||null,name:state.name,part_id:state.part.id||null,score:accuracy,correct_count:correct,wrong_count:total-correct-unanswered,unanswered_count:unanswered,details:reviews.map(x=>({question:x.prompt,user_answer:x.user,correct_answer:x.answer,correct:x.ok,type:x.type,...(x.explanation?{explanation:x.explanation}:{}),...(x.sheet_page_url?{sheet_page_url:x.sheet_page_url,sheet_slot:x.sheet_slot,sheet_hot:x.sheet_hot,audio_url:x.audio_url}:{})}))};const saved=await supabase.from('results').insert(resultRow);if(saved.error&&/user_id|column/i.test(saved.error.message||'')){delete resultRow.user_id;await supabase.from('results').insert(resultRow);}}renderResult();}
 const RESULT_DEFAULTS={enabled:true,count:34,tiers:[
 {min:100,icon:'👑',title:'SEMPURNA! Nilai 100!',sub:'Tanpa satu pun salah. Kamu luar biasa, sensei bangga! 🎌',emoji:'🎉 🏆 👏 🔥 🌟 💯 🥳 ✨ 🎊 👑 🤩 🙌',color:'#f5c542'},
 {min:90,icon:'🏆',title:'Luar biasa! Kamu jago banget!',sub:'Nilai hampir sempurna. Satu langkah lagi menuju 100!',emoji:'🎉 🏆 👏 🔥 🌟 🥳 ✨ 🙌',color:'#f59e0b'},
@@ -534,39 +515,15 @@ function renderResult(){
   const hx=T.color.replace('#',''),glow=`rgba(${parseInt(hx.slice(0,2),16)},${parseInt(hx.slice(2,4),16)},${parseInt(hx.slice(4,6),16)},.32)`;
   const pool=String(T.emoji||'').split(/[\s,;]+/).filter(Boolean);
   const emojis=(cfg.enabled&&cfg.count>0&&pool.length)?Array.from({length:cfg.count},(_,i)=>{const em=pool[(i+Math.floor(Math.random()*pool.length))%pool.length],dur=6+Math.random()*7;return `<i style="left:${(Math.random()*100).toFixed(1)}%;font-size:${(20+Math.random()*30).toFixed(0)}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-Math.random()*dur).toFixed(1)}s;--rot:${Math.round(Math.random()*60-30)}deg;--y:${Math.round(Math.random()*90)}">${esc(em)}</i>`;}).join(''):'';
-  const item=(x,i)=>`<article class="review ${x.ok?'ok':'bad'}"><b>${i+1}. ${renderPromptHTML(x.prompt)}</b><span>Jawaban kamu: ${esc(formatAnswer(x.user,x.type))||'— (tidak dijawab)'}</span><span>Jawaban benar: ${esc(formatAnswer(x.answer,x.type))}</span></article>`;
-  const sheetRev=r.reviews.length>0&&r.reviews.every(x=>x.sheet_page_url);const sheetRevHTML=sheetRev?sheetReviewHTML(r.reviews):'';
-  const all=r.reviews.map((x,i)=>({x,i})),okL=all.filter(o=>o.x.ok),badL=all.filter(o=>!o.x.ok);
-  shell(`<section class="section result notranslate" translate="no"><div class="result-card tier-custom fx-float fx-ring" style="--tier:${T.color};--tier-glow:${glow}"><div class="result-emoji" aria-hidden="true">${emojis}</div><div class="eyebrow">HASIL LATIHAN</div><div class="result-medal" aria-hidden="true">${esc(T.icon)}</div><h1>${esc(state.name)}</h1><p class="result-title">${esc(T.title)}</p><p class="result-sub">${esc(T.sub)}</p>${state.timedOut?'<p class="muted">⏰ Waktu habis. Soal yang belum dijawab dihitung kosong.</p>':''}<div class="score"><span class="score-num">${r.accuracy}</span><small>/100</small></div><div class="score-bar"><i style="--w:${r.accuracy}%"></i></div><div class="result-stats"><span class="rs-ok">✅ Benar <b>${r.correct}</b></span><span class="rs-bad">❌ Salah <b>${wrong}</b></span><span class="rs-blank">➖ Tidak dijawab <b>${unanswered}</b></span></div></div>${sheetRevHTML}<div class="review-list" ${sheetRev?'style="display:none"':''}><h2>Review Jawaban</h2><h3 class="review-title ok">✅ Jawaban Benar <small>(${okL.length})</small></h3>${okL.length?okL.map(o=>item(o.x,o.i)).join(''):'<p class="muted">Belum ada jawaban yang benar.</p>'}<h3 class="review-title bad">❌ Jawaban Salah <small>(${badL.length})</small></h3>${badL.length?badL.map(o=>item(o.x,o.i)).join(''):'<p class="muted">Tidak ada yang salah. Sempurna! 🎉</p>'}</div><button class="cta" type="button" id="backToLatihan">Kembali ke Mengerjakan Soal</button></section>`);
+  const sheetRev=hasSheetReview(r.reviews);const sheetRevHTML=sheetRev?sheetReviewHTML(r.reviews):'';
+  const plainRevHTML=sheetRev?'':plainReviewHTML(r.reviews);
+  shell(`<section class="section result notranslate" translate="no"><div class="result-card tier-custom fx-float fx-ring" style="--tier:${T.color};--tier-glow:${glow}"><div class="result-emoji" aria-hidden="true">${emojis}</div><div class="eyebrow">HASIL LATIHAN</div><div class="result-medal" aria-hidden="true">${esc(T.icon)}</div><h1>${esc(state.name)}</h1><p class="result-title">${esc(T.title)}</p><p class="result-sub">${esc(T.sub)}</p>${state.timedOut?'<p class="muted">⏰ Waktu habis. Soal yang belum dijawab dihitung kosong.</p>':''}<div class="score"><span class="score-num">${r.accuracy}</span><small>/100</small></div><div class="score-bar"><i style="--w:${r.accuracy}%"></i></div><div class="result-stats"><span class="rs-ok">✅ Benar <b>${r.correct}</b></span><span class="rs-bad">❌ Salah <b>${wrong}</b></span><span class="rs-blank">➖ Tidak dijawab <b>${unanswered}</b></span></div></div><div class="review-wrap">${sheetRev?sheetRevHTML:`<h2>Review Jawaban</h2>${plainRevHTML}`}</div><button class="cta" type="button" id="backToLatihan">Kembali ke Mengerjakan Soal</button></section>`);
   document.querySelector('#backToLatihan')?.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();stopSheetAudio();backToLatihan();});
   if(sheetRev){bindSheetReviewAudio();fitSheetFonts();}
   const num=document.querySelector('.score-num');
   if(num&&r.accuracy>0&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const t0=performance.now(),dur=900;num.textContent='0';const step=t=>{const k=Math.min(1,(t-t0)/dur);num.textContent=String(Math.round(r.accuracy*(1-Math.pow(1-k,3))));if(k<1&&num.isConnected)requestAnimationFrame(step);else num.textContent=String(r.accuracy);};requestAnimationFrame(step);}
 }
 function backToLatihan(){stopTimer();if(location.hash==='#latihan')renderRoute();else location.hash='#latihan';}
-function formatAnswer(v,type){if(!v)return '';if(type==='matching'){const o=parseJSON(v,{});return Object.entries(o).map(([a,b])=>`${a} = ${b}`).join(', ');}return String(v);}
-
-async function renderRoute(){stopTimer();stopAssessmentTimer();stopKotobaTimer();window.__finishKotoba=null;closeStudy();state.page=location.hash.slice(1)||'home';if(state.user)recordActivity('page_view',{page:state.page});const b=await loadBranding(true);if(b.maintenance_enabled===true)return showMaintenance(b);if(state.page==='home')return home();if(state.page==='kanji')return kanji();if(state.page==='kana')return kana();if(state.page==='tes-hiragana')return tesHiragana();if(state.page==='tes-katakana')return tesKatakana();if(state.page==='developer')return developer();if(state.page==='akun')return account();if(state.page==='kosakata')return kosakata({state,shell,esc,norm,supabase,sbReady});if(state.page==='tes-kotoba')return tesKotoba({state,shell,recordActivity,supabase,sbReady});if(state.page==='kaiwa')return kaiwa();if(state.page==='latihan')return latihan();return home();}
-
-// Global tap interaction: subtle wiggle + ripple/glow on interactive UI.
-function playInteraction(el, clientX=null, clientY=null){
-  if(!el)return;
-  el.classList.remove('interaction-wiggle','click-glow');
-  void el.offsetWidth;
-  el.classList.add('interaction-wiggle','click-glow');
-  const rect=el.getBoundingClientRect();
-  const x=clientX==null?rect.width/2:clientX-rect.left;
-  const y=clientY==null?rect.height/2:clientY-rect.top;
-  if(!el.classList.contains('kanji-flip')&&!el.classList.contains('kana-flip')){
-    const ripple=document.createElement('span');
-    ripple.className='click-ripple';
-    ripple.style.left=`${x}px`;
-    ripple.style.top=`${y}px`;
-    el.appendChild(ripple);
-    ripple.addEventListener('animationend',()=>ripple.remove(),{once:true});
-  }
-  setTimeout(()=>el.classList.remove('interaction-wiggle','click-glow'),620);
-}
 // Reliable internal navigation for fixed/mobile navigation and result buttons.
 function bindReliableNavigation(){
   if(window.__itcoReliableNavBound)return;
@@ -623,9 +580,12 @@ async function account(){
 }
 function showAccountResult(x,isTest){
   const d=parseJSON(x.details,[]), isKotoba=x.test_type==='kotoba', kanaLabel=x.test_type==='katakana_46'?'Katakana':'Hiragana', title=isTest?(isKotoba?'Test Kotoba':`Tes ${kanaLabel} · 46`):(x.parts?.name||'Hasil Latihan');
-  const body=isTest?(isKotoba?d.map((r,i)=>`<article class="review ${r.correct?'ok':'bad'}"><b>${i+1}. ${esc(r.japanese||'')} · ${esc(r.romaji||'')}</b><span>Arti: ${esc(r.meaning||'')}</span><span>Jawaban kamu: ${esc(r.user_answer)||'—'}</span><span>Jawaban benar: ${esc(r.direction==='jp_id'?r.meaning:r.romaji)||'—'}</span></article>`).join(''):d.map((r,i)=>`<article class="review ${r.correct?'ok':'bad'}"><b>${r.number||i+1}. ${esc(r.kana||r.hiragana||'')} ↔ ${esc(r.romaji||'')}</b><span>Jawaban kamu: ${esc(r.user_answer)||'—'}</span><span>Jawaban benar: ${esc(r.correct_answer)||'—'}</span></article>`).join('')):d.map((r,i)=>`<article class="review ${r.correct?'ok':'bad'}"><b>${i+1}. ${renderPromptHTML(r.question||'')}</b><span>Jawaban kamu: ${esc(formatAnswer(r.user_answer,r.type))||'—'}</span><span>Jawaban benar: ${esc(formatAnswer(r.correct_answer,r.type))||'—'}</span></article>`).join('');
-  document.body.insertAdjacentHTML('beforeend',`<div class="account-result-modal" id="accountResultModal"><div class="account-result-dialog"><button class="bunpou-close" id="accountResultClose">×</button><div class="eyebrow">HASIL LATIHAN</div><h2>${esc(title)}</h2><div class="account-result-summary"><b>${x.score}/100</b><span>Benar ${x.correct_count}</span><span>Salah ${x.wrong_count}</span><span>Tidak dijawab ${x.unanswered_count}</span>${isTest?`<span>Waktu ${Math.floor((x.duration_seconds||0)/60)}m ${(x.duration_seconds||0)%60}s</span>`:''}</div><div class="review-list">${body||'<p class="muted">Detail jawaban tidak tersedia.</p>'}</div></div></div>`);
+  const sheetRev=!isTest&&hasSheetReview(fromSavedDetails(d));
+  const body=isTest?(isKotoba?d.map((r,i)=>`<article class="review ${r.correct?'ok':'bad'}"><b>${i+1}. ${esc(r.japanese||'')} · ${esc(r.romaji||'')}</b><span>Arti: ${esc(r.meaning||'')}</span><span>Jawaban kamu: ${esc(r.user_answer)||'—'}</span><span>Jawaban benar: ${esc(r.direction==='jp_id'?r.meaning:r.romaji)||'—'}</span></article>`).join(''):d.map((r,i)=>`<article class="review ${r.correct?'ok':'bad'}"><b>${r.number||i+1}. ${esc(r.kana||r.hiragana||'')} ↔ ${esc(r.romaji||'')}</b><span>Jawaban kamu: ${esc(r.user_answer)||'—'}</span><span>Jawaban benar: ${esc(r.correct_answer)||'—'}</span></article>`).join(''))
+    :(sheetRev?sheetReviewHTML(fromSavedDetails(d)):`<h2>Review Jawaban</h2>${plainReviewHTML(fromSavedDetails(d))}`);
+  document.body.insertAdjacentHTML('beforeend',`<div class="account-result-modal" id="accountResultModal"><div class="account-result-dialog"><button class="bunpou-close" id="accountResultClose">×</button><div class="eyebrow">HASIL LATIHAN</div><h2>${esc(title)}</h2><div class="account-result-summary">${scoreBadgeHTML(x.score)}<span>Benar ${x.correct_count}</span><span>Salah ${x.wrong_count}</span><span>Tidak dijawab ${x.unanswered_count}</span>${isTest?`<span>Waktu ${Math.floor((x.duration_seconds||0)/60)}m ${(x.duration_seconds||0)%60}s</span>`:''}<span>${new Date(x.created_at||x.date||Date.now()).toLocaleString('id-ID')}</span></div><div class="review-wrap">${body||'<p class="muted">Detail jawaban tidak tersedia.</p>'}</div></div></div>`);
   const m=document.querySelector('#accountResultModal');document.querySelector('#accountResultClose').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove();};
+  if(sheetRev){bindSheetReviewAudio(m);fitSheetFonts(m);}
 }
 
 function showLogin(){ stopTimer(); closeStudy(); renderAuth(app,state.branding||{},async u=>{ state.user=u; await startUserMonitor({login:true}); if(!location.hash||location.hash==='#akun')location.hash='#home'; renderRoute(); }); }

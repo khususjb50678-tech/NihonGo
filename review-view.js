@@ -11,7 +11,7 @@ export const hasSheetReview = reviews => Array.isArray(reviews) && reviews.lengt
 
 // Baris hasil tersimpan (dari tabel results.details) -> bentuk yang dipakai sheetReviewHTML.
 export const fromSavedDetails = details => (Array.isArray(details) ? details : []).map(d => ({
-  user: d.user_answer, answer: d.correct_answer, ok: !!d.correct,
+  prompt: d.question, user: d.user_answer, answer: d.correct_answer, ok: !!d.correct, type: d.type, explanation: d.explanation,
   sheet_page_url: d.sheet_page_url, sheet_slot: d.sheet_slot, sheet_hot: d.sheet_hot, audio_url: d.audio_url,
 }));
 
@@ -51,4 +51,44 @@ export function bindSheetReviewAudio(root = document) {
 // Ukuran lingkaran jawaban & font mengikuti lebar halaman (sama seperti saat user mengerjakan).
 export function fitSheetFonts(root = document) {
   root.querySelectorAll('.sheet-page').forEach(p => { const d = Math.min(30, Math.max(20, p.clientWidth * .052)); p.style.setProperty('--sdia', d + 'px'); p.style.setProperty('--sfs', (d * .58) + 'px'); });
+}
+
+// Bersihkan HTML yang ditempel dari Word/Google Docs (font, warna, dsb). Hanya <u> dan <br> yang dipertahankan, di kedalaman berapa pun.
+// Membersihkan dari dalam ke luar (anak dibersihkan dulu) supaya elemen terlarang yang bersarang di dalam <u> ikut terbongkar.
+export function sanitizePromptHTML(value) {
+  const clean = node => {
+    const out = document.createDocumentFragment();
+    node.childNodes.forEach(child => {
+      if (child.nodeType === Node.TEXT_NODE) { out.appendChild(child.cloneNode()); return; }
+      if (child.nodeType !== Node.ELEMENT_NODE) return;
+      const tag = child.tagName.toLowerCase(), inner = clean(child);
+      if (tag === 'u' || tag === 'br') { const el = document.createElement(tag); el.appendChild(inner); out.appendChild(el); }
+      else out.appendChild(inner);
+    });
+    return out;
+  };
+  const t = document.createElement('template'); t.innerHTML = String(value || '');
+  const div = document.createElement('div'); div.appendChild(clean(t.content));
+  return div.innerHTML;
+}
+export function formatAnswer(v, type) { if (!v) return ''; if (type === 'matching') { const o = parseJSON(v, {}); return Object.entries(o).map(([a, b]) => `${a} = ${b}`).join(', '); } return String(v); }
+
+// Satu kartu jawaban (dipakai baik untuk soal PDF maupun soal biasa yang bukan PDF).
+function plainItemHTML(x, i) {
+  const expl = x.explanation ? `<div class="review-expl">📝 <b>Penjelasan:</b> ${sanitizePromptHTML(x.explanation)}</div>` : '';
+  return `<article class="review ${x.ok ? 'ok' : 'bad'}"><b>${i + 1}. ${sanitizePromptHTML(x.prompt)}</b><span>Jawaban kamu: ${esc(formatAnswer(x.user, x.type)) || '— (tidak dijawab)'}</span><span>Jawaban benar: ${esc(formatAnswer(x.answer, x.type))}</span>${expl}</article>`;
+}
+// Daftar lengkap review (bukan soal PDF), dikelompokkan Benar/Salah — sama persis dengan halaman hasil milik user.
+export function plainReviewHTML(reviews) {
+  const all = reviews.map((x, i) => ({ x, i })), okL = all.filter(o => o.x.ok), badL = all.filter(o => !o.x.ok);
+  return `<div class="review-list"><h3 class="review-title ok">✅ Jawaban Benar <small>(${okL.length})</small></h3>${okL.length ? okL.map(o => plainItemHTML(o.x, o.i)).join('') : '<p class="muted">Belum ada jawaban yang benar.</p>'}<h3 class="review-title bad">❌ Jawaban Salah <small>(${badL.length})</small></h3>${badL.length ? badL.map(o => plainItemHTML(o.x, o.i)).join('') : '<p class="muted">Tidak ada yang salah. Sempurna! 🎉</p>'}</div>`;
+}
+
+// Lingkaran nilai berwarna (skala tetap) + baris statistik Benar/Salah/Kosong, dipakai di daftar hasil (Admin & Akun).
+export function scoreBadgeHTML(score) {
+  const s = Number(score) || 0, c = s >= 90 ? '#f5c542' : s >= 70 ? '#4ade80' : s >= 50 ? '#60a5fa' : '#f87171';
+  return `<span class="ures-score" style="--c:${c}">${s}</span>`;
+}
+export function statRowHTML({ correct = 0, wrong = 0, unanswered = 0, extra = '' }) {
+  return `<p class="result-stats ures-stats"><span class="rs-ok">✅ Benar <b>${correct}</b></span><span class="rs-bad">❌ Salah <b>${wrong}</b></span><span class="rs-blank">➖ Kosong <b>${unanswered}</b></span>${extra ? `<span class="ures-extra">${extra}</span>` : ''}</p>`;
 }
