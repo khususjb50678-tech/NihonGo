@@ -177,6 +177,17 @@ async function loadBranding(force=false){
   return b;
 }
 async function q(table,opts={}){ if(!sbReady)return {data:[],error:null}; let x=supabase.from(table).select(opts.select||'*'); if(opts.eq)for(const [k,v] of Object.entries(opts.eq))x=x.eq(k,v); if(opts.order)x=x.order(opts.order,{ascending:opts.asc!==false}); return x; }
+// Render question text as sanitized HTML. Preserve only the safe formatting
+// supported by sanitizePromptHTML (underline and line breaks).
+function renderPromptHTML(value){
+  const raw=String(value ?? '');
+  try {
+    return sanitizePromptHTML(raw);
+  } catch (err) {
+    console.error('Format teks soal tidak dapat diproses:',err);
+    return esc(raw).replace(/\r?\n/g,'<br>');
+  }
+}
 function promptText(value){
   const t=document.createElement('template'); t.innerHTML=sanitizePromptHTML(value);
   return (t.content.textContent||'').replace(/\s+/g,' ').trim();
@@ -190,7 +201,21 @@ function shell(content){
   document.querySelectorAll('.nav a,.bottom a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')===`#${state.page}`));
   document.querySelectorAll('[href="#tes-kotoba"]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();openKotobaSetup();}));
   const mb=document.querySelector('#messageBtn');
-  if(mb)mb.onclick=()=>showSiteMessage();
+  if(mb)mb.onclick=(event)=>{
+    event.preventDefault();
+    try { showSiteMessage(); }
+    catch(err) {
+      console.error('Pesan terbaru gagal dirender:',err);
+      document.querySelector('#siteMessageModal')?.remove();
+      const fallback=document.createElement('div');
+      fallback.id='siteMessageModal';
+      fallback.className='site-message-backdrop';
+      fallback.innerHTML='<div class="site-message-card" role="dialog" aria-modal="true"><button type="button" class="bunpou-close" aria-label="Tutup">×</button><div class="eyebrow">📢 PESAN TERBARU</div><h2>Informasi Website</h2><div class="site-message-body">Belum ada pesan terbaru dari pengelola website.</div></div>';
+      document.body.appendChild(fallback);
+      fallback.querySelector('.bunpou-close').onclick=()=>fallback.remove();
+      fallback.onclick=e=>{if(e.target===fallback)fallback.remove();};
+    }
+  };
   if(b.message_enabled===true){
     const signature=`${String(b.message_title||'')}\n${String(b.message_body||'')}`.trim();
     let seen='';
