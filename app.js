@@ -588,6 +588,32 @@ function showAccountResult(x,isTest){
   if(sheetRev){bindSheetReviewAudio(m);fitSheetFonts(m);}
 }
 
+// Route dispatcher restored: routes are selected from the URL hash.
+async function renderRoute(){
+  const route=(location.hash||'#home').replace(/^#/,'').split('?')[0]||'home';
+  state.page=route;
+  try{
+    if(route==='home'){ await home(); }
+    else if(route==='developer'){ await developer(); }
+    else if(route==='kanji'){ await kanji(); }
+    else if(route==='kana'){ await kana(); }
+    else if(route==='kaiwa'){ await kaiwa(); }
+    else if(route==='latihan'){ await latihan(); }
+    else if(route==='akun'){ await account(); }
+    else if(route==='tes-hiragana'){ await tesHiragana(); }
+    else if(route==='tes-katakana'){ await tesKatakana(); }
+    else if(route==='tes-kotoba'){ await openKotobaSetup(); }
+    else if(route==='kosakata'){ await openKotobaSetup(); }
+    else if(route==='install'){ shell(`<section class="section"><button class="btn" type="button" onclick="location.hash='#home'">← Kembali</button>${installGuide()}</section>`); }
+    else { await home(); }
+    if(typeof runFx==='function') runFx();
+  }catch(err){
+    console.error('Gagal menampilkan route:',route,err);
+    if(app && !app.querySelector('[data-route-error]')){
+      app.innerHTML=`<main data-route-error style="min-height:70vh;display:grid;place-items:center;padding:24px;background:#050505;color:#fff;font-family:system-ui,sans-serif;text-align:center"><section style="max-width:460px;border:1px solid #333;border-radius:16px;padding:24px;background:#101010"><h2>Halaman gagal dimuat</h2><p style="color:#bbb;line-height:1.6">Halaman ini mengalami error saat dibuka. Coba kembali ke Beranda atau muat ulang.</p><button class="btn" type="button" onclick="location.hash='#home';location.reload()">Kembali ke Beranda</button><p style="font-size:11px;color:#777;margin-top:12px">${String(err?.message||'Kesalahan tidak diketahui').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</p></section></main>`;
+    }
+  }
+}
 function showLogin(){ stopTimer(); closeStudy(); renderAuth(app,state.branding||{},async u=>{ state.user=u; await startUserMonitor({login:true}); if(!location.hash||location.hash==='#akun')location.hash='#home'; renderRoute(); }); }
 function updateSplash(b){
   const sp=document.querySelector('#splash'); if(!sp||!b)return;
@@ -602,7 +628,6 @@ function hideSplash(){
   setTimeout(()=>{ sp.classList.add('hide'); setTimeout(()=>sp.remove(),600); },wait);
 }
 async function boot(){
-  window.__itcoBootStarted=true;
   try{
     const b=await loadBranding(); updateSplash(b);
     if(sbReady){
@@ -613,13 +638,7 @@ async function boot(){
     if(b.maintenance_enabled===true) showMaintenance(b);
     else if(sbReady&&!state.user) showLogin();
     else {await renderRoute();await checkResumeSession();}
-  }catch(err){
-    console.error('Akemi startup error:', err);
-    const target=document.querySelector('#app');
-    if(target && !target.children.length && window.__itcoStartupFallback){
-      window.__itcoStartupFallback(err?.message || 'gagal memulai aplikasi');
-    }
-  }
+  }catch(err){ console.error(err); }
   finally{ hideSplash(); }
 }
 window.addEventListener('hashchange',()=>{ if(sbReady&&!state.user)return; if(state.exerciseActive){const target=location.hash;try{history.replaceState(null,'',state.exerciseHash||'#latihan');}catch{}showLeaveModal({target});return;} renderRoute(); });
