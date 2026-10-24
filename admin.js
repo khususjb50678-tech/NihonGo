@@ -553,7 +553,7 @@ async function questions0(){
     const id=(crypto?.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`);
     let options=[];
     if(type==='multiple_choice') options=String(fd.get('options')||'').split(';').map(s=>s.trim()).filter(Boolean);
-    const row={id,part_id:fd.get('part_id'),prompt,reading:String(fd.get('reading')||''),instruction:String(fd.get('instruction')||''),type,options,answer:String(fd.get('answer')||'')};
+    const row={id,part_id:fd.get('part_id'),prompt,reading:String(fd.get('reading')||''),instruction:String(fd.get('instruction')||''),type,options,answer:String(fd.get('answer')||''),active:true};
     const {error}=await supabase.from('questions').insert(row);
     if(error){alert(error.message);return;}
     for(const [field,kind,col] of [['photo','photo','photo_url'],['audio','audio','audio_url']]){
