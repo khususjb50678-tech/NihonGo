@@ -1,0 +1,14 @@
+AKEMI v55 — PERBAIKAN PROFIL ID & PENCARIAN
+
+Paket ini dibuat dari ZIP lengkap Akemi-v55-FINAL-Profil-ID-Pencarian.zip agar file lain tetap ikut utuh.
+Perbaikan yang diterapkan:
+- Menjaga query ID profil agar aman jika Supabase mengembalikan error.
+- Menjaga form pencarian profil agar tidak error bila elemen hasil tidak tersedia.
+- Menampilkan ID publik di daftar User Admin.
+- Mengganti nama cache Service Worker agar browser mengambil file terbaru.
+
+PENTING:
+- Arsip ini belum bisa menguji koneksi Supabase milik Anda atau runtime Vercel secara langsung.
+- Jangan jalankan ulang SQL jika migrasi sudah dijalankan.
+- Simpan salinan proyek aktif sebelum mengganti file.
+- Gunakan paket proyek lengkap ini sebagai satu kesatuan; jangan mencampur file dari patch berbasis versi berbeda.

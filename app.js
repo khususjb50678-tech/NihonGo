@@ -606,7 +606,7 @@ async function account(){
   const u=state.user, nm=userName(u); let normal=[],tests=[],publicId=null;
   const accountWallpaper=(state.branding?.hero_image&&String(state.branding.hero_image).trim())||CONFIG.heroImage;
   const accountBackground=accountWallpaper?`background-image:linear-gradient(rgba(10,3,6,.82),rgba(10,3,6,.9)),url(\"${esc(encodeURI(accountWallpaper).replace(/\\(/g,'%28').replace(/\\)/g,'%29'))}\");background-position:center top;background-size:cover;background-attachment:fixed;`:'';
-  if(sbReady&&u){try{const pr=await supabase.from('user_profiles').select('public_id').eq('user_id',u.id).maybeSingle();publicId=pr.data?.public_id??null;}catch{}}
+  if(sbReady&&u){try{const pr=await supabase.from('user_profiles').select('public_id').eq('user_id',u.id).maybeSingle();if(!pr.error)publicId=pr.data?.public_id??null;}catch{publicId=null;}}
   if(sbReady&&u){
     let a=await supabase.from('results').select('id,name,score,correct_count,wrong_count,unanswered_count,details,created_at,parts(name,part_number)').eq('user_id',u.id).order('created_at',{ascending:false});if(a.error&&/user_id|column/i.test(a.error.message||''))a=await supabase.from('results').select('id,name,score,correct_count,wrong_count,unanswered_count,details,created_at,parts(name,part_number)').eq('name',nm).order('created_at',{ascending:false});const b=await supabase.from('assessment_results').select('id,test_type,score,correct_count,wrong_count,unanswered_count,duration_seconds,details,created_at').eq('user_id',u.id).order('created_at',{ascending:false});if(!a.error)normal=a.data||[]; if(!b.error)tests=b.data||[];
   }
@@ -626,7 +626,7 @@ async function account(){
   <div class="account-activity"><div class="account-section-heading"><div><div class="eyebrow">AKTIVITAS TERBARU</div><h2>Terakhir Dikerjakan</h2></div></div><div class="account-activity-list">${recent}</div></div>
   <div class="account-results"><div class="section-title"><div><div class="eyebrow">ARSIP NILAI</div><h2>Hasil Saya</h2><p class="muted">Buka detail untuk melihat soal dan review jawaban.</p></div></div><div class="account-result-list">${resultHTML}</div></div></div></section>`);
   const profileForm=document.querySelector('#publicProfileSearchForm');
-  if(profileForm)profileForm.onsubmit=async e=>{e.preventDefault();const query=String(document.querySelector('#publicProfileQuery').value||'').trim(),box=document.querySelector('#publicProfileSearchResult');box.innerHTML='<p class="muted">Mencari profil…</p>';try{const {data,error}=await supabase.rpc('search_public_profile',{p_query:query});if(error)throw error;if(!data){box.innerHTML='<p class="muted">Profil tidak ditemukan.</p>';return;}const mine=Number(data.public_id)===Number(publicId);box.innerHTML=`<article class="public-profile-card"><div class="account-avatar">${esc((data.name||'?')[0].toUpperCase())}</div><div class="eyebrow">${mine?'PROFIL SAYA':'PROFIL PENGGUNA'}</div><h3>${esc(data.name||'Pengguna Akemi')}</h3><p class="muted">ID Pengguna: <strong>${esc(data.public_id)}</strong></p><div class="public-profile-stats"><div><b>${Number(data.total_sessions)||0}</b><span>Total latihan</span></div><div><b>${Number(data.correct_count)||0}</b><span>Jawaban benar</span></div><div><b>${Number(data.avg_score)||0}</b><span>Rata-rata nilai</span></div></div><p class="muted">Bergabung: ${data.created_at?new Date(data.created_at).toLocaleDateString('id-ID'):'—'}</p></article>`;}catch(err){box.innerHTML=`<p class="muted">Pencarian gagal. Pastikan migrasi <b>supabase-profile-id.sql</b> sudah dijalankan. ${esc(err.message||'')}</p>`;}};
+  if(profileForm)profileForm.onsubmit=async e=>{e.preventDefault();const query=String(document.querySelector('#publicProfileQuery')?.value||'').trim(),box=document.querySelector('#publicProfileSearchResult');if(!box)return;box.innerHTML='<p class="muted">Mencari profil…</p>';try{const {data,error}=await supabase.rpc('search_public_profile',{p_query:query});if(error)throw error;if(!data){box.innerHTML='<p class="muted">Profil tidak ditemukan.</p>';return;}const mine=Number(data.public_id)===Number(publicId);box.innerHTML=`<article class="public-profile-card"><div class="account-avatar">${esc((data.name||'?')[0].toUpperCase())}</div><div class="eyebrow">${mine?'PROFIL SAYA':'PROFIL PENGGUNA'}</div><h3>${esc(data.name||'Pengguna Akemi')}</h3><p class="muted">ID Pengguna: <strong>${esc(data.public_id)}</strong></p><div class="public-profile-stats"><div><b>${Number(data.total_sessions)||0}</b><span>Total latihan</span></div><div><b>${Number(data.correct_count)||0}</b><span>Jawaban benar</span></div><div><b>${Number(data.avg_score)||0}</b><span>Rata-rata nilai</span></div></div><p class="muted">Bergabung: ${data.created_at?new Date(data.created_at).toLocaleDateString('id-ID'):'—'}</p></article>`;}catch(err){box.innerHTML=`<p class="muted">Pencarian gagal. Pastikan migrasi <b>supabase-profile-id.sql</b> sudah dijalankan. ${esc(err.message||'')}</p>`;}};
   document.querySelector('#logoutBtn').onclick=async()=>{stopTimer();await stopUserMonitor({logout:true});try{await supabase.auth.signOut();}catch{}state.user=null;location.hash='#home';showLogin();};
   document.querySelectorAll('[data-result-id]').forEach(b=>b.onclick=()=>{const x=normal.find(r=>String(r.id)===b.dataset.resultId);if(x)showAccountResult(x,false);});
   document.querySelectorAll('[data-test-id]').forEach(b=>b.onclick=()=>{const x=tests.find(r=>String(r.id)===b.dataset.testId);if(x)showAccountResult(x,true);});
@@ -682,13 +682,6 @@ function hideSplash(){
   setTimeout(()=>{ sp.classList.add('hide'); setTimeout(()=>sp.remove(),600); },wait);
 }
 async function boot(){
-  const startupWatchdog=setTimeout(()=>{
-    const splash=document.querySelector('#splash');
-    if(!splash)return;
-    console.warn('Startup terlalu lama; menampilkan layar masuk agar aplikasi tidak blank.');
-    try{ if(!app.children.length) showLogin(); }catch(err){ console.error('Fallback startup gagal:',err); }
-    hideSplash();
-  },7000);
   try{
     const b=await loadBranding(); updateSplash(b);
     if(sbReady){
@@ -700,7 +693,7 @@ async function boot(){
     else if(sbReady&&!state.user) showLogin();
     else {await renderRoute();await checkResumeSession();}
   }catch(err){ console.error(err); }
-  finally{ clearTimeout(startupWatchdog); hideSplash(); }
+  finally{ hideSplash(); }
 }
 window.addEventListener('hashchange',()=>{ if(sbReady&&!state.user)return; if(state.exerciseActive){const target=location.hash;try{history.replaceState(null,'',state.exerciseHash||'#latihan');}catch{}showLeaveModal({target});return;} renderRoute(); });
 boot();
