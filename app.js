@@ -580,24 +580,6 @@ function bindReliableNavigation(){
 }
 bindReliableNavigation();
 
-function playInteraction(el, clientX=null, clientY=null){
-  if(!el)return;
-  el.classList.remove('interaction-wiggle','click-glow');
-  void el.offsetWidth;
-  el.classList.add('interaction-wiggle','click-glow');
-  const rect=el.getBoundingClientRect();
-  const x=clientX==null?rect.width/2:clientX-rect.left;
-  const y=clientY==null?rect.height/2:clientY-rect.top;
-  if(!el.classList.contains('kanji-flip')&&!el.classList.contains('kana-flip')){
-    const ripple=document.createElement('span');
-    ripple.className='click-ripple';
-    ripple.style.left=`${x}px`;
-    ripple.style.top=`${y}px`;
-    el.appendChild(ripple);
-    ripple.addEventListener('animationend',()=>ripple.remove(),{once:true});
-  }
-  setTimeout(()=>el.classList.remove('interaction-wiggle','click-glow'),620);
-}
 function bindInteractionEffects(){
   if(window.__itcoInteractionBound)return;
   window.__itcoInteractionBound=true;
@@ -621,10 +603,7 @@ if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventList
 // ===== Akun & layar loading =====
 async function account(){
   await loadBranding();
-  const u=state.user, nm=userName(u); let normal=[],tests=[],publicId=null;
-  const accountWallpaper=(state.branding?.hero_image&&String(state.branding.hero_image).trim())||CONFIG.heroImage;
-  const accountBackground=accountWallpaper?`background-image:linear-gradient(rgba(10,3,6,.82),rgba(10,3,6,.9)),url(\"${esc(encodeURI(accountWallpaper).replace(/\\(/g,'%28').replace(/\\)/g,'%29'))}\");background-position:center top;background-size:cover;background-attachment:fixed;`:'';
-  if(sbReady&&u){try{const pr=await supabase.from('user_profiles').select('public_id').eq('user_id',u.id).maybeSingle();publicId=pr.data?.public_id??null;}catch{}}
+  const u=state.user, nm=userName(u); let normal=[],tests=[];
   if(sbReady&&u){
     let a=await supabase.from('results').select('id,name,score,correct_count,wrong_count,unanswered_count,details,created_at,parts(name,part_number)').eq('user_id',u.id).order('created_at',{ascending:false});if(a.error&&/user_id|column/i.test(a.error.message||''))a=await supabase.from('results').select('id,name,score,correct_count,wrong_count,unanswered_count,details,created_at,parts(name,part_number)').eq('name',nm).order('created_at',{ascending:false});const b=await supabase.from('assessment_results').select('id,test_type,score,correct_count,wrong_count,unanswered_count,duration_seconds,details,created_at').eq('user_id',u.id).order('created_at',{ascending:false});if(!a.error)normal=a.data||[]; if(!b.error)tests=b.data||[];
   }
@@ -635,16 +614,13 @@ async function account(){
   const resultHTML=cards.length?cards.map(x=>x.kind==='test'?`<button type="button" class="account-result-card fx-card" data-test-id="${esc(x.data.id)}"><span class="account-result-tag">${x.data.test_type==='kotoba'?'TEST KOTOBA':`TES ${x.data.test_type==='katakana_46'?'KATAKANA':'HIRAGANA'} · 46`}</span><strong>Nilai ${x.data.score}</strong><span>Benar ${x.data.correct_count} · Salah ${x.data.wrong_count} · Tidak dijawab ${x.data.unanswered_count}</span><small>${new Date(x.date).toLocaleString('id-ID')}</small><b>Lihat Detail →</b></button>`:`<button type="button" class="account-result-card fx-card" data-result-id="${esc(x.data.id)}"><span class="account-result-tag">${esc(x.data.parts?.name||'Latihan')}</span><strong>Nilai ${x.data.score}</strong><span>Benar ${x.data.correct_count} · Salah ${x.data.wrong_count} · Tidak dijawab ${x.data.unanswered_count}</span><small>${new Date(x.date).toLocaleString('id-ID')}</small><b>Lihat Detail →</b></button>`).join(''):'<div class="account-empty">Belum ada hasil latihan.<small>Kerjakan latihan atau Tes Kana 46 untuk melihat hasilnya di sini.</small></div>';
   const achievements=[{icon:'🎯',name:'Mulai Belajar',ok:cards.length>0},{icon:'✍️',name:'5 Latihan',ok:cards.length>=5},{icon:'🔥',name:'Streak 3 Hari',ok:streak>=3},{icon:'🏆',name:'Nilai 90+',ok:cards.some(c=>Number(c.data.score)>=90)}];
   const recent=cards.slice(0,3).map(c=>`<div class="account-activity-row"><span class="account-activity-icon">${c.kind==='test'?'📝':'📚'}</span><div><b>${esc(c.data.parts?.name||(c.kind==='test'?(c.data.test_type==='kotoba'?'Test Kotoba':`Tes ${c.data.test_type==='katakana_46'?'Katakana':'Hiragana'}`):'Latihan'))}</b><small>${new Date(c.date).toLocaleString('id-ID')}</small></div><strong>${Number(c.data.score)||0}</strong></div>`).join('')||'<p class="muted">Aktivitas latihan akan muncul di sini.</p>';
-  shell(`<section class="section account-page account-premium" style="${accountBackground}"><div class="account-card fx-float fx-ring"><div class="account-avatar">${esc((nm[0]||'?').toUpperCase())}</div><div class="eyebrow">AKUN SAYA</div><h2>${esc(nm)}</h2><p class="muted">${esc(u?.email||'')}</p><div class="account-public-id">ID Pengguna: <strong>${publicId==null?'—':esc(publicId)}</strong></div><div class="account-profile-actions"><a class="btn account-link-btn" href="./admin.html">↗ Website Admin Panel</a><button type="button" id="logoutBtn" class="btn red">Keluar</button></div></div>
-  <div class="public-profile-search card"><div class="eyebrow">TEMUKAN PENGGUNA</div><h2>Cari Profil Akemi</h2><p class="muted">Cari menggunakan ID atau nama pengguna. Hasil nilai dan email pribadi tidak ditampilkan.</p><form id="publicProfileSearchForm" class="public-profile-search-form"><input class="input" id="publicProfileQuery" placeholder="Masukkan ID atau nama pengguna" autocomplete="off" required><button class="btn red" type="submit">Cari</button></form><div id="publicProfileSearchResult" aria-live="polite"></div></div>
+  shell(`<section class="section account-page account-premium"><div class="account-card fx-float fx-ring"><div class="account-avatar">${esc((nm[0]||'?').toUpperCase())}</div><div class="eyebrow">AKUN SAYA</div><h2>${esc(nm)}</h2><p class="muted">${esc(u?.email||'')}</p><div class="account-profile-actions"><a class="btn account-link-btn" href="./admin.html">↗ Website Admin Panel</a><button type="button" id="logoutBtn" class="btn red">Keluar</button></div></div>
   <div class="account-dashboard"><div class="account-section-heading"><div><div class="eyebrow">PROFIL BELAJAR</div><h2>Perjalanan Belajarmu</h2><p class="muted">Terus latihan sedikit demi sedikit setiap hari.</p></div></div>
   <div class="account-stat-grid"><div class="account-stat"><span>📚 Total latihan</span><strong>${cards.length}</strong><small>Sesi selesai</small></div><div class="account-stat"><span>✅ Jawaban benar</span><strong>${totalCorrect}</strong><small>Akumulasi jawaban</small></div><div class="account-stat"><span>🔥 Streak</span><strong>${streak} hari</strong><small>Hari aktif beruntun</small></div><div class="account-stat"><span>⭐ Rata-rata nilai</span><strong>${avg}</strong><small>Dari semua hasil</small></div></div>
   <div class="account-level-card"><div class="account-level-top"><div><span class="eyebrow">PROGRESS LEVEL</span><h3>Level ${level} · Pelajar Jepang</h3></div><span class="account-level-icon">🎌</span></div><div class="account-progress"><i style="width:${levelProgress}%"></i></div><small>${totalCorrect%25}/25 jawaban benar menuju level ${level+1}</small></div>
   <div class="account-achievements"><div class="account-section-heading"><div><div class="eyebrow">PENCAPAIAN</div><h2>Badge Saya</h2></div></div><div class="account-badge-grid">${achievements.map(a=>`<div class="account-badge ${a.ok?'earned':'locked'}"><span>${a.icon}</span><b>${a.name}</b><small>${a.ok?'Terbuka':'Belum terbuka'}</small></div>`).join('')}</div></div>
   <div class="account-activity"><div class="account-section-heading"><div><div class="eyebrow">AKTIVITAS TERBARU</div><h2>Terakhir Dikerjakan</h2></div></div><div class="account-activity-list">${recent}</div></div>
   <div class="account-results"><div class="section-title"><div><div class="eyebrow">ARSIP NILAI</div><h2>Hasil Saya</h2><p class="muted">Buka detail untuk melihat soal dan review jawaban.</p></div></div><div class="account-result-list">${resultHTML}</div></div></div></section>`);
-  const profileForm=document.querySelector('#publicProfileSearchForm');
-  if(profileForm)profileForm.onsubmit=async e=>{e.preventDefault();const query=String(document.querySelector('#publicProfileQuery').value||'').trim(),box=document.querySelector('#publicProfileSearchResult');box.innerHTML='<p class="muted">Mencari profil…</p>';try{const {data,error}=await supabase.rpc('search_public_profile',{p_query:query});if(error)throw error;if(!data){box.innerHTML='<p class="muted">Profil tidak ditemukan.</p>';return;}const mine=Number(data.public_id)===Number(publicId);box.innerHTML=`<article class="public-profile-card"><div class="account-avatar">${esc((data.name||'?')[0].toUpperCase())}</div><div class="eyebrow">${mine?'PROFIL SAYA':'PROFIL PENGGUNA'}</div><h3>${esc(data.name||'Pengguna Akemi')}</h3><p class="muted">ID Pengguna: <strong>${esc(data.public_id)}</strong></p><div class="public-profile-stats"><div><b>${Number(data.total_sessions)||0}</b><span>Total latihan</span></div><div><b>${Number(data.correct_count)||0}</b><span>Jawaban benar</span></div><div><b>${Number(data.avg_score)||0}</b><span>Rata-rata nilai</span></div></div><p class="muted">Bergabung: ${data.created_at?new Date(data.created_at).toLocaleDateString('id-ID'):'—'}</p></article>`;}catch(err){box.innerHTML=`<p class="muted">Pencarian gagal. Pastikan migrasi <b>supabase-profile-id.sql</b> sudah dijalankan. ${esc(err.message||'')}</p>`;}};
   document.querySelector('#logoutBtn').onclick=async()=>{stopTimer();await stopUserMonitor({logout:true});try{await supabase.auth.signOut();}catch{}state.user=null;location.hash='#home';showLogin();};
   document.querySelectorAll('[data-result-id]').forEach(b=>b.onclick=()=>{const x=normal.find(r=>String(r.id)===b.dataset.resultId);if(x)showAccountResult(x,false);});
   document.querySelectorAll('[data-test-id]').forEach(b=>b.onclick=()=>{const x=tests.find(r=>String(r.id)===b.dataset.testId);if(x)showAccountResult(x,true);});
@@ -660,16 +636,11 @@ function showAccountResult(x,isTest){
   if(sheetRev){bindSheetReviewAudio(m);fitSheetFonts(m);}
 }
 
-// Route dispatcher: routes are selected from the URL hash. Logika asli (cek maintenance & catat
-// kunjungan tiap pindah halaman) dikembalikan, ditambah halaman error supaya tidak blank saat gagal.
+// Route dispatcher restored: routes are selected from the URL hash.
 async function renderRoute(){
-  stopTimer();stopAssessmentTimer();stopKotobaTimer();window.__finishKotoba=null;closeStudy();
   const route=(location.hash||'#home').replace(/^#/,'').split('?')[0]||'home';
   state.page=route;
   try{
-    if(state.user)recordActivity('page_view',{page:state.page});
-    const b=await loadBranding(true);
-    if(b.maintenance_enabled===true){ showMaintenance(b); return; }
     if(route==='home'){ await home(); }
     else if(route==='developer'){ await developer(); }
     else if(route==='kanji'){ await kanji(); }
@@ -679,18 +650,19 @@ async function renderRoute(){
     else if(route==='akun'){ await account(); }
     else if(route==='tes-hiragana'){ await tesHiragana(); }
     else if(route==='tes-katakana'){ await tesKatakana(); }
-    else if(route==='tes-kotoba'){ await tesKotoba({state,shell,recordActivity,supabase,sbReady}); }
-    else if(route==='kosakata'){ await kosakata({state,shell,esc,norm,supabase,sbReady}); }
+    else if(route==='tes-kotoba'){ await openKotobaSetup(); }
+    else if(route==='kosakata'){ await openKotobaSetup(); }
     else if(route==='install'){ shell(`<section class="section"><button class="btn" type="button" onclick="location.hash='#home'">← Kembali</button>${installGuide()}</section>`); }
     else { await home(); }
     if(typeof runFx==='function') runFx();
   }catch(err){
     console.error('Gagal menampilkan route:',route,err);
     if(app && !app.querySelector('[data-route-error]')){
-      app.innerHTML=`<main data-route-error style="min-height:70vh;display:grid;place-items:center;padding:24px;background:#050505;color:#fff;font-family:system-ui,sans-serif;text-align:center"><section><h2>Halaman gagal dimuat</h2><p style="opacity:.7">Silakan muat ulang halaman ini.</p><button class="btn red" type="button" onclick="location.reload()">Muat Ulang</button></section></main>`;
+      app.innerHTML=`<main data-route-error style="min-height:70vh;display:grid;place-items:center;padding:24px;background:#050505;color:#fff;font-family:system-ui,sans-serif;text-align:center"><section style="max-width:460px;border:1px solid #333;border-radius:16px;padding:24px;background:#101010"><h2>Halaman gagal dimuat</h2><p style="color:#bbb;line-height:1.6">Halaman ini mengalami error saat dibuka. Coba kembali ke Beranda atau muat ulang.</p><button class="btn" type="button" onclick="location.hash='#home';location.reload()">Kembali ke Beranda</button><p style="font-size:11px;color:#777;margin-top:12px">${String(err?.message||'Kesalahan tidak diketahui').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</p></section></main>`;
     }
   }
-}function showLogin(){ stopTimer(); closeStudy(); renderAuth(app,state.branding||{},async u=>{ state.user=u; await startUserMonitor({login:true}); if(!location.hash||location.hash==='#akun')location.hash='#home'; renderRoute(); }); }
+}
+function showLogin(){ stopTimer(); closeStudy(); renderAuth(app,state.branding||{},async u=>{ state.user=u; await startUserMonitor({login:true}); if(!location.hash||location.hash==='#akun')location.hash='#home'; renderRoute(); }); }
 function updateSplash(b){
   const sp=document.querySelector('#splash'); if(!sp||!b)return;
   const n=document.querySelector('#splashName'),c=document.querySelector('#splashSub'),i=document.querySelector('#splashImg');
