@@ -536,7 +536,7 @@ async function questions0(){
     <label>Jawaban benar <small>(opsional)</small><input class="input" name="answer"></label>
     <label id="optionsField">Pilihan <small>(opsional)</small><input class="input" name="options" placeholder="Makan;Minum;Tidur"></label>
     <label>Reading <small>(opsional)</small><input class="input" name="reading"></label>
-    <label class="full">Penjelasan <small>(opsional)</small><input class="input" name="instruction"></label>
+    <label class="full">Penjelasan <small>(opsional)</small><input class="input" name="explanation" placeholder="Penjelasan yang muncul di review setelah latihan selesai"></label>
     <label>Foto soal <small>(opsional)</small><input class="input" type="file" name="photo" accept="image/*"></label>
     <label>Audio soal <small>(opsional)</small><input class="input" type="file" name="audio" accept="audio/*"></label>
     <button class="btn red full" type="submit">Tambah Soal</button>
@@ -553,7 +553,7 @@ async function questions0(){
     const id=(crypto?.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`);
     let options=[];
     if(type==='multiple_choice') options=String(fd.get('options')||'').split(';').map(s=>s.trim()).filter(Boolean);
-    const row={id,part_id:fd.get('part_id'),prompt,reading:String(fd.get('reading')||''),instruction:String(fd.get('instruction')||''),type,options,answer:String(fd.get('answer')||''),active:true};
+    const row={id,part_id:fd.get('part_id'),prompt,reading:String(fd.get('reading')||''),explanation:String(fd.get('explanation')||'').trim(),type,options,answer:String(fd.get('answer')||''),active:true};
     const {error}=await supabase.from('questions').insert(row);
     if(error){alert(error.message);return;}
     for(const [field,kind,col] of [['photo','photo','photo_url'],['audio','audio','audio_url']]){
