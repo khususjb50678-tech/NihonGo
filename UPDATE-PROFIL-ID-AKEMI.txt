@@ -1,0 +1,31 @@
+UPDATE AKEMI v55 — PROFIL PUBLIK & ID PENGGUNA
+
+FITUR
+- Background halaman Akun memakai hero_image yang sama dengan Beranda.
+- ID publik numerik berurutan untuk profil user. Akun lama diberi ID berdasarkan waktu pendaftaran; akun baru mendapat ID otomatis.
+- Pencarian profil menggunakan ID atau nama.
+- Profil publik hanya menampilkan nama, ID, tanggal bergabung, total latihan, jumlah jawaban benar, dan rata-rata nilai. Email dan arsip nilai tidak ditampilkan.
+- Admin Panel menampilkan ID pada daftar dan detail user.
+- Cache service worker dinaikkan ke versi baru.
+
+FILE KODE YANG BERUBAH DARI ZIP DASAR
+- app.js
+- admin.js
+- style.css
+- sw.js
+
+SQL BARU
+- supabase-profile-id.sql
+
+PENTING SEBELUM MEMASANG
+1. Backup project dan database Supabase terlebih dahulu.
+2. Pastikan supabase-accounts.sql dan supabase-user-monitor.sql sudah pernah dijalankan. Jangan menjalankan ulang supabase-accounts.sql tanpa memeriksa email admin di dalamnya.
+3. Jalankan supabase-profile-id.sql SATU KALI di Supabase Dashboard > SQL Editor > New query > Run.
+4. Deploy file app.js, admin.js, style.css, sw.js serta file SQL baru (SQL cukup dijalankan di Supabase; tidak perlu di-host sebagai halaman web).
+5. Di Vercel, unggah/ganti empat file kode di lokasi yang sama seperti project saat ini, dan tambahkan supabase-profile-id.sql ke repository sebagai dokumentasi/migrasi.
+6. Setelah deploy, buka website di Chrome lalu refresh. Jika masih tampilan lama, tutup tab dan buka kembali.
+
+CATATAN
+- ID untuk akun yang sudah ada ditentukan berdasarkan created_at; akun pertama yang masih ada dan paling awal dibuat akan memperoleh ID 1. Jika akun paling awal pernah dihapus, ID 1 tidak akan dipakai ulang secara otomatis.
+- Pencarian nama yang sama akan memilih hasil pertama menurut urutan nama. ID adalah cara paling akurat untuk menemukan akun tertentu.
+- ZIP ini sudah diperiksa struktur arsipnya dan sintaks JavaScript diuji dengan node --check. Namun integrasi database langsung tidak dapat diverifikasi tanpa akses ke proyek Supabase/Vercel milik pengguna. Uji setelah menjalankan SQL sebelum menyatakan fitur aktif.
