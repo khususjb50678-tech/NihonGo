@@ -580,6 +580,24 @@ function bindReliableNavigation(){
 }
 bindReliableNavigation();
 
+function playInteraction(el, clientX=null, clientY=null){
+  if(!el)return;
+  el.classList.remove('interaction-wiggle','click-glow');
+  void el.offsetWidth;
+  el.classList.add('interaction-wiggle','click-glow');
+  const rect=el.getBoundingClientRect();
+  const x=clientX==null?rect.width/2:clientX-rect.left;
+  const y=clientY==null?rect.height/2:clientY-rect.top;
+  if(!el.classList.contains('kanji-flip')&&!el.classList.contains('kana-flip')){
+    const ripple=document.createElement('span');
+    ripple.className='click-ripple';
+    ripple.style.left=`${x}px`;
+    ripple.style.top=`${y}px`;
+    el.appendChild(ripple);
+    ripple.addEventListener('animationend',()=>ripple.remove(),{once:true});
+  }
+  setTimeout(()=>el.classList.remove('interaction-wiggle','click-glow'),620);
+}
 function bindInteractionEffects(){
   if(window.__itcoInteractionBound)return;
   window.__itcoInteractionBound=true;
@@ -642,11 +660,16 @@ function showAccountResult(x,isTest){
   if(sheetRev){bindSheetReviewAudio(m);fitSheetFonts(m);}
 }
 
-// Route dispatcher restored: routes are selected from the URL hash.
+// Route dispatcher: routes are selected from the URL hash. Logika asli (cek maintenance & catat
+// kunjungan tiap pindah halaman) dikembalikan, ditambah halaman error supaya tidak blank saat gagal.
 async function renderRoute(){
+  stopTimer();stopAssessmentTimer();stopKotobaTimer();window.__finishKotoba=null;closeStudy();
   const route=(location.hash||'#home').replace(/^#/,'').split('?')[0]||'home';
   state.page=route;
   try{
+    if(state.user)recordActivity('page_view',{page:state.page});
+    const b=await loadBranding(true);
+    if(b.maintenance_enabled===true){ showMaintenance(b); return; }
     if(route==='home'){ await home(); }
     else if(route==='developer'){ await developer(); }
     else if(route==='kanji'){ await kanji(); }
@@ -656,19 +679,18 @@ async function renderRoute(){
     else if(route==='akun'){ await account(); }
     else if(route==='tes-hiragana'){ await tesHiragana(); }
     else if(route==='tes-katakana'){ await tesKatakana(); }
-    else if(route==='tes-kotoba'){ await openKotobaSetup(); }
-    else if(route==='kosakata'){ await openKotobaSetup(); }
+    else if(route==='tes-kotoba'){ await tesKotoba({state,shell,recordActivity,supabase,sbReady}); }
+    else if(route==='kosakata'){ await kosakata({state,shell,esc,norm,supabase,sbReady}); }
     else if(route==='install'){ shell(`<section class="section"><button class="btn" type="button" onclick="location.hash='#home'">← Kembali</button>${installGuide()}</section>`); }
     else { await home(); }
     if(typeof runFx==='function') runFx();
   }catch(err){
     console.error('Gagal menampilkan route:',route,err);
     if(app && !app.querySelector('[data-route-error]')){
-      app.innerHTML=`<main data-route-error style="min-height:70vh;display:grid;place-items:center;padding:24px;background:#050505;color:#fff;font-family:system-ui,sans-serif;text-align:center"><section style="max-width:460px;border:1px solid #333;border-radius:16px;padding:24px;background:#101010"><h2>Halaman gagal dimuat</h2><p style="color:#bbb;line-height:1.6">Halaman ini mengalami error saat dibuka. Coba kembali ke Beranda atau muat ulang.</p><button class="btn" type="button" onclick="location.hash='#home';location.reload()">Kembali ke Beranda</button><p style="font-size:11px;color:#777;margin-top:12px">${String(err?.message||'Kesalahan tidak diketahui').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</p></section></main>`;
+      app.innerHTML=`<main data-route-error style="min-height:70vh;display:grid;place-items:center;padding:24px;background:#050505;color:#fff;font-family:system-ui,sans-serif;text-align:center"><section><h2>Halaman gagal dimuat</h2><p style="opacity:.7">Silakan muat ulang halaman ini.</p><button class="btn red" type="button" onclick="location.reload()">Muat Ulang</button></section></main>`;
     }
   }
-}
-function showLogin(){ stopTimer(); closeStudy(); renderAuth(app,state.branding||{},async u=>{ state.user=u; await startUserMonitor({login:true}); if(!location.hash||location.hash==='#akun')location.hash='#home'; renderRoute(); }); }
+}function showLogin(){ stopTimer(); closeStudy(); renderAuth(app,state.branding||{},async u=>{ state.user=u; await startUserMonitor({login:true}); if(!location.hash||location.hash==='#akun')location.hash='#home'; renderRoute(); }); }
 function updateSplash(b){
   const sp=document.querySelector('#splash'); if(!sp||!b)return;
   const n=document.querySelector('#splashName'),c=document.querySelector('#splashSub'),i=document.querySelector('#splashImg');
