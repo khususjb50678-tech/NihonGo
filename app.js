@@ -682,6 +682,13 @@ function hideSplash(){
   setTimeout(()=>{ sp.classList.add('hide'); setTimeout(()=>sp.remove(),600); },wait);
 }
 async function boot(){
+  const startupWatchdog=setTimeout(()=>{
+    const splash=document.querySelector('#splash');
+    if(!splash)return;
+    console.warn('Startup terlalu lama; menampilkan layar masuk agar aplikasi tidak blank.');
+    try{ if(!app.children.length) showLogin(); }catch(err){ console.error('Fallback startup gagal:',err); }
+    hideSplash();
+  },7000);
   try{
     const b=await loadBranding(); updateSplash(b);
     if(sbReady){
@@ -693,7 +700,7 @@ async function boot(){
     else if(sbReady&&!state.user) showLogin();
     else {await renderRoute();await checkResumeSession();}
   }catch(err){ console.error(err); }
-  finally{ hideSplash(); }
+  finally{ clearTimeout(startupWatchdog); hideSplash(); }
 }
 window.addEventListener('hashchange',()=>{ if(sbReady&&!state.user)return; if(state.exerciseActive){const target=location.hash;try{history.replaceState(null,'',state.exerciseHash||'#latihan');}catch{}showLeaveModal({target});return;} renderRoute(); });
 boot();
