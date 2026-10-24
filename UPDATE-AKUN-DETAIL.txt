@@ -1,0 +1,17 @@
+AKEMI v55 — UPDATE AKUN & DETAIL HASIL
+
+Perubahan terbatas:
+- app.js: desain halaman Akun premium merah-hitam; statistik belajar, aktivitas terbaru, progress level, streak, badge; link menuju Admin Panel; detail hasil menunjukkan durasi/waktu; data media dan waktu latihan disimpan di JSON details untuk hasil baru.
+- review-view.js: detail review menampilkan foto/audio soal jika URL medianya tersimpan, jawaban pengguna, kunci jawaban, status benar/salah, dan penjelasan atau label jika belum tersedia. Review PDF tetap menggunakan halaman PDF tersimpan.
+- admin.js: link Website User dari sidebar Admin Panel; ringkasan durasi untuk hasil latihan baru jika metadata tersedia.
+- style.css: tambahan gaya khusus halaman akun dan media review.
+- sw.js: cache version dinaikkan agar browser mengambil file terbaru.
+
+Tidak ada perubahan skema SQL atau file konfigurasi Supabase. Fitur lain dipertahankan dari ZIP sumber.
+
+Catatan data:
+- Foto/audio dan durasi dapat ditampilkan pada hasil baru setelah pembaruan ini. Riwayat lama hanya bisa menampilkan media/waktu yang memang sudah tersimpan di database.
+- Detail PDF ditampilkan jika URL halaman PDF tersimpan pada data hasil.
+- Link Admin Panel tetap dilindungi oleh pemeriksaan autentikasi dan hak akses Admin yang sudah ada.
+
+Pemeriksaan lokal: node --check app.js, admin.js, review-view.js, sw.js berhasil.

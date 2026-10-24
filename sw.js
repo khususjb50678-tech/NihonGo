@@ -1,7 +1,7 @@
 // Service worker sederhana: supaya Chrome menampilkan menu "Install aplikasi".
 // Strategi network-first: selalu ambil versi terbaru dari internet, cache hanya dipakai saat offline,
 // jadi perubahan dari GitHub tidak "tertahan" di cache lama.
-const CACHE = 'itco-v7';
+const CACHE = 'itco-v8';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));

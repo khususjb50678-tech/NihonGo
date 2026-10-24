@@ -11,7 +11,7 @@ export const hasSheetReview = reviews => Array.isArray(reviews) && reviews.lengt
 
 // Baris hasil tersimpan (dari tabel results.details) -> bentuk yang dipakai sheetReviewHTML.
 export const fromSavedDetails = details => (Array.isArray(details) ? details : []).map(d => ({
-  prompt: d.question, user: d.user_answer, answer: d.correct_answer, ok: !!d.correct, type: d.type, explanation: d.explanation,
+  prompt: d.question, user: d.user_answer, answer: d.correct_answer, ok: !!d.correct, type: d.type, explanation: d.explanation, photo_url: d.photo_url || d.media_url || '', media_type: d.media_type || '', duration_seconds: d.duration_seconds, started_at: d.started_at, finished_at: d.finished_at,
   sheet_page_url: d.sheet_page_url, sheet_slot: d.sheet_slot, sheet_hot: d.sheet_hot, audio_url: d.audio_url,
 }));
 
@@ -75,8 +75,10 @@ export function formatAnswer(v, type) { if (!v) return ''; if (type === 'matchin
 
 // Satu kartu jawaban (dipakai baik untuk soal PDF maupun soal biasa yang bukan PDF).
 function plainItemHTML(x, i) {
-  const expl = x.explanation ? `<div class="review-expl">📝 <b>Penjelasan:</b> ${sanitizePromptHTML(x.explanation)}</div>` : '';
-  return `<article class="review ${x.ok ? 'ok' : 'bad'}"><b>${i + 1}. ${sanitizePromptHTML(x.prompt)}</b><span>Jawaban kamu: ${esc(formatAnswer(x.user, x.type)) || '— (tidak dijawab)'}</span><span>Jawaban benar: ${esc(formatAnswer(x.answer, x.type))}</span>${expl}</article>`;
+  const expl = x.explanation ? `<div class="review-expl">📝 <b>Penjelasan:</b> ${sanitizePromptHTML(x.explanation)}</div>` : '<div class="review-expl review-no-expl">📝 Penjelasan belum tersedia.</div>';
+  const photo = x.photo_url ? `<div class="review-media"><span>📷 Foto soal</span><a href="${esc(x.photo_url)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(x.photo_url)}" alt="Foto soal ${i+1}" onerror="this.closest('.review-media')?.classList.add('media-failed')"></a></div>` : '';
+  const audio = x.audio_url && !x.sheet_page_url ? `<div class="review-audio">🔊 Audio soal <audio controls preload="none" src="${esc(x.audio_url)}"></audio></div>` : '';
+  return `<article class="review ${x.ok ? 'ok' : 'bad'}"><b>${i + 1}. ${sanitizePromptHTML(x.prompt)||'<span class="muted">Soal tidak tersimpan dalam riwayat lama</span>'}</b>${photo}${audio}<span>Jawaban kamu: ${esc(formatAnswer(x.user, x.type)) || '— (tidak dijawab)'}</span><span>Jawaban benar: ${esc(formatAnswer(x.answer, x.type))||'—'}</span><span class="review-status">${x.ok?'✅ Jawaban benar':'❌ Jawaban salah / tidak dijawab'}</span>${expl}</article>`;
 }
 // Daftar lengkap review (bukan soal PDF), dikelompokkan Benar/Salah — sama persis dengan halaman hasil milik user.
 export function plainReviewHTML(reviews) {
