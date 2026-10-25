@@ -66,9 +66,9 @@
    V2 — font baru, kolom goyang seirama, cahaya merah-biru, wallpaper kolom
    ===================================================================== */
 :root{--cw-bg:linear-gradient(145deg,#171717,#0b0b0b);--cw-dim:.3;--fx-red:#ff2d55;--fx-blue:#2d7bff;
---f-body:"Times New Roman",Times,serif;
---f-head:"Times New Roman",Times,serif;
---f-kana:"Times New Roman",Times,serif}
+--f-body:"Plus Jakarta Sans","Zen Maru Gothic","Noto Sans JP",system-ui,-apple-system,"Segoe UI",sans-serif;
+--f-head:"Sora","Plus Jakarta Sans","Zen Maru Gothic","Noto Sans JP",system-ui,sans-serif;
+--f-kana:"Klee One","Zen Maru Gothic","Hiragino Maru Gothic ProN","Noto Sans JP",sans-serif}
 @property --ang{syntax:'<angle>';inherits:false;initial-value:0deg}
 
 /* Font */
@@ -811,24 +811,61 @@ body.exercise-mode .topbar{display:none!important}
 @media(min-width:700px){.account-stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.account-badge-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 
 
-/* ===== Font: Times New Roman untuk seluruh website ===== */
-/* Times New Roman tidak punya huruf Jepang, jadi kanji/kana otomatis memakai font Jepang bawaan perangkat. */
-html,body,body *,body *::before,body *::after,input,textarea,select,button{font-family:"Times New Roman",Times,"Noto Serif JP","Hiragino Mincho ProN","Yu Mincho",serif!important}
+/* ===== Font seluruh website: dipilih Admin (menu Font) =====
+   Bawaan: Times New Roman. Pilihan "Bawaan Akemi" mematikan aturan ini dan memakai font asli website. */
+:root{--site-font:"Times New Roman",Times,"Noto Serif JP","Hiragino Mincho ProN","Yu Mincho",serif}
+html:not([data-sitefont="akemi"]){--f-body:var(--site-font);--f-head:var(--site-font);--f-kana:var(--site-font)}
+html:not([data-sitefont="akemi"]) body,html:not([data-sitefont="akemi"]) body *,html:not([data-sitefont="akemi"]) body *::before,html:not([data-sitefont="akemi"]) body *::after,html:not([data-sitefont="akemi"]) input,html:not([data-sitefont="akemi"]) textarea,html:not([data-sitefont="akemi"]) select,html:not([data-sitefont="akemi"]) button{font-family:var(--site-font)!important}
 
-/* ===== Halaman Akun: background mengikuti wallpaper Beranda ===== */
-.shell.account-bg{background-image:linear-gradient(180deg,rgba(5,5,5,.58) 0%,rgba(5,5,5,.9) 100%),linear-gradient(90deg,#030303ec 0%,#030303a8 52%,#03030366),var(--acc-img);background-size:cover;background-position:center;background-attachment:fixed}
-.shell.account-bg .account-premium{background:none}
+/* ===== Admin: halaman Font ===== */
+.font-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.font-tile{display:grid;gap:5px;text-align:left;padding:14px;border:1px solid #303030;border-radius:14px;background:#0d0d0d;color:#fff;cursor:pointer}
+.font-tile:hover{border-color:#666}
+.font-tile.sel{border-color:#fff;background:#1a1a1a;box-shadow:0 0 0 1px #fff}
+.font-tile b{font-size:16px}
+.font-tile small{color:#999}
+.font-tile span{margin-top:6px;font-size:15px;line-height:1.5;color:#ddd;overflow-wrap:anywhere}
+.font-preview{padding:18px;border:1px solid #2b2b2b;border-radius:14px;background:#0a0a0a}
+.font-preview h2{margin:0 0 8px}
+.font-preview p{color:#bbb;line-height:1.7}
+.font-preview-jp{font-size:20px}
 
-/* ===== ID user + pencarian user ===== */
-.account-id-chip{display:inline-flex;align-items:center;gap:6px;margin:6px 0 2px;padding:5px 14px;border-radius:999px;border:1px solid #63303b;background:#25171b;color:#ffdbe1;font-size:13px;letter-spacing:.5px}
+/* ===== Admin: ID user ===== */
+.user-id-chip{display:inline-block;margin-right:7px;padding:1px 8px;border-radius:999px;border:1px solid #444;background:#1a1a1a;color:#ddd;font-style:normal;font-size:11px;font-weight:700;vertical-align:middle}
+
+/* ===== ID user + pencarian user (halaman Akun) ===== */
+.account-id-chip{display:inline-flex;align-items:center;gap:6px;margin:6px 0 2px;padding:5px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#eee;font-size:13px;letter-spacing:.5px}
 .account-id-chip b{color:#fff;font-size:15px}
-.account-search{width:min(540px,100%);margin:0 auto 30px;padding:20px;border:1px solid #51242d;border-radius:20px;background:linear-gradient(145deg,rgba(47,36,39,.96),rgba(13,13,16,.94));box-shadow:0 20px 55px #0008}
+.account-search{width:min(540px,100%);margin:0 auto 30px;padding:20px;border-radius:20px}
 .account-search h3{margin:4px 0 12px;font-size:20px}
 .account-search-row{display:flex;gap:10px}
 .account-search-row .input{flex:1;min-width:0}
 .account-search-row .btn{margin-top:0;white-space:nowrap}
-.account-search-msg{min-height:20px;margin-top:10px;color:#f3b1b1;font-size:14px}
+.account-search-msg{min-height:20px;margin-top:10px;color:#ddd;font-size:14px}
 .user-profile-dialog{text-align:center}
 .user-profile-dialog .account-avatar{margin:0 auto 8px}
 .user-profile-dialog .account-stat-grid,.user-profile-dialog .account-badge-grid{text-align:left;margin:16px 0}
 .user-profile-dialog .account-level-card{text-align:left;margin:16px 0}
+
+/* ===== Halaman Akun: menyatu dengan wallpaper Beranda, tanpa warna merah ===== */
+.shell.account-bg{background-image:linear-gradient(180deg,rgba(5,5,5,.40) 0%,rgba(5,5,5,.72) 100%),var(--acc-img);background-size:cover;background-position:center;background-attachment:fixed}
+.shell.account-bg .topbar{background:rgba(0,0,0,.28);border-bottom-color:rgba(255,255,255,.12)}
+.shell.account-bg .bottom{background:rgba(0,0,0,.45);border-top-color:rgba(255,255,255,.12)}
+.shell.account-bg .account-premium{background:none}
+.shell.account-bg .fx-ring::before,.shell.account-bg .fx-ring::after{display:none!important}
+.shell.account-bg .eyebrow,.user-profile-dialog .eyebrow{color:#d6d6d6}
+/* kaca bening: kolom ikut warna background */
+.shell.account-bg .account-card,.shell.account-bg .account-search,.shell.account-bg .account-stat,.shell.account-bg .account-level-card,.shell.account-bg .account-badge,.shell.account-bg .account-badge.earned,.shell.account-bg .account-activity-list,.shell.account-bg .account-result-card,.shell.account-bg .account-premium .account-result-card,.shell.account-bg .account-empty,
+.user-profile-dialog .account-stat,.user-profile-dialog .account-level-card,.user-profile-dialog .account-badge,.user-profile-dialog .account-badge.earned{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.16)!important;box-shadow:none!important;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);animation:none!important}
+.shell.account-bg .account-activity-row{border-bottom-color:rgba(255,255,255,.12)}
+.shell.account-bg .account-result-card:hover{border-color:rgba(255,255,255,.4)!important}
+.shell.account-bg .account-avatar,.user-profile-dialog .account-avatar{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3)}
+.shell.account-bg .account-activity-icon{background:rgba(255,255,255,.12)}
+.shell.account-bg .account-link-btn,.shell.account-bg .account-card .btn,.shell.account-bg .account-search .btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff}
+.shell.account-bg .account-link-btn:hover,.shell.account-bg .account-card .btn:hover,.shell.account-bg .account-search .btn:hover{background:rgba(255,255,255,.22)}
+.shell.account-bg .account-search .input{background:rgba(0,0,0,.35);border-color:rgba(255,255,255,.25)}
+.shell.account-bg .account-progress,.user-profile-dialog .account-progress{background:rgba(255,255,255,.15)}
+.shell.account-bg .account-progress i,.user-profile-dialog .account-progress i{background:#f1f1f1;box-shadow:none}
+.shell.account-bg .account-activity-row>strong,.shell.account-bg .account-result-card b,.shell.account-bg .account-result-tag{color:#fff!important}
+.shell.account-bg .account-stat small,.shell.account-bg .account-stat span,.shell.account-bg .account-result-card span,.shell.account-bg .account-result-card small,.shell.account-bg .account-activity-row small,.shell.account-bg .account-badge small{color:#cfcfcf}
+.shell.account-bg .account-card,.shell.account-bg .account-search{border-radius:22px}

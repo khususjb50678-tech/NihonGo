@@ -1,6 +1,8 @@
 import { supabase, sbReady } from './supabase.js';
 import { CONFIG } from './config.js';
 import { applyCardStyle, loadCachedStyle, fetchCardStyle, runFx } from './cardstyle.js';
+import { applySiteFont, loadCachedFont, fetchSiteFont, DEFAULT_FONT } from './sitefont.js';
+applySiteFont(loadCachedFont()||DEFAULT_FONT);
 import { stopAllStages } from './kanastroke.js';
 import { openStudy, closeStudy } from './study.js?v=30';
 import { currentUser, userName, renderAuth } from './auth.js';
@@ -167,6 +169,7 @@ async function loadBranding(force=false){
   if(state.branding && !force) return state.branding;
   let b={site_name:CONFIG.siteName,corporate_name:CONFIG.corporateName,creator:CONFIG.creator,hero_image:CONFIG.heroImage,description:NEW_DESC,logo_url:'',favicon_url:'',whatsapp_url:'',telegram_url:'',instagram_url:'',developer_logo_url:''};
   const styleJob=fetchCardStyle();
+  const fontJob=fetchSiteFont();
   if(sbReady){ try{ const {data}=await supabase.from('branding').select('*').eq('id',1).maybeSingle(); if(data)b={...b,...data}; }catch(err){ console.warn('Branding tidak terbaca:',err); } }
   fixDesc(b);
   state.branding=b; document.title=b.site_name||CONFIG.siteName;
@@ -174,6 +177,7 @@ async function loadBranding(force=false){
   if(b.favicon_url&&!/^https?:\/\/(www\.)?ibb\.co\//i.test(b.favicon_url)){const f=document.querySelector('#favicon');if(f){f.setAttribute('href',b.favicon_url);f.removeAttribute('type');}}
   try{applyAppManifest(b);}catch(e){console.warn('Manifest:',e);}
   const cs=await styleJob; if(cs) applyCardStyle(cs);
+  const sf=await fontJob; if(sf) applySiteFont(sf);
   return b;
 }
 async function q(table,opts={}){ if(!sbReady)return {data:[],error:null}; let x=supabase.from(table).select(opts.select||'*'); if(opts.eq)for(const [k,v] of Object.entries(opts.eq))x=x.eq(k,v); if(opts.order)x=x.order(opts.order,{ascending:opts.asc!==false}); return x; }

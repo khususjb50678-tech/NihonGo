@@ -22,3 +22,11 @@ UPDATE: ID USER + PENCARIAN + TAMPILAN AKUN
 - app.js: ID tampil di halaman Akun, kotak "Cari teman lewat ID", dan popup profil user lain (nama, ID, tanggal bergabung, statistik, level, badge).
 - style.css: background halaman Akun mengikuti wallpaper Beranda; seluruh font menjadi Times New Roman.
 - index.html / admin.html: Google Fonts dihapus. sw.js: cache dinaikkan ke itco-v9.
+
+---
+UPDATE v57: FONT ADMIN + ID DI ADMIN PANEL + AKUN MENYATU
+- Admin Panel > menu BARU "Font": pilih font seluruh website (Bawaan Akemi, Times New Roman, Standar, Arial, Georgia, Verdana, Trebuchet, Inter, Poppins, Roboto, Nunito, Montserrat, Lato, Merriweather, Playfair Display, Noto Sans JP, Noto Serif JP, Zen Maru Gothic). Default: Times New Roman. Disimpan di Storage (media/site/font.json), tanpa ubah tabel.
+- Menu Font bisa diberikan ke admin tambahan lewat "Fitur Admin Tambahan" (Sensei bawaan otomatis mendapat semua menu, termasuk Font).
+- Admin Panel > User: ID tampil di daftar, bisa dicari lewat ID, dan tampil di detail user. Jalankan ulang supabase-public-id.sql (aman diulang) agar daftar user membawa ID.
+- Halaman Akun: kolom berupa kaca bening yang menyatu dengan wallpaper, tanpa warna merah.
+- sw.js: cache itco-v10.
