@@ -34,10 +34,9 @@ export function posterHTML(o) {
   const score = Math.max(0, Math.min(100, Math.round(Number(o.score) || 0)));
   return `<div class="poster-block"><div class="result-card tier-custom poster" style="--tier:${esc(t.color)};--tier-glow:${glow}${img}">
     ${o.emojis ? `<div class="result-emoji" aria-hidden="true">${o.emojis}</div>` : ''}
-    <div class="poster-top"><div><div class="poster-brand">${esc(o.siteName || 'ITCO JAPAN')}</div><div class="poster-kicker">HASIL LATIHAN</div></div><div class="poster-icon" aria-hidden="true">${esc(t.icon)}</div></div>
     <div class="poster-center"><h2>${esc(o.title)}</h2><div class="poster-name">${esc(o.name || '')}</div></div>
     <div class="poster-ring" style="--p:${score}"><div><b>${score}</b><small>/ 100</small></div></div>
-    <div class="poster-tier">${esc(t.title)}${t.sub ? `<small>${esc(t.sub)}</small>` : ''}</div>
+    <div class="poster-tier">${esc(t.title)}</div>
   </div><div class="poster-actions"><button type="button" class="btn red" data-poster-save>📷 Simpan sebagai foto</button></div></div>`;
 }
 

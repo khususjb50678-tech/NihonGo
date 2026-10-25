@@ -951,3 +951,15 @@ html:not([data-sitefont="akemi"]) body,html:not([data-sitefont="akemi"]) body *,
 .acc-cover{display:none}
 .acc-head{padding-top:24px}
 .acc-avatar{margin-top:0}
+
+/* ===== v61: kolom nilai ringkas (nama part, nama user, nilai, ucapan), persegi dan di tengah ===== */
+.poster-block{width:min(100%,340px);max-width:340px;margin:0 auto 16px;align-self:center;justify-self:center}
+.result-card.poster{aspect-ratio:1/1;padding:18px!important;display:flex!important;flex-direction:column;justify-content:center;align-items:center;gap:12px;text-align:center!important;overflow:hidden}
+.poster-center{text-align:center;width:100%}
+.poster-center h2{font-size:22px;margin:0 0 4px}
+.poster-name{font-size:14px;margin:0}
+.poster-ring{width:132px;height:132px;margin:0 auto}
+.poster-ring>div{width:108px;height:108px}
+.poster-ring b{font-size:42px}
+.poster-tier{width:100%;text-align:center;font-size:16px;font-weight:700;color:#fff;line-height:1.35;overflow-wrap:anywhere}
+.poster-actions{justify-content:center}
