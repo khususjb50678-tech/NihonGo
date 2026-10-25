@@ -550,7 +550,9 @@ const RESULT_DEFAULTS={enabled:true,count:34,tiers:[
 {min:50,icon:'💪',title:'Lumayan, ayo tingkatkan!',sub:'Cek review di bawah, nilai berikutnya pasti naik.',emoji:'💪 🙂 📚 😅 ✍️ 🤔 📝 🌱',color:'#60a5fa'},
 {min:0,icon:'🤡',title:'Waduh... belajar lagi ya!',sub:'Tenang, semua orang pernah begini. Baca review di bawah, lalu coba lagi! 😜',emoji:'🤣 😹 🤡 💀 😝 🫵 🙈 😂 🤪 🥲 🫣 😆',color:'#f43f5e'}
 ]};
-function normResultCfg(v){let o=v;if(typeof o==='string'){try{o=JSON.parse(o);}catch{o=null;}}o=o&&typeof o==='object'&&!Array.isArray(o)?o:{};const t=Array.isArray(o.tiers)&&o.tiers.length?o.tiers:RESULT_DEFAULTS.tiers;return {enabled:o.enabled!==false,count:Number.isFinite(Number(o.count))&&o.count!==null&&o.count!==''&&o.count!==undefined?Math.min(80,Math.max(0,Math.round(Number(o.count)))):RESULT_DEFAULTS.count,tiers:t.map(x=>({min:Math.min(100,Math.max(0,Number(x.min)||0)),icon:String(x.icon||''),title:String(x.title||''),sub:String(x.sub||''),emoji:String(x.emoji||''),bgemoji:String(x.bgemoji||'').trim().slice(0,12),color:/^#[0-9a-f]{6}$/i.test(String(x.color||''))?x.color:'#f5c542'}))};}
+const SOUND_GOOD=['fanfare','bell'],SOUND_BAD=['sad','wah'];
+function normSound(v){let s=v;if(typeof s==='string'){try{s=JSON.parse(s);}catch{s=null;}}s=s&&typeof s==='object'?s:{};const th=Number(s.threshold),vol=Number(s.volume);return {enabled:s.enabled!==false,threshold:Number.isFinite(th)?Math.min(100,Math.max(0,Math.round(th))):70,volume:Number.isFinite(vol)?Math.min(100,Math.max(0,Math.round(vol))):60,good:SOUND_GOOD.includes(s.good)?s.good:'fanfare',bad:SOUND_BAD.includes(s.bad)?s.bad:'sad'};}
+function normResultCfg(v){let o=v;if(typeof o==='string'){try{o=JSON.parse(o);}catch{o=null;}}o=o&&typeof o==='object'&&!Array.isArray(o)?o:{};const t=Array.isArray(o.tiers)&&o.tiers.length?o.tiers:RESULT_DEFAULTS.tiers;return {enabled:o.enabled!==false,sound:normSound(o.sound),count:Number.isFinite(Number(o.count))&&o.count!==null&&o.count!==''&&o.count!==undefined?Math.min(80,Math.max(0,Math.round(Number(o.count)))):RESULT_DEFAULTS.count,tiers:t.map(x=>({min:Math.min(100,Math.max(0,Number(x.min)||0)),icon:String(x.icon||''),title:String(x.title||''),sub:String(x.sub||''),emoji:String(x.emoji||''),bgemoji:String(x.bgemoji||'').trim().slice(0,12),color:/^#[0-9a-f]{6}$/i.test(String(x.color||''))?x.color:'#f5c542'}))};}
 let accTab='ringkasan',accNotice='';
 function heroUrlOf(b){const raw=(b?.hero_image&&String(b.hero_image).trim())||'';return (raw&&!/^https?:\/\/(www\.)?ibb\.co\//i.test(raw))?raw:CONFIG.heroImage;}
 function tierFor(score){const cfg=normResultCfg(state.branding?.result_settings);const ts=[...cfg.tiers].sort((x,y)=>y.min-x.min);return ts.find(t=>score>=t.min)||ts[ts.length-1];}
@@ -567,7 +569,7 @@ function renderResult(){
   const sheetRev=hasSheetReview(r.reviews);const sheetRevHTML=sheetRev?sheetReviewHTML(r.reviews):'';
   const plainRevHTML=sheetRev?'':plainReviewHTML(r.reviews);
   shell(`<section class="section result notranslate" translate="no">${posterHTML(posterData)}${state.timedOut?'<p class="muted" style="text-align:center">⏰ Waktu habis. Soal yang belum dijawab dihitung kosong.</p>':''}<div class="review-wrap">${sheetRev?sheetRevHTML:`<h2>Review Jawaban</h2>${plainRevHTML}`}</div><button class="cta" type="button" id="backToLatihan">Kembali ke Mengerjakan Soal</button></section>`);
-  bindPoster(document.querySelector('.poster-block'),posterData);playResultSound(r.accuracy);
+  bindPoster(document.querySelector('.poster-block'),posterData);playResultSound(r.accuracy,cfg.sound);
   document.querySelector('#backToLatihan')?.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();stopSheetAudio();backToLatihan();});
   if(sheetRev){bindSheetReviewAudio();fitSheetFonts();}
   const num=document.querySelector('.score-num');

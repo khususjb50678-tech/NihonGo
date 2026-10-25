@@ -58,36 +58,40 @@ export function posterHTML(o) {
   </div><div class="poster-actions"><button type="button" class="btn red" data-poster-save>📷 Simpan sebagai foto</button></div></div>`;
 }
 
-// Suara hasil: nilai >= 70 → fanfare selamat; di bawah itu → nada sedih.
-let _actx = null;
-function audioCtx() {
-  try {
-    _actx = _actx || new (window.AudioContext || window.webkitAudioContext)();
-    if (_actx.state === 'suspended') _actx.resume();
-    return _actx;
-  } catch { return null; }
+// Suara hasil (panjang ±5 detik). good: 'fanfare'|'bell', bad: 'sad'|'wah'
+export const SOUND_OPTIONS = {
+  good: [['fanfare', 'Fanfare kemenangan'], ['bell', 'Lonceng selamat']],
+  bad: [['sad', 'Nada sedih'], ['wah', 'Wah-wah kecewa']],
+};
+function fanfare(ctx, t0, k) {
+  const m = [[523, 0, .22], [659, .25, .22], [784, .5, .22], [1047, .75, .5], [784, 1.3, .22], [1047, 1.55, .22], [1319, 1.8, 1.0]];
+  m.forEach(([f, t, d]) => { tone(ctx, f, t0 + t, d, 'triangle', .22 * k); tone(ctx, f * 2, t0 + t, d, 'sine', .05 * k); });
+  [523, 659, 784].forEach(f => tone(ctx, f, t0 + 2.9, 2.1, 'sine', .14 * k));
+  [1047, 1319].forEach(f => tone(ctx, f, t0 + 2.9, 2.1, 'triangle', .07 * k));
+  for (let i = 0; i < 8; i++) tone(ctx, 1568, t0 + 3.3 + i * .12, .12, 'sine', .04 * k);
 }
-function tone(ctx, freq, start, dur, type, gain, slideTo) {
-  const o = ctx.createOscillator(), gn = ctx.createGain();
-  o.type = type; o.frequency.setValueAtTime(freq, start);
-  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, start + dur);
-  gn.gain.setValueAtTime(0.0001, start);
-  gn.gain.exponentialRampToValueAtTime(gain, start + 0.02);
-  gn.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-  o.connect(gn); gn.connect(ctx.destination);
-  o.start(start); o.stop(start + dur + 0.05);
+function bell(ctx, t0, k) {
+  [[1047, 0], [1319, .85], [1568, 1.7], [2093, 2.7]].forEach(([f, t]) => {
+    [[1, .25], [2.76, .1], [5.4, .04]].forEach(([r, g]) => tone(ctx, f * r, t0 + t, 3.2, 'sine', g * k));
+  });
+  [523, 659, 784].forEach(f => tone(ctx, f, t0 + 3.4, 1.6, 'sine', .08 * k));
 }
-export function playResultSound(score) {
+function sad(ctx, t0, k) {
+  [[392, 0, 1.1, 349], [349, 1.2, 1.1, 330], [330, 2.4, 1.1, 294], [294, 3.6, 1.9, 220]]
+    .forEach(([f, t, d, to]) => { tone(ctx, f, t0 + t, d, 'triangle', .3 * k, to); tone(ctx, f / 2, t0 + t, d, 'sine', .12 * k); });
+}
+function wah(ctx, t0, k) {
+  [[0, 466, 311], [1.5, 415, 277], [3.0, 370, 233]].forEach(([t, a, b]) => tone(ctx, a, t0 + t, 1.4, 'sawtooth', .08 * k, b));
+  tone(ctx, 155, t0 + 4.5, 1.2, 'sawtooth', .1 * k, 122);
+}
+export function playResultSound(score, sound, opts) {
+  const s = Object.assign({ enabled: true, threshold: 70, volume: 60, good: 'fanfare', bad: 'sad' }, sound || {});
+  if (!s.enabled && !(opts && opts.force)) return;
   const ctx = audioCtx(); if (!ctx) return;
+  const k = Math.max(0, Math.min(1, (Number(s.volume) || 0) / 100));
   const t0 = ctx.currentTime + 0.05;
-  if (Number(score) >= 70) {
-    [523, 659, 784, 1047].forEach((f, i) => tone(ctx, f, t0 + i * 0.13, 0.35, 'triangle', 0.25));
-    tone(ctx, 1568, t0 + 0.6, 0.7, 'triangle', 0.2);
-  } else {
-    tone(ctx, 392, t0, 0.45, 'sawtooth', 0.12, 349);
-    tone(ctx, 349, t0 + 0.45, 0.45, 'sawtooth', 0.12, 311);
-    tone(ctx, 311, t0 + 0.9, 0.8, 'sawtooth', 0.12, 220);
-  }
+  if (Number(score) >= Number(s.threshold)) { s.good === 'bell' ? bell(ctx, t0, k) : fanfare(ctx, t0, k); }
+  else { s.bad === 'wah' ? wah(ctx, t0, k) : sad(ctx, t0, k); }
 }
 
 function loadImg(src) {
