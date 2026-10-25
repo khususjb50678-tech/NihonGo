@@ -1,7 +1,7 @@
 import { supabase, sbReady } from './supabase.js';
 import { CONFIG } from './config.js';
 import { applyCardStyle, loadCachedStyle, fetchCardStyle, runFx } from './cardstyle.js';
-import { posterHTML, bindPoster } from './resultposter.js';
+import { posterHTML, bindPoster, playResultSound } from './resultposter.js';
 import { applySiteFont, loadCachedFont, fetchSiteFont, DEFAULT_FONT } from './sitefont.js';
 applySiteFont(loadCachedFont()||DEFAULT_FONT);
 import { stopAllStages } from './kanastroke.js';
@@ -567,7 +567,7 @@ function renderResult(){
   const sheetRev=hasSheetReview(r.reviews);const sheetRevHTML=sheetRev?sheetReviewHTML(r.reviews):'';
   const plainRevHTML=sheetRev?'':plainReviewHTML(r.reviews);
   shell(`<section class="section result notranslate" translate="no">${posterHTML(posterData)}${state.timedOut?'<p class="muted" style="text-align:center">⏰ Waktu habis. Soal yang belum dijawab dihitung kosong.</p>':''}<div class="review-wrap">${sheetRev?sheetRevHTML:`<h2>Review Jawaban</h2>${plainRevHTML}`}</div><button class="cta" type="button" id="backToLatihan">Kembali ke Mengerjakan Soal</button></section>`);
-  bindPoster(document.querySelector('.poster-block'),posterData);
+  bindPoster(document.querySelector('.poster-block'),posterData);playResultSound(r.accuracy);
   document.querySelector('#backToLatihan')?.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();stopSheetAudio();backToLatihan();});
   if(sheetRev){bindSheetReviewAudio();fitSheetFonts();}
   const num=document.querySelector('.score-num');

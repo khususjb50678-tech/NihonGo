@@ -47,13 +47,47 @@ export function posterHTML(o) {
   // kalau ada emoji latar, wallpaper tidak dipakai
   const img = (!emote && o.image) ? `;--poster-img:url("${encodeURI(o.image).replace(/\(/g, '%28').replace(/\)/g, '%29')}")` : '';
   const score = Math.max(0, Math.min(100, Math.round(Number(o.score) || 0)));
-  return `<div class="poster-block"><div class="result-card tier-custom poster" style="--tier:${esc(t.color)};--tier-glow:${glow}${img}">
+  // kartu layar: hanya nama part, nama user, nilai, dan pengucapan
+  return `<div class="poster-block"><div class="result-card tier-custom pst" style="--tier:${esc(t.color)};--tier-glow:${glow}${img}">
     ${emote ? `<div class="poster-bgemoji" aria-hidden="true">${esc(emote)}</div>` : ''}
     ${o.emojis ? `<div class="result-emoji" aria-hidden="true">${o.emojis}</div>` : ''}
-    <div class="poster-center"><h2>${esc(o.title)}</h2><div class="poster-name">${esc(o.name || '')}</div></div>
-    <div class="poster-ring" style="--p:${score}"><div><b>${score}</b><small>/ 100</small></div></div>
-    <div class="poster-tier">${esc(t.title)}</div>
+    <h3 class="pst-title">${esc(o.title)}</h3>
+    <div class="pst-name">${esc(o.name || '')}</div>
+    <div class="pst-ring" style="--p:${score}"><div><b>${score}</b><small>/ 100</small></div></div>
+    <p class="pst-tier">${esc(t.title)}</p>
   </div><div class="poster-actions"><button type="button" class="btn red" data-poster-save>📷 Simpan sebagai foto</button></div></div>`;
+}
+
+// Suara hasil: nilai >= 70 → fanfare selamat; di bawah itu → nada sedih.
+let _actx = null;
+function audioCtx() {
+  try {
+    _actx = _actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (_actx.state === 'suspended') _actx.resume();
+    return _actx;
+  } catch { return null; }
+}
+function tone(ctx, freq, start, dur, type, gain, slideTo) {
+  const o = ctx.createOscillator(), gn = ctx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, start);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, start + dur);
+  gn.gain.setValueAtTime(0.0001, start);
+  gn.gain.exponentialRampToValueAtTime(gain, start + 0.02);
+  gn.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  o.connect(gn); gn.connect(ctx.destination);
+  o.start(start); o.stop(start + dur + 0.05);
+}
+export function playResultSound(score) {
+  const ctx = audioCtx(); if (!ctx) return;
+  const t0 = ctx.currentTime + 0.05;
+  if (Number(score) >= 70) {
+    [523, 659, 784, 1047].forEach((f, i) => tone(ctx, f, t0 + i * 0.13, 0.35, 'triangle', 0.25));
+    tone(ctx, 1568, t0 + 0.6, 0.7, 'triangle', 0.2);
+  } else {
+    tone(ctx, 392, t0, 0.45, 'sawtooth', 0.12, 349);
+    tone(ctx, 349, t0 + 0.45, 0.45, 'sawtooth', 0.12, 311);
+    tone(ctx, 311, t0 + 0.9, 0.8, 'sawtooth', 0.12, 220);
+  }
 }
 
 function loadImg(src) {

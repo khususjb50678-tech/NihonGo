@@ -970,3 +970,20 @@ html:not([data-sitefont="akemi"]) body,html:not([data-sitefont="akemi"]) body *,
 .result-card.poster{aspect-ratio:1/1!important;height:auto;display:flex!important;flex-direction:column;justify-content:center;align-items:center;gap:10px;text-align:center!important}
 .poster-block{width:min(100%,340px)!important;max-width:340px!important}
 .poster-bgemoji{position:absolute!important;inset:0;z-index:0!important;display:flex;align-items:center;justify-content:center;font-size:200px;line-height:1;opacity:.22;pointer-events:none;font-family:"Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif}
+
+/* ===== kartu hasil ringkas (layar) — presisi tengah di semua mode ===== */
+.account-result-dialog{display:flex!important;flex-direction:column;align-items:center;justify-content:flex-start}
+.account-result-dialog>.review-wrap{width:100%;box-sizing:border-box}
+.poster-block{display:flex!important;flex-direction:column;align-items:center;width:100%!important;max-width:340px!important;margin:0 auto 16px!important;box-sizing:border-box}
+.poster-actions{width:100%;display:flex;justify-content:center}
+.result-card.pst{box-sizing:border-box!important;width:min(100%,320px)!important;max-width:320px!important;aspect-ratio:1/1!important;height:auto!important;margin:0 auto!important;padding:22px 18px!important;display:grid!important;grid-template-rows:auto auto 1fr auto;justify-items:center;align-items:center;row-gap:6px;text-align:center!important;overflow:hidden;color:#fff;border-radius:22px!important;border:2px solid var(--tier,#f5c542)!important;background:linear-gradient(180deg,rgba(0,0,0,.66),rgba(0,0,0,.92)),var(--poster-img,none) center/cover no-repeat,#0b0b0e!important;box-shadow:0 0 40px var(--tier-glow,rgba(245,197,66,.3))!important}
+.pst-title{margin:0;width:100%;font-size:clamp(17px,5vw,22px);font-weight:800;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;color:#fff}
+.pst-name{margin:0;width:100%;font-size:14px;color:#e2e2e8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pst-ring{position:relative;width:150px;height:150px;border-radius:50%;background:conic-gradient(var(--tier,#f5c542) calc(var(--p)*1%),rgba(255,255,255,.16) 0);display:flex;align-items:center;justify-content:center;margin:0 auto}
+.pst-ring>div{width:118px;height:118px;border-radius:50%;background:#0b0b0e;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.pst-ring b{font-size:44px;font-weight:800;color:#fff;line-height:1}
+.pst-ring small{font-size:12px;color:#cfcfd6;margin-top:4px}
+.pst-tier{margin:0;width:100%;font-size:15px;font-weight:700;line-height:1.35;color:#fff;overflow-wrap:anywhere}
+.result-card.pst .poster-bgemoji{position:absolute!important;inset:0;z-index:0!important;display:flex;align-items:center;justify-content:center;font-size:200px;line-height:1;opacity:.22;pointer-events:none;font-family:"Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif}
+.result-card.pst>*:not(.result-emoji):not(.poster-bgemoji){position:relative;z-index:1}
+.result-card.pst .result-emoji{position:absolute!important;inset:0;z-index:0}
