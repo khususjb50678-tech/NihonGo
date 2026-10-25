@@ -58,40 +58,122 @@ export function posterHTML(o) {
   </div><div class="poster-actions"><button type="button" class="btn red" data-poster-save>📷 Simpan sebagai foto</button></div></div>`;
 }
 
-// Suara hasil (panjang ±5 detik). good: 'fanfare'|'bell', bad: 'sad'|'wah'
+// ===== Suara hasil =====
+// Nilai bagus/buruk memutar suara ±1 menit lalu mengulang sampai dihentikan (maks. 10 menit).
+// Kalau admin mengunggah MP3, file itu yang diputar dan diulang.
 export const SOUND_OPTIONS = {
   good: [['fanfare', 'Fanfare kemenangan'], ['bell', 'Lonceng selamat']],
   bad: [['sad', 'Nada sedih'], ['wah', 'Wah-wah kecewa']],
 };
-function fanfare(ctx, t0, k) {
+const BLOCK = 60;            // detik per blok suara
+const MAX_PLAY = 10 * 60000; // batas putar otomatis (ms)
+let _actx = null, _master = null, _nodes = [], _timer = null, _stopTimeout = null, _nextBlock = 0, _audioEl = null, _stopBtn = null;
+
+function audioCtx() {
+  try {
+    _actx = _actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (_actx.state === 'suspended') _actx.resume().catch(() => {});
+    return _actx;
+  } catch { return null; }
+}
+// buka kunci audio pada sentuhan/klik pertama user (syarat browser)
+if (typeof document !== 'undefined') {
+  ['pointerdown', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, () => { audioCtx(); }, { passive: true }));
+}
+if (typeof window !== 'undefined') window.addEventListener('hashchange', () => stopResultSound());
+
+function showStop() {
+  if (_stopBtn || typeof document === 'undefined') return;
+  _stopBtn = document.createElement('button');
+  _stopBtn.type = 'button';
+  _stopBtn.textContent = '🔇 Hentikan suara';
+  _stopBtn.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:4000;padding:12px 20px;border-radius:999px;border:1px solid #444;background:#1a1a22;color:#fff;font-weight:700;box-shadow:0 8px 24px #000a;cursor:pointer';
+  _stopBtn.onclick = () => stopResultSound();
+  document.body.appendChild(_stopBtn);
+}
+export function stopResultSound() {
+  clearInterval(_timer); _timer = null;
+  clearTimeout(_stopTimeout); _stopTimeout = null;
+  _nodes.forEach(n => { try { n.stop(); } catch {} }); _nodes = [];
+  if (_audioEl) { try { _audioEl.pause(); } catch {} _audioEl = null; }
+  if (_master) { try { _master.disconnect(); } catch {} _master = null; }
+  if (_stopBtn) { _stopBtn.remove(); _stopBtn = null; }
+}
+function tone(ctx, dest, freq, start, dur, type, gain, slideTo) {
+  const o = ctx.createOscillator(), gn = ctx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, start);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, start + dur);
+  gn.gain.setValueAtTime(0.0001, start);
+  gn.gain.exponentialRampToValueAtTime(Math.max(gain, 0.0002), start + 0.02);
+  gn.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  o.connect(gn); gn.connect(dest);
+  o.start(start); o.stop(start + dur + 0.05);
+  o._end = start + dur + 0.05; _nodes.push(o);
+}
+const T = (c, f, s, d, type, g, slide) => tone(c.ctx, c.dest, f, s, d, type, g, slide);
+
+// setiap "frasa" menulis nadanya lalu mengembalikan panjangnya (detik)
+function phraseFanfare(c, t0) {
   const m = [[523, 0, .22], [659, .25, .22], [784, .5, .22], [1047, .75, .5], [784, 1.3, .22], [1047, 1.55, .22], [1319, 1.8, 1.0]];
-  m.forEach(([f, t, d]) => { tone(ctx, f, t0 + t, d, 'triangle', .22 * k); tone(ctx, f * 2, t0 + t, d, 'sine', .05 * k); });
-  [523, 659, 784].forEach(f => tone(ctx, f, t0 + 2.9, 2.1, 'sine', .14 * k));
-  [1047, 1319].forEach(f => tone(ctx, f, t0 + 2.9, 2.1, 'triangle', .07 * k));
-  for (let i = 0; i < 8; i++) tone(ctx, 1568, t0 + 3.3 + i * .12, .12, 'sine', .04 * k);
+  m.forEach(([f, t, d]) => { T(c, f, t0 + t, d, 'triangle', .22); T(c, f * 2, t0 + t, d, 'sine', .05); });
+  [523, 659, 784].forEach(f => T(c, f, t0 + 2.9, 2.1, 'sine', .14));
+  [1047, 1319].forEach(f => T(c, f, t0 + 2.9, 2.1, 'triangle', .07));
+  for (let i = 0; i < 8; i++) T(c, 1568, t0 + 3.3 + i * .12, .12, 'sine', .04);
+  return 5.0;
 }
-function bell(ctx, t0, k) {
+function phraseBell(c, t0) {
   [[1047, 0], [1319, .85], [1568, 1.7], [2093, 2.7]].forEach(([f, t]) => {
-    [[1, .25], [2.76, .1], [5.4, .04]].forEach(([r, g]) => tone(ctx, f * r, t0 + t, 3.2, 'sine', g * k));
+    [[1, .25], [2.76, .1], [5.4, .04]].forEach(([r, g]) => T(c, f * r, t0 + t, 3.2, 'sine', g));
   });
-  [523, 659, 784].forEach(f => tone(ctx, f, t0 + 3.4, 1.6, 'sine', .08 * k));
+  [523, 659, 784].forEach(f => T(c, f, t0 + 3.4, 1.6, 'sine', .08));
+  return 6.0;
 }
-function sad(ctx, t0, k) {
+function phraseSad(c, t0) {
   [[392, 0, 1.1, 349], [349, 1.2, 1.1, 330], [330, 2.4, 1.1, 294], [294, 3.6, 1.9, 220]]
-    .forEach(([f, t, d, to]) => { tone(ctx, f, t0 + t, d, 'triangle', .3 * k, to); tone(ctx, f / 2, t0 + t, d, 'sine', .12 * k); });
+    .forEach(([f, t, d, to]) => { T(c, f, t0 + t, d, 'triangle', .3, to); T(c, f / 2, t0 + t, d, 'sine', .12); });
+  return 5.5;
 }
-function wah(ctx, t0, k) {
-  [[0, 466, 311], [1.5, 415, 277], [3.0, 370, 233]].forEach(([t, a, b]) => tone(ctx, a, t0 + t, 1.4, 'sawtooth', .08 * k, b));
-  tone(ctx, 155, t0 + 4.5, 1.2, 'sawtooth', .1 * k, 122);
+function phraseWah(c, t0) {
+  [[0, 466, 311], [1.5, 415, 277], [3.0, 370, 233]].forEach(([t, a, b]) => T(c, a, t0 + t, 1.4, 'sawtooth', .08, b));
+  T(c, 155, t0 + 4.5, 1.2, 'sawtooth', .1, 122);
+  return 5.7;
 }
+function scheduleBlock(c, start, phrase) {
+  const len = phrase(c, start);
+  for (let t = start + len; t < start + BLOCK; t += len) phrase(c, t);
+}
+function startLoop(c, phrase) {
+  _nextBlock = c.ctx.currentTime + 0.05;
+  const fill = () => {
+    _nodes = _nodes.filter(n => n._end > c.ctx.currentTime);
+    while (_nextBlock < c.ctx.currentTime + BLOCK + 5) { scheduleBlock(c, _nextBlock, phrase); _nextBlock += BLOCK; }
+  };
+  fill();
+  _timer = setInterval(fill, 5000);
+}
+
 export function playResultSound(score, sound, opts) {
-  const s = Object.assign({ enabled: true, threshold: 70, volume: 60, good: 'fanfare', bad: 'sad' }, sound || {});
+  const s = Object.assign({ enabled: true, threshold: 70, volume: 60, good: 'fanfare', bad: 'sad', good_url: '', bad_url: '' }, sound || {});
   if (!s.enabled && !(opts && opts.force)) return;
+  stopResultSound();
+  const good = Number(score) >= Number(s.threshold);
+  const vol = Math.max(0, Math.min(1, (Number(s.volume) || 0) / 100));
+  const url = good ? s.good_url : s.bad_url;
+  _stopTimeout = setTimeout(stopResultSound, MAX_PLAY);
+  if (url) {
+    try {
+      const a = new Audio(url); a.loop = true; a.volume = vol; _audioEl = a;
+      a.play().catch(() => {});
+      showStop();
+    } catch { /* abaikan */ }
+    return;
+  }
   const ctx = audioCtx(); if (!ctx) return;
-  const k = Math.max(0, Math.min(1, (Number(s.volume) || 0) / 100));
-  const t0 = ctx.currentTime + 0.05;
-  if (Number(score) >= Number(s.threshold)) { s.good === 'bell' ? bell(ctx, t0, k) : fanfare(ctx, t0, k); }
-  else { s.bad === 'wah' ? wah(ctx, t0, k) : sad(ctx, t0, k); }
+  _master = ctx.createGain(); _master.gain.value = vol * 1.5; _master.connect(ctx.destination);
+  const c = { ctx, dest: _master };
+  const phrase = good ? (s.good === 'bell' ? phraseBell : phraseFanfare) : (s.bad === 'wah' ? phraseWah : phraseSad);
+  startLoop(c, phrase);
+  showStop();
 }
 
 function loadImg(src) {
