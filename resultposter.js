@@ -47,14 +47,12 @@ export function posterHTML(o) {
   // kalau ada emoji latar, wallpaper tidak dipakai
   const img = (!emote && o.image) ? `;--poster-img:url("${encodeURI(o.image).replace(/\(/g, '%28').replace(/\)/g, '%29')}")` : '';
   const score = Math.max(0, Math.min(100, Math.round(Number(o.score) || 0)));
-  const times = timeRows(o).map(([l, v]) => `<div><dt>${esc(l)}</dt><dd>${esc(v)}</dd></div>`).join('');
   return `<div class="poster-block"><div class="result-card tier-custom poster" style="--tier:${esc(t.color)};--tier-glow:${glow}${img}">
     ${emote ? `<div class="poster-bgemoji" aria-hidden="true">${esc(emote)}</div>` : ''}
     ${o.emojis ? `<div class="result-emoji" aria-hidden="true">${o.emojis}</div>` : ''}
     <div class="poster-center"><h2>${esc(o.title)}</h2><div class="poster-name">${esc(o.name || '')}</div></div>
     <div class="poster-ring" style="--p:${score}"><div><b>${score}</b><small>/ 100</small></div></div>
     <div class="poster-tier">${esc(t.title)}</div>
-    <dl class="poster-times">${times}</dl>
   </div><div class="poster-actions"><button type="button" class="btn red" data-poster-save>📷 Simpan sebagai foto</button></div></div>`;
 }
 
@@ -125,7 +123,7 @@ export async function drawPoster(o) {
   const nameY = 440 + tl.length * 76 + 6, cy = Math.round((nameY + 30 + 1030) / 2), R = 165;
   g.lineCap = 'round'; g.lineWidth = 36; g.strokeStyle = 'rgba(255,255,255,.14)'; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
   if (score > 0) { g.strokeStyle = tier; g.beginPath(); g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * score / 100); g.stroke(); }
-  g.fillStyle = '#fff'; g.font = `700 150px ${ff}`; g.fillText(String(score), cx, cy + 30);
+  g.fillStyle = '#fff'; g.font = `700 ${String(score).length > 2 ? 118 : 150}px ${ff}`; g.fillText(String(score), cx, cy + 30);
   g.fillStyle = '#cfcfd6'; g.font = `400 36px ${ff}`; g.fillText('/ 100', cx, cy + 86);
   // predikat
   const t = o.tier || {};

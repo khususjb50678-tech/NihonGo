@@ -967,10 +967,6 @@ html:not([data-sitefont="akemi"]) body,html:not([data-sitefont="akemi"]) body *,
 /* ===== perbaikan kartu hasil ===== */
 .account-result-modal{display:flex!important;align-items:center;justify-content:center;padding:18px;box-sizing:border-box}
 .account-result-dialog{width:min(720px,calc(100vw - 36px))!important;max-width:calc(100vw - 36px);margin:0 auto;box-sizing:border-box}
-.result-card.poster{aspect-ratio:auto!important;height:auto!important;min-height:0}
-.poster-block{width:min(100%,380px)!important;max-width:380px!important}
+.result-card.poster{aspect-ratio:1/1!important;height:auto;display:flex!important;flex-direction:column;justify-content:center;align-items:center;gap:10px;text-align:center!important}
+.poster-block{width:min(100%,340px)!important;max-width:340px!important}
 .poster-bgemoji{position:absolute!important;inset:0;z-index:0!important;display:flex;align-items:center;justify-content:center;font-size:200px;line-height:1;opacity:.22;pointer-events:none;font-family:"Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif}
-.poster-times{width:100%;margin:0;display:grid;gap:6px}
-.poster-times div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.14);font-size:13px}
-.poster-times dt{color:#d0d0d8;margin:0}
-.poster-times dd{margin:0;color:#fff;font-weight:700;text-align:right}
