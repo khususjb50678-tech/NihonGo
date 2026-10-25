@@ -15,3 +15,10 @@ Catatan data:
 - Link Admin Panel tetap dilindungi oleh pemeriksaan autentikasi dan hak akses Admin yang sudah ada.
 
 Pemeriksaan lokal: node --check app.js, admin.js, review-view.js, sw.js berhasil.
+
+---
+UPDATE: ID USER + PENCARIAN + TAMPILAN AKUN
+- supabase-public-id.sql (BARU): jalankan SEKALI di Supabase -> SQL Editor. Memberi ID 1,2,3,... sesuai urutan daftar (user lama diurutkan dari waktu daftar), ID otomatis untuk user baru, dan fungsi pencarian yang tidak mengirim email maupun daftar Hasil.
+- app.js: ID tampil di halaman Akun, kotak "Cari teman lewat ID", dan popup profil user lain (nama, ID, tanggal bergabung, statistik, level, badge).
+- style.css: background halaman Akun mengikuti wallpaper Beranda; seluruh font menjadi Times New Roman.
+- index.html / admin.html: Google Fonts dihapus. sw.js: cache dinaikkan ke itco-v9.
