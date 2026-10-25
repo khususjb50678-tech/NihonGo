@@ -19,6 +19,9 @@ export function authMessage(err) {
   if (m.includes('invalid login')) return 'Email atau password salah.';
   if (m.includes('already registered') || m.includes('already been registered')) return 'Email ini sudah terdaftar. Silakan masuk.';
   if (m.includes('email not confirmed')) return 'Email belum dikonfirmasi. Cek kotak masuk emailmu.';
+  if (m.includes('different from the old') || m.includes('same_password')) return 'Kata sandi baru harus berbeda dari yang lama.';
+  if (m.includes('reauth') || m.includes('aal')) return 'Demi keamanan, silakan keluar lalu masuk lagi, kemudian coba ganti kata sandi.';
+  if (m.includes('session missing') || m.includes('not authenticated') || m.includes('jwt')) return 'Sesi login berakhir. Silakan keluar lalu masuk lagi.';
   if (m.includes('password') && (m.includes('least') || m.includes('weak') || m.includes('short'))) return 'Password terlalu pendek. Gunakan minimal 6 karakter.';
   if (m.includes('rate limit') || m.includes('too many')) return 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.';
   if (m.includes('valid email') || m.includes('invalid email') || m.includes('email address') && m.includes('invalid')) return 'Format email tidak valid.';
