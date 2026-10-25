@@ -5,21 +5,25 @@ export function fmtDuration(sec) {
   const s = Math.max(0, Math.round(Number(sec) || 0)), m = Math.floor(s / 60), r = s % 60;
   return m ? `${m} menit ${r} detik` : `${r} detik`;
 }
+function tzName(d) {
+  const off = -d.getTimezoneOffset() / 60;
+  return off === 7 ? 'WIB' : off === 8 ? 'WITA' : off === 9 ? 'WIT' : `GMT${off >= 0 ? '+' : ''}${off}`;
+}
 export function fmtWhen(iso) {
   const d = iso ? new Date(iso) : null;
-  if (!d || isNaN(d)) return '-';
+  if (!d || isNaN(d)) return 'Tidak tercatat';
   const tgl = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-  const jam = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
-  return `${tgl}, pukul ${jam}`;
+  const p = n => String(n).padStart(2, '0');
+  return `${tgl}, ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${tzName(d)}`;
 }
-
 const BLN=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 export function fmtShort(iso) {
   const d = iso ? new Date(iso) : null;
   if (!d || isNaN(d)) return '-';
   return `${d.getDate()} ${BLN[d.getMonth()]} ${d.getFullYear()} · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
-const durText = s => (Number(s) > 0 ? fmtDuration(s) : '—');
+const durText = s => (Number(s) > 0 ? fmtDuration(s) : 'Tidak tercatat');
+const limitText = s => (Number(s) > 0 ? fmtDuration(s) : 'Tanpa batas waktu');
 
 // o: { title, name, score, correct, wrong, unanswered, duration, startedAt, finishedAt, siteName, image, tier:{icon,title,sub,color}, emojis }
 export function posterHTML(o) {
@@ -31,11 +35,9 @@ export function posterHTML(o) {
   return `<div class="poster-block"><div class="result-card tier-custom poster" style="--tier:${esc(t.color)};--tier-glow:${glow}${img}">
     ${o.emojis ? `<div class="result-emoji" aria-hidden="true">${o.emojis}</div>` : ''}
     <div class="poster-top"><div><div class="poster-brand">${esc(o.siteName || 'ITCO JAPAN')}</div><div class="poster-kicker">HASIL LATIHAN</div></div><div class="poster-icon" aria-hidden="true">${esc(t.icon)}</div></div>
-    <div class="poster-mid"><div class="poster-ring" style="--p:${score}"><div><b>${score}</b><small>/ 100</small></div></div>
-      <div class="poster-side"><h2>${esc(o.title)}</h2><div class="poster-name">${esc(o.name || '')}</div><div class="poster-tier">${esc(t.title)}</div></div></div>
-    <div class="poster-stats"><span><b>${Number(o.correct) || 0}</b>Benar</span><span><b>${Number(o.wrong) || 0}</b>Salah</span><span><b>${Number(o.unanswered) || 0}</b>Kosong</span></div>
-    <div class="poster-info"><div><span>Waktu</span><b>${esc(durText(o.duration))}</b></div><div><span>Mulai</span><b>${esc(fmtShort(o.startedAt))}</b></div><div><span>Selesai</span><b>${esc(fmtShort(o.finishedAt))}</b></div></div>
-    <div class="poster-foot">${esc(o.siteName || 'ITCO JAPAN')} · 頑張ってね！！</div>
+    <div class="poster-center"><h2>${esc(o.title)}</h2><div class="poster-name">${esc(o.name || '')}</div></div>
+    <div class="poster-ring" style="--p:${score}"><div><b>${score}</b><small>/ 100</small></div></div>
+    <div class="poster-tier">${esc(t.title)}${t.sub ? `<small>${esc(t.sub)}</small>` : ''}</div>
   </div><div class="poster-actions"><button type="button" class="btn red" data-poster-save>📷 Simpan sebagai foto</button></div></div>`;
 }
 
@@ -72,7 +74,7 @@ function seigaiha(g, W, H, rad, color) {
 function spaced(g, text, x, y, sp) { try { g.letterSpacing = sp + 'px'; } catch { /* abaikan */ } g.fillText(text, x, y); try { g.letterSpacing = '0px'; } catch { /* abaikan */ } }
 
 export async function drawPoster(o) {
-  const W = 1080, H = 1560, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const W = 1080, H = 1590, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), ff = getComputedStyle(document.body).fontFamily || 'serif';
   const tier = (o.tier && o.tier.color) || '#f5c542', score = Math.max(0, Math.min(100, Math.round(Number(o.score) || 0)));
   const cx = W / 2;
@@ -118,13 +120,15 @@ export async function drawPoster(o) {
     g.fillStyle = '#dcdce2'; g.font = `400 28px ${ff}`; g.fillText(lab, x + bw / 2, by + 102);
   });
   // rincian waktu
-  const rows = [['Waktu pengerjaan', durText(o.duration)], ['Mulai mengerjakan', fmtWhen(o.startedAt)], ['Selesai', fmtWhen(o.finishedAt)]];
+  const rows = [['Waktu pengerjaan', durText(o.duration)]];
+  if (o.limit !== undefined && o.limit !== null) rows.push(['Batas waktu', limitText(o.limit)]);
+  rows.push(['Mulai mengerjakan', fmtWhen(o.startedAt)], ['Selesai', fmtWhen(o.finishedAt)]);
   rows.forEach(([lab, val], i) => {
-    const y = 1334 + i * 48; g.textAlign = 'left'; g.fillStyle = '#d0d0d8'; g.font = `400 30px ${ff}`; g.fillText(lab, 100, y);
-    g.textAlign = 'right'; g.fillStyle = '#fff'; g.font = `700 31px ${ff}`; g.fillText(val, W - 100, y, 560);
+    const y = 1330 + i * 46; g.textAlign = 'left'; g.fillStyle = '#d0d0d8'; g.font = `400 30px ${ff}`; g.fillText(lab, 100, y);
+    g.textAlign = 'right'; g.fillStyle = '#fff'; g.font = `700 31px ${ff}`; g.fillText(val, W - 100, y, 600);
     g.strokeStyle = 'rgba(255,255,255,.14)'; g.lineWidth = 2; g.beginPath(); g.moveTo(100, y + 16); g.lineTo(W - 100, y + 16); g.stroke();
   });
-  g.textAlign = 'center'; g.fillStyle = '#c4c4cc'; g.font = `400 26px ${ff}`; g.fillText(`${o.siteName || 'ITCO JAPAN'} · 頑張ってね！！`, cx, 1486);
+  g.textAlign = 'center'; g.fillStyle = '#c4c4cc'; g.font = `400 26px ${ff}`; g.fillText(`${o.siteName || 'ITCO JAPAN'} · 頑張ってね！！`, cx, 1534);
   return c;
 }
 

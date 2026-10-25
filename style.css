@@ -937,3 +937,17 @@ html:not([data-sitefont="akemi"]) body,html:not([data-sitefont="akemi"]) body *,
 .acc-msg:not(.err):not(.ok){color:#d0d0d8}
 .acc-notice{padding:10px 14px;border:1px solid #1f5233;border-radius:12px;background:#0d2216;margin:0 0 12px}
 .acc2 .account-result-grid{display:grid;gap:10px}
+
+/* ===== v60: poster ringkas, profil hitam transparan blur ===== */
+.poster-center{text-align:center}
+.poster-center h2{font-size:21px}
+.result-card.poster{justify-content:space-between;align-items:stretch}
+.poster-ring{width:128px;height:128px;margin:0 auto}
+.poster-ring>div{width:104px;height:104px}
+.poster-ring b{font-size:40px}
+.poster-tier{text-align:center;color:#fff;font-size:15px}
+.poster-tier small{display:block;margin-top:3px;font-weight:400;color:#d6d6dc;font-size:12px}
+.acc-profile{background:rgba(0,0,0,.55)!important;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.16)!important}
+.acc-cover{display:none}
+.acc-head{padding-top:24px}
+.acc-avatar{margin-top:0}
