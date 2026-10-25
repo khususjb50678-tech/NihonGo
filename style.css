@@ -848,7 +848,7 @@ html:not([data-sitefont="akemi"]) body,html:not([data-sitefont="akemi"]) body *,
 .user-profile-dialog .account-level-card{text-align:left;margin:16px 0}
 
 /* ===== Halaman Akun: menyatu dengan wallpaper Beranda, tanpa warna merah ===== */
-.shell.account-bg{background-image:linear-gradient(180deg,rgba(5,5,5,.40) 0%,rgba(5,5,5,.72) 100%),var(--acc-img);background-size:cover;background-position:center;background-attachment:fixed}
+.shell.account-bg{background-image:linear-gradient(180deg,rgba(0,0,0,.72) 0%,rgba(0,0,0,.9) 100%),var(--acc-img);background-size:cover;background-position:center;background-attachment:fixed}
 .shell.account-bg .topbar{background:rgba(0,0,0,.28);border-bottom-color:rgba(255,255,255,.12)}
 .shell.account-bg .bottom{background:rgba(0,0,0,.45);border-top-color:rgba(255,255,255,.12)}
 .shell.account-bg .account-premium{background:none}
@@ -856,7 +856,7 @@ html:not([data-sitefont="akemi"]) body,html:not([data-sitefont="akemi"]) body *,
 .shell.account-bg .eyebrow,.user-profile-dialog .eyebrow{color:#d6d6d6}
 /* kaca bening: kolom ikut warna background */
 .shell.account-bg .account-card,.shell.account-bg .account-search,.shell.account-bg .account-stat,.shell.account-bg .account-level-card,.shell.account-bg .account-badge,.shell.account-bg .account-badge.earned,.shell.account-bg .account-activity-list,.shell.account-bg .account-result-card,.shell.account-bg .account-premium .account-result-card,.shell.account-bg .account-empty,
-.user-profile-dialog .account-stat,.user-profile-dialog .account-level-card,.user-profile-dialog .account-badge,.user-profile-dialog .account-badge.earned{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.16)!important;box-shadow:none!important;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);animation:none!important}
+.user-profile-dialog .account-stat,.user-profile-dialog .account-level-card,.user-profile-dialog .account-badge,.user-profile-dialog .account-badge.earned{background:rgba(8,8,10,.92)!important;border:1px solid #2c2c34!important;box-shadow:none!important;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);animation:none!important}
 .shell.account-bg .account-activity-row{border-bottom-color:rgba(255,255,255,.12)}
 .shell.account-bg .account-result-card:hover{border-color:rgba(255,255,255,.4)!important}
 .shell.account-bg .account-avatar,.user-profile-dialog .account-avatar{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3)}
@@ -869,3 +869,70 @@ html:not([data-sitefont="akemi"]) body,html:not([data-sitefont="akemi"]) body *,
 .shell.account-bg .account-activity-row>strong,.shell.account-bg .account-result-card b,.shell.account-bg .account-result-tag{color:#fff!important}
 .shell.account-bg .account-stat small,.shell.account-bg .account-stat span,.shell.account-bg .account-result-card span,.shell.account-bg .account-result-card small,.shell.account-bg .account-activity-row small,.shell.account-bg .account-badge small{color:#cfcfcf}
 .shell.account-bg .account-card,.shell.account-bg .account-search{border-radius:22px}
+
+
+/* ===== Poster hasil (tampilan foto nilai) ===== */
+.poster-block{max-width:520px;margin:0 auto 18px}
+.result-card.poster{padding:22px!important;min-height:540px;display:flex!important;flex-direction:column;justify-content:space-between;gap:14px;text-align:left!important;color:#fff;border-radius:26px!important;border:2px solid var(--tier,#f5c542)!important;background:linear-gradient(180deg,rgba(0,0,0,.5),rgba(0,0,0,.88)),var(--poster-img,none) center/cover no-repeat,#0b0b0e!important;box-shadow:0 0 40px var(--tier-glow,rgba(0,0,0,.4))!important}
+.poster-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.poster-brand{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#ececf0;font-weight:700}
+.poster-kicker{font-size:12px;letter-spacing:3px;color:var(--tier,#f5c542);font-weight:700;margin-top:3px}
+.poster-icon{font-size:40px;line-height:1}
+.poster h2{margin:0 0 2px;font-size:26px;line-height:1.2;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.poster-name{color:#e2e2e8;font-size:15px}
+.poster-ring{width:176px;height:176px;margin:0 auto;border-radius:50%;background:conic-gradient(var(--tier,#f5c542) calc(var(--p)*1%),rgba(255,255,255,.18) 0);display:grid;place-items:center}
+.poster-ring>div{width:146px;height:146px;border-radius:50%;background:#0b0b0e;display:grid;place-items:center;align-content:center}
+.poster-ring b{font-size:54px;line-height:1;color:#fff}
+.poster-ring small{color:#cfcfd6;font-size:14px}
+.poster-tier{text-align:center;font-weight:700;font-size:17px;color:#fff}
+.poster-tier small{display:block;margin-top:3px;font-weight:400;color:#d6d6dc;font-size:13px}
+.poster-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.poster-stats span{background:rgba(255,255,255,.12);border-radius:12px;padding:9px 6px;text-align:center;font-size:12px;color:#e8e8ec}
+.poster-stats b{display:block;font-size:22px;color:#fff}
+.poster-info{display:grid;gap:6px}
+.poster-info div{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#d6d6dc;border-bottom:1px solid rgba(255,255,255,.16);padding-bottom:5px}
+.poster-info b{color:#fff;text-align:right}
+.poster-foot{text-align:center;font-size:12px;color:#cfcfd6;letter-spacing:1px}
+.poster-actions{display:flex;justify-content:center;margin-top:12px}
+.poster-actions .btn{margin:0}
+.review-sum{margin:6px 0 12px;color:#e6e6ea}
+.review-pill{display:inline-block;margin-bottom:6px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(255,255,255,.1);color:#fff}
+.review.ok .review-pill{background:#173d27;color:#8ef0b0}
+.review.bad .review-pill{background:#4a1c1c;color:#ffb3b3}
+.review-media img{max-width:100%;max-height:420px;object-fit:contain;border-radius:10px}
+
+/* ===== Halaman Akun v2: sampul + tab + daftar pengaturan (hitam, tulisan jelas) ===== */
+.acc2{width:min(760px,100%)}
+.acc2 .muted,.acc2 small,.user-profile-dialog .muted{color:#d0d0d8}
+.acc2,.acc2 h2,.acc2 h3,.acc2 strong{color:#fff}
+.acc-profile{border:1px solid #2c2c34;border-radius:22px;overflow:hidden;background:rgba(8,8,10,.95);margin:0 auto 14px}
+.acc-cover{height:100px;background:linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.2)),var(--acc-img) center/cover no-repeat,#1b1b20}
+.acc-head{display:grid;justify-items:center;gap:5px;padding:0 18px 20px;text-align:center}
+.acc-avatar{width:96px;height:96px;margin-top:-48px;border-radius:50%;border:3px solid #0a0a0c;background:#26262c;display:grid;place-items:center;font-size:40px;font-weight:700;overflow:hidden;color:#fff;flex:none}
+.acc-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.acc-avatar-pick{margin:6px auto 10px}
+.acc-avatar-mini{overflow:hidden}.acc-avatar-mini img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.acc-head h2{margin:4px 0 0;font-size:25px}
+.acc-email{margin:0;color:#d0d0d8;font-size:14px;overflow-wrap:anywhere}
+.acc-bio{margin:2px 0;color:#ececf0;max-width:440px;line-height:1.5}
+.acc-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px}
+.acc-actions .btn,.acc-editor-actions .btn{margin:0!important;padding:10px 14px;background:#1b1b20!important;color:#fff!important;border:1px solid #3a3a43!important;box-shadow:none!important;font-weight:600;width:auto}
+.acc2 .btn.acc-primary,.acc-actions .acc-primary,.acc-editor-actions .acc-primary{background:#f2f2f2!important;color:#0a0a0c!important;border-color:#f2f2f2!important}
+.acc-tabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 14px;padding:5px;background:rgba(8,8,10,.95);border:1px solid #2c2c34;border-radius:14px}
+.acc-tabs button{flex:1 0 auto;white-space:nowrap;padding:10px 14px;border:0;border-radius:10px;background:transparent;color:#d0d0d8;font-size:14px;font-weight:600;cursor:pointer}
+.acc-tabs button.on{background:#f2f2f2;color:#0a0a0c}
+.acc-list{border:1px solid #2c2c34;border-radius:16px;background:rgba(8,8,10,.95);overflow:hidden}
+.acc-row{display:flex;justify-content:space-between;align-items:center;gap:14px;width:100%;padding:16px;background:none;border:0;border-bottom:1px solid #25252c;color:#fff;text-align:left;cursor:pointer;font-size:15px}
+.acc-row:last-child{border-bottom:0}
+.acc-row:hover{background:#15151a}
+.acc-row span:last-child{color:#d0d0d8;max-width:62%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc-editor{margin-top:12px;padding:16px;border:1px solid #2c2c34;border-radius:16px;background:rgba(8,8,10,.95)}
+.acc-editor h3{margin:0 0 6px}
+.acc-editor label{display:grid;gap:6px;margin:10px 0;color:#ececf0;font-size:14px}
+.acc-editor .input{background:#050506;border:1px solid #3a3a43;color:#fff}
+.acc-editor-actions{display:flex;gap:8px;margin-top:12px}
+.acc-msg{min-height:20px;margin-top:10px;color:#ff9a9a;font-size:14px}
+.acc-msg.ok{color:#8ef0b0}
+.acc-msg:not(.err):not(.ok){color:#d0d0d8}
+.acc-notice{padding:10px 14px;border:1px solid #1f5233;border-radius:12px;background:#0d2216;margin:0 0 12px}
+.acc2 .account-result-grid{display:grid;gap:10px}

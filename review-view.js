@@ -78,12 +78,12 @@ function plainItemHTML(x, i) {
   const expl = x.explanation ? `<div class="review-expl">📝 <b>Penjelasan:</b> ${sanitizePromptHTML(x.explanation)}</div>` : '<div class="review-expl review-no-expl">📝 Penjelasan belum tersedia.</div>';
   const photo = x.photo_url ? `<div class="review-media"><span>📷 Foto soal</span><a href="${esc(x.photo_url)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(x.photo_url)}" alt="Foto soal ${i+1}" onerror="this.closest('.review-media')?.classList.add('media-failed')"></a></div>` : '';
   const audio = x.audio_url && !x.sheet_page_url ? `<div class="review-audio">🔊 Audio soal <audio controls preload="none" src="${esc(x.audio_url)}"></audio></div>` : '';
-  return `<article class="review ${x.ok ? 'ok' : 'bad'}"><b>${i + 1}. ${sanitizePromptHTML(x.prompt)||'<span class="muted">Soal tidak tersimpan dalam riwayat lama</span>'}</b>${photo}${audio}<span>Jawaban kamu: ${esc(formatAnswer(x.user, x.type)) || '— (tidak dijawab)'}</span><span>Jawaban benar: ${esc(formatAnswer(x.answer, x.type))||'—'}</span><span class="review-status">${x.ok?'✅ Jawaban benar':'❌ Jawaban salah / tidak dijawab'}</span>${expl}</article>`;
+  return `<article class="review ${x.ok ? 'ok' : 'bad'}"><span class="review-pill">${x.ok ? '✅ Benar' : '❌ Salah'}</span><b>${i + 1}. ${sanitizePromptHTML(x.prompt)||'<span class="muted">Soal tidak tersimpan dalam riwayat lama</span>'}</b>${photo}${audio}<span>Jawaban kamu: ${esc(formatAnswer(x.user, x.type)) || '— (tidak dijawab)'}</span><span>Jawaban benar: ${esc(formatAnswer(x.answer, x.type))||'—'}</span><span class="review-status">${x.ok?'✅ Jawaban benar':'❌ Jawaban salah / tidak dijawab'}</span>${expl}</article>`;
 }
 // Daftar lengkap review (bukan soal PDF), dikelompokkan Benar/Salah — sama persis dengan halaman hasil milik user.
 export function plainReviewHTML(reviews) {
-  const all = reviews.map((x, i) => ({ x, i })), okL = all.filter(o => o.x.ok), badL = all.filter(o => !o.x.ok);
-  return `<div class="review-list"><h3 class="review-title ok">✅ Jawaban Benar <small>(${okL.length})</small></h3>${okL.length ? okL.map(o => plainItemHTML(o.x, o.i)).join('') : '<p class="muted">Belum ada jawaban yang benar.</p>'}<h3 class="review-title bad">❌ Jawaban Salah <small>(${badL.length})</small></h3>${badL.length ? badL.map(o => plainItemHTML(o.x, o.i)).join('') : '<p class="muted">Tidak ada yang salah. Sempurna! 🎉</p>'}</div>`;
+  const okN = reviews.filter(x => x.ok).length;
+  return `<div class="review-list"><p class="review-sum">✅ ${okN} benar · ❌ ${reviews.length - okN} salah atau kosong</p>${reviews.map((x, i) => plainItemHTML(x, i)).join('')}</div>`;
 }
 
 // Lingkaran nilai berwarna (skala tetap) + baris statistik Benar/Salah/Kosong, dipakai di daftar hasil (Admin & Akun).

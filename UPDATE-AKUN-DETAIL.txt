@@ -30,3 +30,10 @@ UPDATE v57: FONT ADMIN + ID DI ADMIN PANEL + AKUN MENYATU
 - Admin Panel > User: ID tampil di daftar, bisa dicari lewat ID, dan tampil di detail user. Jalankan ulang supabase-public-id.sql (aman diulang) agar daftar user membawa ID.
 - Halaman Akun: kolom berupa kaca bening yang menyatu dengan wallpaper, tanpa warna merah.
 - sw.js: cache itco-v10.
+
+---
+UPDATE v58: POSTER HASIL + AKUN BARU + EDIT PROFIL
+- Jalankan ULANG supabase-public-id.sql, lalu jalankan supabase-profil-edit.sql (BARU). Keduanya aman diulang.
+- resultposter.js (BARU): poster hasil (nilai, waktu pengerjaan, jam mulai & selesai) + tombol "Simpan sebagai foto" (PNG). Dipakai di layar hasil setelah latihan dan di detail hasil halaman Akun. Di bawah poster: soal berurutan lengkap dengan foto soal, jawaban, dan penjelasan.
+- Halaman Akun: sampul + foto profil, tab (Ringkasan, Hasil, Pengaturan, Cari ID), daftar pengaturan untuk edit nama, email, bio, foto, kata sandi. Panel dibuat hitam pekat agar tulisan jelas.
+- sw.js: cache itco-v11.
