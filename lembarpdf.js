@@ -154,19 +154,42 @@ async function upl(supabase, path, blob, type) {
 
 // Mode manual: admin upload PDF -> tiap halaman difoto utuh -> admin tambah soal,
 // ketuk kotak jawaban (dan ikon suara) di gambar, lalu pilih jawaban benar.
-async function manualSheet({ f, out, partSel, supabase, esc, listExisting }) {
-  out.innerHTML = '<p class="muted">Membuka PDF…</p>';
-  const lib = await loadPdfJs();
-  const pdf = await lib.getDocument({ data: await f.arrayBuffer() }).promise;
-  const PG = {};
-  for (let p = 1; p <= pdf.numPages; p++) {
-    out.innerHTML = `<p class="muted">Memfoto halaman ${p} dari ${pdf.numPages}…</p>`;
-    const page = await pdf.getPage(p), vp = page.getViewport({ scale: SC });
-    const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
-    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+// Foto / gambar halaman -> canvas (diperkecil supaya upload ringan)
+async function imageToCanvas(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Gambar tidak bisa dibaca: ' + file.name)); i.src = url; });
+    const k = Math.min(1, 1400 / (im.naturalWidth || 1400));
+    const cv = document.createElement('canvas'); cv.width = Math.round(im.naturalWidth * k); cv.height = Math.round(im.naturalHeight * k);
+    cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+    return cv;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function manualSheet({ files, out, partSel, supabase, esc, listExisting }) {
+  const PG = {}; let pn = 0;
+  const addCanvas = async cv => {
+    pn++;
     const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', .82));
-    PG[p] = { blob, W: cv.width, H: cv.height, url: URL.createObjectURL(blob) };
+    PG[pn] = { blob, W: cv.width, H: cv.height, url: URL.createObjectURL(blob) };
+  };
+  for (const f of files) {
+    if (/^image\//.test(f.type)) {
+      out.innerHTML = `<p class="muted">Membaca foto ${esc(f.name)}…</p>`;
+      await addCanvas(await imageToCanvas(f));
+    } else {
+      out.innerHTML = '<p class="muted">Membuka PDF…</p>';
+      const lib = await loadPdfJs();
+      const pdf = await lib.getDocument({ data: await f.arrayBuffer() }).promise;
+      for (let p = 1; p <= pdf.numPages; p++) {
+        out.innerHTML = `<p class="muted">Memfoto halaman ${p} dari ${pdf.numPages}…</p>`;
+        const page = await pdf.getPage(p), vp = page.getViewport({ scale: SC });
+        const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+        await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+        await addCanvas(cv);
+      }
+    }
   }
+  if (!pn) { out.innerHTML = '<p class="muted">Tidak ada halaman yang bisa dibaca.</p>'; return; }
   const Q = []; let defCt = 'abcd', active = null;
   const nextNum = () => Q.reduce((m, q) => Math.max(m, q.num), 0) + 1;
   const optLabel = v => (/^[a-z]$/.test(v) ? v.toUpperCase() : v);
@@ -258,7 +281,7 @@ export async function sheetPdfPage({ app, esc, supabase }) {
   app(`<div class="admin-header"><div><div class="eyebrow">LATIHAN</div><h1>Soal PDF (Mirip Asli)</h1>
     <p class="muted">Upload PDF: tiap halaman difoto utuh. User menggulir halaman dari atas ke bawah seperti PDF, lalu mengetuk kotak jawaban untuk memilih A/B/C. Kamu tinggal memilih jawaban yang benar, dan memasang audio (dari file HP) untuk soal yang punya ikon suara.</p></div></div>
     <div class="card admin-card"><label>Part tujuan<select class="input" id="spPart">${(parts || []).map(p => `<option value="${p.id}">Part ${p.part_number} — ${esc(p.name)}</option>`).join('')}</select></label>
-    <label>File PDF soal<input type="file" accept="application/pdf" id="spFile" class="input"></label><div id="spOut"></div></div>
+    <label>File PDF atau foto halaman soal<input type="file" accept="application/pdf,image/*" multiple id="spFile" class="input"></label><div id="spOut"></div></div>
     <div class="card admin-card"><h3>Sudah terlanjur impor (tampilan lama)?</h3><p class="muted">Ubah soal lama di Part ini ke tampilan halaman utuh yang digulir. Pilih PDF yang sama. Jawaban benar dan audio yang sudah kamu isi tetap dipakai.</p><input type="file" accept="application/pdf" id="spUpg" class="input"><div id="spUpgOut"></div></div>
     <div id="spExisting"></div>`);
   const partSel = document.querySelector('#spPart'), out = document.querySelector('#spOut'), ex = document.querySelector('#spExisting');
@@ -266,7 +289,7 @@ export async function sheetPdfPage({ app, esc, supabase }) {
   partSel.onchange = () => listExisting();
   listExisting();
 
-  document.querySelector('#spFile').onchange = e => { const f = e.target.files?.[0]; if (f) manualSheet({ f, out, partSel, supabase, esc, listExisting }); };
+  document.querySelector('#spFile').onchange = e => { const files = Array.from(e.target.files || []); if (files.length) manualSheet({ files, out, partSel, supabase, esc, listExisting }); };
 
   document.querySelector('#spUpg').onchange = async e => {
     const f = e.target.files?.[0]; if (!f) return;
