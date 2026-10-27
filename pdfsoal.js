@@ -43,7 +43,41 @@ export function parsePdfQuestions(input){
     if(m&&cur){cur.opts.push(m[2]);continue;}
     if(cur){if(cur.opts.length)cur.opts[cur.opts.length-1]=(cur.opts[cur.opts.length-1]+' '+l).trim();else cur.stem=(cur.stem+'\n'+l).trim();}
   }
+  if(!qs.length)return parseJpExam(pages);
   qs.forEach(q=>{q.key=keys[q.sec]?.[q.num]||'';});
+  return qs;
+}
+
+// Format soal ujian Jepang (もんだい１… , pilihan dipisah spasi / satu per baris, tanpa huruf a–d).
+// Dipakai otomatis bila tidak ada nomor "1." di PDF.
+function parseJpExam(pages){
+  const T=s=>String(s||'').normalize('NFKC');
+  const SPLIT=s=>String(s).split(/\s{2,}|\t+/).map(x=>x.trim()).filter(Boolean);
+  const qs=[];let sec='Soal',n=0,cur=null,exMode=false;
+  const finish=()=>{cur=null;};
+  for(let pg=0;pg<pages.length;pg++)for(let raw of pages[pg]){
+    let t=String(raw).trim();
+    if(!t)continue;
+    if(/^（かいとうようし）/.test(t)){exMode=false;finish();continue;}
+    if(/（れい）/.test(t)){exMode=true;finish();continue;}
+    if(exMode)continue;
+    const hm=t.match(/もんだい\s*([0-9０-９一二三四五六七八九十]+)/);
+    if(hm){sec='もんだい '+T(hm[1]);n=0;finish();continue;}
+    if(/^言語知識/.test(t)||/^\d+$/.test(t)||/^[―—\-\s]+$/.test(t)){finish();continue;}
+    if(/えらんで|いい\s*ものを|いちばん\s*いい|かきますか|えらびますか/.test(t)){continue;}
+    t=t.replace(/^[―—\-]\s*[―—\-]?\s*/,'').replace(/^\d+\s+/,'').trim();
+    if(!t||/^\d+$/.test(t)||(!cur&&/^ください。?$/.test(t)))continue;
+    if(cur&&cur.opts.length===0){
+      const cont=cur.stem.length>=12&&!/[。？?！!]$/.test(cur.stem)&&/[、てでをはがにへとのも]$/.test(cur.stem)&&(/^ください/.test(t)||!/\s{2,}/.test(t));
+      if(cont){cur.stem=(cur.stem+' '+t).trim();continue;}
+    }
+    if(cur&&cur.opts.length<4){
+      for(const tok of SPLIT(t)){if(cur.opts.length<4)cur.opts.push(tok);}
+      if(cur.opts.length>=4)finish();
+      continue;
+    }
+    n++;cur={sec,num:n,page:pg+1,stem:t,opts:[],key:''};qs.push(cur);
+  }
   return qs;
 }
 
