@@ -3,8 +3,8 @@
 import { loadPdfJs } from './pdfsoal.js';
 const SC = 2.2, CIRC = '①②③④⑤⑥⑦⑧';
 const T = s => String(s || '').normalize('NFKC');
-const CHOICES = { abc: ['a','b','c'], abcd: ['a','b','c','d'], ab: ['a','b'], marks: ['○','×'] };
-const CT_LABEL = { abc: 'A B C', abcd: 'A B C D', ab: 'A B', marks: '○ ×' };
+const CHOICES = { abc: ['a','b','c'], abcd: ['a','b','c','d'], ab: ['a','b'], num4: ['1','2','3','4'], marks: ['○','×'] };
+const CT_LABEL = { abc: 'A B C', abcd: 'A B C D', ab: 'A B', num4: '1 2 3 4', marks: '○ ×' };
 const cl = v => Math.max(0, Math.min(1, v));
 const DEF_HOT = { x: .03, y: .2, w: .085, h: .25 };
 function tapHot(img, ev) {
@@ -46,15 +46,14 @@ const slotOf = (g, b) => g.slots[b] || { x: .72, y: Math.min(.97, (g.crop.y0 + g
 export async function analyzePdf(file, onProgress) {
   const lib = await loadPdfJs();
   const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
-  const groups = [], pages = {}; let curSec = 0; let qSeq = 0;
+  const groups = [], pages = {}; let curSec = 0;
   for (let p = 1; p <= pdf.numPages; p++) {
     onProgress && onProgress(p, pdf.numPages);
     const page = await pdf.getPage(p), vp = page.getViewport({ scale: SC });
     const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
     await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-    const W = cv.width, H = cv.height, tc = await page.getTextContent(), rows = [], labs = [], qmk = [];
+    const W = cv.width, H = cv.height, tc = await page.getTextContent(), rows = [], labs = [];
     for (const it of tc.items) {
-      { const fq = Math.abs(it.transform[3]) || it.height || 0; if (fq >= 10.5 && fq <= 12.2) { const [qx, qy] = vp.convertToViewportPoint(it.transform[4], it.transform[5]); if (qx < W * .22 && !/[\u3040-\u30ff\u4e00-\u9faf]/.test(String(it.str || ''))) qmk.push({ y: qy, fs: fq * SC }); } }
       if (!String(it.str || '').trim()) continue;
       { const lm = T(it.str).trim().match(/^([a-d])\s*\.?$/); if (lm) labs.push({ c: lm[1], y: vp.convertToViewportPoint(it.transform[4], it.transform[5])[1] }); }
       const fs = Math.abs(it.transform[3]) || it.height || 0; if (fs < 8) continue; // lewati furigana kecil
@@ -75,8 +74,6 @@ export async function analyzePdf(file, onProgress) {
       if (l.x0 < W * .22 && (m = l.text.match(/^(\d{1,2})\s*\.(?!\d)/))) mk.push({ kind: 'sec', no: +m[1], l });
       else if ((m = l.text.match(/^\(\s*(\d{1,2})\s*\)/))) mk.push({ kind: 'item', no: +m[1], l });
     }
-    let fallbackPage = false;
-    if (!mk.length && qmk.length) { qmk.sort((a, b) => a.y - b.y); qmk.forEach(q => mk.push({ kind: 'item', no: ++qSeq, l: { top: q.y - q.fs * .95, text: '', x0: 0, bottom: q.y + q.fs * .3, y: q.y, fs: q.fs } })); fallbackPage = true; }
     const PAD = 14 * SC;
     const reg = mk.map((k, i) => {
       const start = Math.max(0, k.l.top - PAD);
@@ -97,7 +94,6 @@ export async function analyzePdf(file, onProgress) {
       const mx = letters.size ? Math.max(...[...letters].map(ch => ch.charCodeAt(0) - 96)) : 0;
       const marks = /○/.test(txt) && /×/.test(txt);
       let ctype = marks ? 'marks' : mx >= 4 ? 'abcd' : mx === 2 ? 'ab' : 'abc';
-      if (fallbackPage && mx === 0 && !marks) ctype = 'abcd';
       let blanks = Math.max(1, inr.filter(l => /答\s*え\s*\(/.test(l.text)).length);
       if (marks) { const bl = [...inr].reverse().find(l => /^[\s()]+$/.test(l.text)); blanks = bl ? Math.max(1, (bl.text.match(/\(/g) || []).length) : 4; }
       let hot = null; const al = inr.find(l => /Y\s*\d{1,3}\s*[^\d\s]?\s*\d{1,3}/.test(l.text));
@@ -156,6 +152,107 @@ async function upl(supabase, path, blob, type) {
   return supabase.storage.from('media').getPublicUrl(path).data?.publicUrl || '';
 }
 
+// Mode manual: admin upload PDF -> tiap halaman difoto utuh -> admin tambah soal,
+// ketuk kotak jawaban (dan ikon suara) di gambar, lalu pilih jawaban benar.
+async function manualSheet({ f, out, partSel, supabase, esc, listExisting }) {
+  out.innerHTML = '<p class="muted">Membuka PDF…</p>';
+  const lib = await loadPdfJs();
+  const pdf = await lib.getDocument({ data: await f.arrayBuffer() }).promise;
+  const PG = {};
+  for (let p = 1; p <= pdf.numPages; p++) {
+    out.innerHTML = `<p class="muted">Memfoto halaman ${p} dari ${pdf.numPages}…</p>`;
+    const page = await pdf.getPage(p), vp = page.getViewport({ scale: SC });
+    const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+    const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', .82));
+    PG[p] = { blob, W: cv.width, H: cv.height, url: URL.createObjectURL(blob) };
+  }
+  const Q = []; let defCt = 'abcd', active = null;
+  const nextNum = () => Q.reduce((m, q) => Math.max(m, q.num), 0) + 1;
+  const optLabel = v => (/^[a-z]$/.test(v) ? v.toUpperCase() : v);
+  const ctSelect = (sel, id) => `<select class="input" data-ct="${id}">${Object.keys(CT_LABEL).map(k => `<option value="${k}" ${sel === k ? 'selected' : ''}>${CT_LABEL[k]}</option>`).join('')}</select>`;
+  const overlays = p => Q.filter(q => q.page === p).map(q =>
+    (q.slot ? `<span class="sp-slot" style="left:${q.slot.x * 100}%;top:${q.slot.y * 100}%;width:${q.slot.w * 100}%;height:${q.slot.h * 100}%"><b style="font-size:11px;color:#fff;background:#0a7a3a;padding:0 3px;border-radius:4px">${q.num}</b></span>` : '') +
+    (q.hot ? `<span class="sheet-hot" style="left:${q.hot.x * 100}%;top:${q.hot.y * 100}%;width:${q.hot.w * 100}%;height:${q.hot.h * 100}%"></span>` : '')).join('');
+  const qrow = q => {
+    const hint = active && active.id === q.id ? (active.mode === 'hot' ? 'Ketuk gambar tepat di ikon suara…' : 'Ketuk gambar tepat di kotak jawaban…') : '';
+    return `<div class="sp-grp" data-qid="${q.id}">
+      <div class="sp-top"><label>Soal <input class="input" type="number" min="1" data-num="${q.id}" value="${q.num}" style="width:90px"></label>
+        <button class="btn${q.slot ? '' : ' red'}" type="button" data-slot="${q.id}">${q.slot ? '✓ Kotak ditandai (ubah)' : 'Tandai kotak jawaban'}</button>
+        <button class="btn" type="button" data-hot="${q.id}">🔊 ${q.hot ? 'Ikon suara ditandai' : 'Tandai ikon suara'}</button>
+        <button class="btn" type="button" data-del="${q.id}">Hapus</button></div>
+      <div class="sp-ctrl"><label>Pilihan ${ctSelect(q.ctype, q.id)}</label></div>
+      <div class="sp-key"><span>Jawaban benar</span>${CHOICES[q.ctype].map(v => `<label class="sp-opt${q.key === v ? ' on' : ''}"><input type="radio" name="k${q.id}" value="${v}" data-key="${q.id}" ${q.key === v ? 'checked' : ''}>${optLabel(v)}</label>`).join('')}</div>
+      <label class="btn sp-audio">🔊 ${q.audioFile ? esc(q.audioFile.name) : 'Pilih audio dari HP'}<input hidden type="file" accept="audio/*" data-au="${q.id}"></label>
+      ${hint ? `<p class="muted" style="margin:6px 0 0">${hint}</p>` : ''}
+    </div>`;
+  };
+  const pageHTML = p => `<article class="card admin-card sp-card"><div class="sp-top"><b>Halaman ${p}</b><button class="btn" type="button" data-addp="${p}">+ Tambah soal di halaman ini</button></div>
+    <div class="sp-page" data-pgimg="${p}" style="position:relative"><img src="${PG[p].url}" alt="" style="width:100%;display:block">${overlays(p)}</div>
+    ${Q.filter(q => q.page === p).sort((a, b) => a.num - b.num).map(qrow).join('')}</article>`;
+  const render = () => {
+    out.innerHTML = `<p><b>${Q.length} soal.</b> Tambah soal di halaman, ketuk <i>Tandai kotak jawaban</i>, lalu ketuk gambar tepat di kotaknya. Pilih jawaban benarnya.</p>
+      <div class="card admin-card"><label>Pilihan default untuk soal baru ${ctSelect(defCt, 'def')}</label></div>
+      ${Object.keys(PG).map(p => pageHTML(+p)).join('')}
+      <button class="btn red fullbtn" type="button" id="mSave">Simpan soal ke Part</button><div id="mMsg" class="muted" style="margin-top:8px"></div>`;
+  };
+  const save = async () => {
+    const msg = out.querySelector('#mMsg'), btn = out.querySelector('#mSave'), part = partSel.value;
+    if (!Q.length) return alert('Belum ada soal.');
+    const noSlot = Q.find(q => !q.slot), noKey = Q.find(q => !q.key), noHot = Q.find(q => q.audioFile && !q.hot);
+    if (noSlot) return alert(`Soal ${noSlot.num} (hal ${noSlot.page}) belum ditandai kotak jawabannya.`);
+    if (noKey) return alert(`Soal ${noKey.num} (hal ${noKey.page}) belum dipilih jawaban benarnya.`);
+    if (noHot) return alert(`Soal ${noHot.num} punya audio tapi ikon suaranya belum ditandai.`);
+    const seen = new Set(); for (const q of Q) { if (seen.has(q.num)) return alert(`Nomor soal ${q.num} dipakai dua kali.`); seen.add(q.num); }
+    btn.disabled = true;
+    try {
+      const batch = Date.now().toString(36), pageUrl = {}, rows = [], base = Date.now();
+      for (const p of [...new Set(Q.map(q => q.page))]) { msg.textContent = `Mengunggah halaman ${p}…`; pageUrl[p] = await upl(supabase, `sheets/${batch}/page-${p}.jpg`, PG[p].blob, 'image/jpeg'); }
+      const sorted = [...Q].sort((a, b) => a.num - b.num);
+      for (let i = 0; i < sorted.length; i++) {
+        const q = sorted[i]; msg.textContent = `Menyiapkan soal ${i + 1} dari ${sorted.length}…`;
+        let aUrl = '';
+        if (q.audioFile) aUrl = await upl(supabase, `sheets/${batch}/audio-${q.num}-${Date.now()}-${q.audioFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`, q.audioFile, q.audioFile.type);
+        rows.push({ id: uid(), part_id: part, prompt: `Hal ${q.page} · Soal ${q.num}`, reading: '', instruction: '', type: 'multiple_choice', options: CHOICES[q.ctype], answer: q.key, active: true,
+          created_at: new Date(base + (i + 1) * 1000).toISOString(), source_page: q.page, q_number: q.num,
+          sheet_page_url: pageUrl[q.page], sheet_slot: q.slot, sheet_hot: q.hot || null, sheet_label: '', sheet_group: batch, audio_url: aUrl || null });
+      }
+      msg.textContent = 'Menyimpan soal…';
+      let r = await supabase.from('questions').insert(rows);
+      if (r.error && /source_page|q_number/.test(r.error.message)) r = await supabase.from('questions').insert(rows.map(({ source_page, q_number, ...x }) => x));
+      if (r.error) throw new Error(/sheet_/.test(r.error.message) ? 'Kolom baru belum ada. Jalankan supabase-lembar-pdf.sql di Supabase (SQL Editor) satu kali, lalu coba lagi.' : r.error.message);
+      alert(`${rows.length} soal tersimpan ke Part.`);
+      Q.length = 0; out.innerHTML = ''; listExisting();
+    } catch (err) { msg.textContent = ''; alert('Gagal menyimpan: ' + (err.message || err)); btn.disabled = false; }
+  };
+  out.onclick = e => {
+    const t = e.target;
+    const addp = t.closest('[data-addp]'), slot = t.closest('[data-slot]'), hot = t.closest('[data-hot]'), del = t.closest('[data-del]');
+    if (addp) { Q.push({ id: uid(), page: +addp.dataset.addp, num: nextNum(), slot: null, hot: null, key: '', ctype: defCt, audioFile: null }); render(); return; }
+    if (slot) { active = { id: slot.dataset.slot, mode: 'slot' }; render(); return; }
+    if (hot) { active = { id: hot.dataset.hot, mode: 'hot' }; render(); return; }
+    if (del) { const i = Q.findIndex(q => q.id === del.dataset.del); if (i >= 0) Q.splice(i, 1); active = null; render(); return; }
+    if (t.id === 'mSave') { save(); return; }
+    const im = t.closest('.sp-page img'), box = im && im.closest('[data-pgimg]');
+    if (box && active) {
+      const p = +box.dataset.pgimg, r = im.getBoundingClientRect(), tx = (e.clientX - r.left) / r.width, ty = (e.clientY - r.top) / r.height;
+      const q = Q.find(x => x.id === active.id); if (!q) return;
+      if (active.mode === 'slot') { const w = .2, h = .03; q.slot = { x: cl(tx - w / 2), y: cl(ty - h / 2), w, h }; }
+      else { const w = .075, h = w * PG[p].W / PG[p].H; q.hot = { x: cl(tx - w / 2), y: cl(ty - h / 2), w, h, m: 1 }; }
+      q.page = p; active = null; render();
+    }
+  };
+  out.onchange = e => {
+    const t = e.target, d = t.dataset;
+    if (t.id === 'mDef' || d.ct === 'def') { defCt = t.value; return; }
+    if (d.num != null) { const q = Q.find(x => x.id === d.num); if (q) { q.num = Math.max(1, +t.value || 1); render(); } return; }
+    if (d.ct != null) { const q = Q.find(x => x.id === d.ct); if (q) { q.ctype = t.value; q.key = ''; render(); } return; }
+    if (d.key != null) { const q = Q.find(x => x.id === d.key); if (q) { q.key = t.value; t.closest('.sp-key').querySelectorAll('.sp-opt').forEach(l => l.classList.toggle('on', l.contains(t))); } return; }
+    if (d.au != null) { const q = Q.find(x => x.id === d.au); if (q) { q.audioFile = t.files?.[0] || null; render(); } return; }
+  };
+  render();
+}
+
 export async function sheetPdfPage({ app, esc, supabase }) {
   const { data: parts } = await supabase.from('parts').select('*').order('part_number');
   app(`<div class="admin-header"><div><div class="eyebrow">LATIHAN</div><h1>Soal PDF (Mirip Asli)</h1>
@@ -169,21 +266,7 @@ export async function sheetPdfPage({ app, esc, supabase }) {
   partSel.onchange = () => listExisting();
   listExisting();
 
-  document.querySelector('#spFile').onchange = async e => {
-    const f = e.target.files?.[0]; if (!f) return;
-    out.innerHTML = '<p class="muted">Membaca PDF…</p>';
-    try {
-      const r = await analyzePdf(f, (p, n) => { out.innerHTML = `<p class="muted">Memfoto halaman ${p} dari ${n}…</p>`; });
-      G = r.groups; PG = r.pages; Object.values(PG).forEach(pg => { pg.url = URL.createObjectURL(pg.blob); });
-      if (!G.length) { out.innerHTML = '<p class="muted">Tidak ada soal terdeteksi. Pastikan PDF berisi teks (bukan hasil scan) dan nomor soal berbentuk （１）（２）…</p>'; return; }
-      const html = [...new Set(G.map(g => g.page))].map(p => `<article class="card admin-card sp-card"><div class="sp-top"><b>Halaman ${p}</b></div>
-        <div class="sp-page" data-pgimg="${p}"><img src="${PG[p].url}" alt="">${overlayHTML(p)}</div>
-        <p class="muted" style="margin:6px 0">Kotak hijau = tempat user menjawab. Soal ada audio? Ketuk halaman tepat di ikon suara 🔊 untuk menandai posisinya (kotak merah), lalu pilih audio di bawah.</p>
-        ${G.map((g, i) => g.page === p ? grpHTML(g, i, esc) : '').join('')}</article>`).join('');
-      out.innerHTML = `<p><b>${G.length} soal terdeteksi dari ${r.count} halaman.</b> Periksa halaman, jumlah jawaban, dan pilih jawaban yang benar. Matikan "Masukkan" untuk soal yang tidak dipakai.</p>${html}<button class="btn red fullbtn" id="spSave" type="button">Simpan ke Part</button><p id="spMsg" class="muted"></p>`;
-      document.querySelector('#spSave').onclick = save;
-    } catch (err) { out.innerHTML = `<p class="muted">${esc(err.message || err)}</p>`; }
-  };
+  document.querySelector('#spFile').onchange = e => { const f = e.target.files?.[0]; if (f) manualSheet({ f, out, partSel, supabase, esc, listExisting }); };
 
   document.querySelector('#spUpg').onchange = async e => {
     const f = e.target.files?.[0]; if (!f) return;
@@ -215,7 +298,7 @@ export async function sheetPdfPage({ app, esc, supabase }) {
   const overlayHTML = p => G.filter(g => g.page === p && g.include).map(g => Array.from({ length: g.blanks }, (_, b) => { const s = slotOf(g, b); return `<span class="sp-slot" style="left:${s.x * 100}%;top:${s.y * 100}%;width:${s.w * 100}%;height:${s.h * 100}%"></span>`; }).join('') + hotHTML(hotPage(g))).join('');
   const drawOverlay = p => { const el = out.querySelector(`[data-pgimg="${p}"]`); if (!el) return; el.querySelectorAll('.sp-slot,.sheet-hot').forEach(n => n.remove()); el.insertAdjacentHTML('beforeend', overlayHTML(p)); };
   const redraw = i => { const el = out.querySelector(`.sp-grp[data-g="${i}"]`); if (el) el.outerHTML = grpHTML(G[i], i, esc); drawOverlay(G[i].page); };
-  out.addEventListener('change', e => {
+  out.addEventListener('change', e => { if (!G.length) return;
     const t = e.target, d = t.dataset;
     if (d.inc != null) { G[d.inc].include = t.checked; drawOverlay(G[d.inc].page); }
     else if (d.bl != null) { const g = G[d.bl]; g.blanks = Math.max(1, Math.min(8, +t.value || 1)); g.keys.length = Math.min(g.keys.length, g.blanks); redraw(d.bl); }
@@ -224,7 +307,7 @@ export async function sheetPdfPage({ app, esc, supabase }) {
     else if (d.au != null) { G[d.au].audioFile = t.files?.[0] || null; redraw(d.au); }
   });
 
-  out.addEventListener('click', e => {
+  out.addEventListener('click', e => { if (!G.length) return;
     const im = e.target.closest('.sp-page img'), box = im && im.closest('[data-pgimg]'); if (!box) return;
     const p = +box.dataset.pgimg, r = im.getBoundingClientRect(), tx = (e.clientX - r.left) / r.width, ty = (e.clientY - r.top) / r.height;
     const g = G.find(g => g.page === p && ty >= g.crop.y0 / g.H - .01 && ty <= (g.crop.y0 + g.crop.h) / g.H + .01);
