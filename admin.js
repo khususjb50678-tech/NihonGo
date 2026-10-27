@@ -149,11 +149,11 @@ function partModeBadge(x){
 }
 
 applySiteFont(loadCachedFont()||DEFAULT_FONT);fetchSiteFont().then(id=>{if(id)applySiteFont(id);});
-const ALL_MENUS=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['font','Font'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['vocab','Kosakata'],['vocabparts','Part Kosakata'],['parts','Part'],['questions','Soal'],['sheetpdf','Soal PDF (Mirip Asli)'],['quick','Quick Soal'],['timer','Kelola Timer'],['custom','Mode Custom'],['guard','Peringatan Salin'],['nilai','Pengaturan Nilai'],['users','User'],['prank','Kerjain Teman 😈'],['admins','Tambah Admin'],['access','Fitur Admin Tambahan'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']];
+const ALL_MENUS=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['font','Font'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['vocab','Kosakata'],['vocabparts','Part Kosakata'],['math','Matematika & Kraepelin'],['parts','Part'],['questions','Soal'],['sheetpdf','Soal PDF (Mirip Asli)'],['quick','Quick Soal'],['timer','Kelola Timer'],['custom','Mode Custom'],['guard','Peringatan Salin'],['nilai','Pengaturan Nilai'],['users','User'],['prank','Kerjain Teman 😈'],['admins','Tambah Admin'],['access','Fitur Admin Tambahan'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']];
 function menuFor(){return visibleMenus(ALL_MENUS,role,allowedMenus);}
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
-  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v60 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
+  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v61 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
   document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});
   document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};
 }
@@ -187,7 +187,7 @@ async function kosakata(){
     const {error:er}=r.eid?await supabase.from('vocab_edits').update({hidden:!r.hidden}).eq('id',r.eid):await supabase.from('vocab_edits').insert(row);if(er)return alert(er.message);kosakata();});
   document.querySelectorAll('[data-vreset]').forEach(b=>b.onclick=async()=>{const r=rows[+b.dataset.vreset];if(!confirm(r.isNew?'Hapus kata tambahan ini?':'Kembalikan kata ini ke versi buku?'))return;const {error:er}=await supabase.from('vocab_edits').delete().eq('id',r.eid);if(er)return alert(er.message);kosakata();});
 }
-async function render(){if(role!=='owner')await loadMenus();if(!canOpen(current,role,allowedMenus))current='dashboard';if(current==='admins')return adminsPage();if(current==='custom')return customPage();if(current==='guard')return guardPage();if(current==='dashboard')return dashboard();if(current==='nilai')return nilai();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='font')return fontPage();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='vocab')return kosakata();if(current==='vocabparts')return vocabParts();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='sheetpdf')return sheetPdfPage({app,esc,supabase});if(current==='prank')return prankPage({app,esc});if(current==='access')return accessPage({app,esc,supabase,items:grantable(ALL_MENUS)});if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
+async function render(){if(role!=='owner')await loadMenus();if(!canOpen(current,role,allowedMenus))current='dashboard';if(current==='admins')return adminsPage();if(current==='custom')return customPage();if(current==='guard')return guardPage();if(current==='dashboard')return dashboard();if(current==='nilai')return nilai();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='font')return fontPage();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='vocab')return kosakata();if(current==='vocabparts')return vocabParts();if(current==='math')return mathAdmin();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='sheetpdf')return sheetPdfPage({app,esc,supabase});if(current==='prank')return prankPage({app,esc});if(current==='access')return accessPage({app,esc,supabase,items:grantable(ALL_MENUS)});if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
 
 async function fontPage(){
   let saved=(await fetchSiteFont())||loadCachedFont()||DEFAULT_FONT,cur=saved;
@@ -875,3 +875,57 @@ async function guardPage(){
 
 function guide(){app(`<div class="admin-header"><div><div class="eyebrow">DOCUMENTATION</div><h1>Cara Penggunaan Admin</h1></div></div><div class="card admin-card guide-grid"><div><h2>Branding</h2><p>Atur identitas website, logo, favicon, hero, deskripsi, nama Developer, deskripsi Developer, serta link WhatsApp/Telegram/Instagram. Publik hanya melihat ikon kontak.</p></div><div><h2>Kanji</h2><p>Gunakan tiga field: Kanji, Cara Baca, Arti. Centang <b>Buat animasi urutan goresan</b> jika Kanji itu mau dianimasikan; animasi bisa dimatikan atau dihidupkan lagi dari daftar. Import dengan format <code>Kanji|Cara Baca|Arti</code>. Baris kosong dan nomor awal boleh.</p></div><div><h2>Part</h2><p>Buat maksimal 20 Part. Pilih <b>Diatur Admin</b> (kamu menentukan jumlah soal dan timer) atau <b>Diatur User</b> (user mengisi sendiri nama, jumlah soal, dan waktu sebelum mengerjakan, tanpa batas minimum). Pengaturan bisa diubah kapan saja dengan membuka menu Soal, memilih Part, lalu mengubah Pengaturan Soal &amp; Timer di bagian atas.</p></div><div><h2>Soal</h2><p>Gunakan tipe Ganda atau Ketik. Untuk Ketik, instruksi otomatis berdasarkan jawaban benar.</p></div><div><h2>Quick Soal</h2><pre>1. 食べる|Makan|ganda|Makan;Minum;Tidur;Pergi\n\n2. 飲む|Minum|ketik</pre><p>Setelah import, foto/audio dapat ditambahkan satu per satu.</p></div><div><h2>Timer</h2><p>Cara termudah: isi Timer di pengaturan Part. Halaman Kelola Timer dipakai untuk timer Tes Hiragana, Tes Katakana, Test Kotoba, timer per soal (ID atau nomor soal), dan timer global. Timeout soal lanjut ke soal berikutnya; waktu total habis mengakhiri latihan. Part yang diatur User memakai waktu pilihan user.</p></div><div><h2>Hasil & Reset</h2><p>Hasil latihan sekarang terikat ke akun user. Menu User menampilkan login, aktivitas, device, dan hasil. Tes Hiragana 46 juga tersimpan di akun masing-masing. Penghapusan Part akan ikut menghapus soal di Part tersebut.</p></div></div>`);}
 boot();
+
+async function mathAdmin(){
+  const head=`<div class="admin-header"><div><div class="eyebrow">🧮 LATIHAN</div><h1>Matematika & Kraepelin</h1><p class="muted">Atur operasi dan digit acak, layout baris, serta timer untuk Matematika. Untuk Kraepelin atur jumlah kolom, angka per kolom, dan detik per kolom.</p></div></div>`;
+  const {data,error}=await supabase.from('math_settings').select('config').eq('id',1).maybeSingle();
+  if(error){app(`${head}<div class="card admin-card"><div class="alert">${esc(error.message)}</div><p class="muted">Jalankan SQL <b>supabase-matematika.sql</b> di Supabase dulu.</p></div>`);return;}
+  const c=data?.config||{};
+  const M=Object.assign({enabled:true,ops:{},layout:'rows',per_row:5,rows:4,count:20},c.math||{});
+  M.timer=Object.assign({mode:'unit',seconds:30,minutes:3},(c.math||{}).timer||{});
+  const K=Object.assign({enabled:true,columns:10,digits:11},c.kraepelin||{});
+  K.timer=Object.assign({mode:'col',seconds:15},(c.kraepelin||{}).timer||{});
+  const op=(k,label)=>{const o=(M.ops&&M.ops[k])||{};const a=o.a||[3,3],b=o.b||[3,3];return `<div class="card admin-card"><label class="check-line"><input type="checkbox" data-op="${k}" data-f="on" ${o.on!==false?'checked':''}> <b>${label}</b></label><div class="form-grid"><label>Digit A min<input class="input" type="number" min="1" max="6" data-op="${k}" data-f="amin" value="${a[0]}"></label><label>Digit A max<input class="input" type="number" min="1" max="6" data-op="${k}" data-f="amax" value="${a[1]}"></label><label>Digit B min<input class="input" type="number" min="1" max="6" data-op="${k}" data-f="bmin" value="${b[0]}"></label><label>Digit B max<input class="input" type="number" min="1" max="6" data-op="${k}" data-f="bmax" value="${b[1]}"></label></div></div>`;};
+  app(`${head}
+  <div class="card admin-card"><h3>📐 Matematika</h3><label class="check-line"><input type="checkbox" id="mEn" ${M.enabled!==false?'checked':''}> Tampilkan Matematika di beranda</label>
+  <h4>Operasi (jumlah digit dibuat acak antara min dan max)</h4>
+  ${op('tambah','Tambah (+)')}${op('kurang','Kurang (−)')}${op('kali','Kali (×)')}${op('bagi','Bagi (÷)')}
+  <h4>Layout</h4><div class="form-grid">
+    <label>Tipe<select class="input" id="mLayout"><option value="rows" ${M.layout!=='single'?'selected':''}>Per baris (beberapa soal per baris)</option><option value="single" ${M.layout==='single'?'selected':''}>Satu soal per layar</option></select></label>
+    <label>Soal per baris<input class="input" type="number" min="1" max="20" id="mPerRow" value="${M.per_row}"></label>
+    <label>Jumlah baris<input class="input" type="number" min="1" max="50" id="mRows" value="${M.rows}"></label>
+    <label>Jumlah soal (tipe satu soal)<input class="input" type="number" min="1" max="200" id="mCount" value="${M.count}"></label>
+  </div>
+  <h4>Timer</h4><div class="form-grid">
+    <label>Mode<select class="input" id="mTMode"><option value="none" ${M.timer.mode==='none'?'selected':''}>Tanpa timer</option><option value="unit" ${M.timer.mode==='unit'?'selected':''}>Per baris / per soal</option><option value="total" ${M.timer.mode==='total'?'selected':''}>Total seluruh soal</option></select></label>
+    <label>Detik per baris / soal<input class="input" type="number" min="5" max="600" id="mSec" value="${M.timer.seconds}"></label>
+    <label>Menit total<input class="input" type="number" min="1" max="180" id="mMin" value="${M.timer.minutes}"></label>
+  </div></div>
+  <div class="card admin-card"><h3>🧮 Kraepelin</h3><label class="check-line"><input type="checkbox" id="kEn" ${K.enabled!==false?'checked':''}> Tampilkan Kraepelin di beranda</label>
+  <div class="form-grid">
+    <label>Jumlah kolom<input class="input" type="number" min="1" max="30" id="kCols" value="${K.columns}"></label>
+    <label>Angka per kolom<input class="input" type="number" min="3" max="40" id="kDigits" value="${K.digits}"></label>
+    <label>Timer<select class="input" id="kTMode"><option value="none" ${K.timer.mode==='none'?'selected':''}>Tanpa timer</option><option value="col" ${K.timer.mode==='col'?'selected':''}>Per kolom</option></select></label>
+    <label>Detik per kolom<input class="input" type="number" min="5" max="600" id="kSec" value="${K.timer.seconds}"></label>
+  </div></div>
+  <button class="btn red fullbtn" id="mSaveAll" type="button">💾 Simpan Pengaturan Matematika & Kraepelin</button>`);
+  document.querySelector('#mSaveAll').onclick=async()=>{
+    const v=sel=>document.querySelector(sel).value;
+    const n=(sel,d)=>{const x=Number(v(sel));return Number.isFinite(x)&&x>0?Math.round(x):d;};
+    const clampD=x=>Math.min(6,Math.max(1,Math.round(Number(x)||1)));
+    const ops={};
+    for(const k of ['tambah','kurang','kali','bagi']){
+      const g=f=>document.querySelector(`[data-op="${k}"][data-f="${f}"]`);
+      const amin=clampD(g('amin').value),amax=Math.max(amin,clampD(g('amax').value));
+      const bmin=clampD(g('bmin').value),bmax=Math.max(bmin,clampD(g('bmax').value));
+      ops[k]={on:g('on').checked,a:[amin,amax],b:[bmin,bmax]};
+    }
+    const cfg={
+      math:{enabled:document.querySelector('#mEn').checked,ops,layout:v('#mLayout'),per_row:n('#mPerRow',5),rows:n('#mRows',4),count:n('#mCount',20),timer:{mode:v('#mTMode'),seconds:n('#mSec',30),minutes:n('#mMin',3)}},
+      kraepelin:{enabled:document.querySelector('#kEn').checked,columns:n('#kCols',10),digits:Math.max(3,n('#kDigits',11)),timer:{mode:v('#kTMode'),seconds:n('#kSec',15)}}
+    };
+    const {error:e}=await supabase.from('math_settings').upsert({id:1,config:cfg});
+    if(e) return alert('Gagal menyimpan: '+e.message);
+    alert('Pengaturan Matematika & Kraepelin tersimpan.');
+  };
+}

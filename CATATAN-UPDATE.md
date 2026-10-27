@@ -139,3 +139,21 @@ File baru: review-view.js, aksesadmin.js, menuaccess.js, supabase-akses-admin.sq
 4. Jalankan `supabase-penjelasan-soal.sql` SEKALI di Supabase (SQL Editor). Di **Quick Soal**, format baris sekarang: `Soal|Jawaban|Tipe|Pilihan1;Pilihan2|Penjelasan` — bagian Penjelasan opsional (boleh dikosongkan). Kalau diisi, penjelasan itu muncul dalam kotak biru di bawah jawaban, baik benar maupun salah, setelah user selesai mengerjakan (di halaman hasil, di "Akun Saya", dan di admin).
 Catatan: fitur Penjelasan untuk sekarang hanya berlaku untuk soal biasa (termasuk Quick Soal), belum untuk Soal PDF (Mirip Asli).
 File baru: supabase-penjelasan-soal.sql. Diubah: review-view.js, app.js, admin.js, style.css.
+
+---
+
+## Update v60: suara hasil + kartu hasil baru
+
+1. Tidak perlu SQL baru. Upload semua file website terbaru (termasuk `sw.js`).
+2. Kartu hasil di layar hanya menampilkan nama part, nama user, nilai, dan pengucapan. Foto (Simpan sebagai foto) menampilkan hasil lengkap: mulai, selesai, waktu penyelesaian, dan batas waktu (diatur Admin/User).
+3. Admin → Pengaturan Nilai → **Suara Hasil**: nyala/mati, batas nilai bagus, keras suara (slider), pilihan suara bawaan, dan upload MP3 sendiri untuk nilai bagus dan buruk (disimpan di bucket `media`). Tekan **Simpan Pengaturan Nilai** setelah mengubah.
+4. Emoji besar transparan per tingkat nilai: isi kolom "Emoji besar transparan di kartu foto" di tiap tingkat.
+5. Impor soal PDF: kini juga mengenali format ujian Jepang (もんだい１… dengan pilihan dipisah spasi tanpa huruf a–d). Nomor soal berurutan per もんだい. Kunci jawaban diisi manual di pratinjau.
+7. Soal PDF (Mirip Asli) mode manual: upload PDF → tiap halaman jadi gambar utuh. Admin menambah soal per halaman, menandai kotak jawaban dan ikon suara dengan ketuk gambar, lalu memilih jawaban benar (A–D, 1–4, A–C, atau A–B).
+8. Soal PDF (Mirip Asli): admin bisa upload foto/gambar halaman soal (JPG/PNG, bisa banyak sekaligus) selain PDF. Foto dipakai sebagai halaman urut 1, 2, 3, dan seterusnya.
+9. Test Kosakata: tombol "Mulai Test" sekarang langsung menjalankan tes (sebelumnya membuka pengaturan lagi).
+10. Menu Kosakata di beranda sekarang membuka daftar Part (Part 1 Minna no Nihongo, lalu Part lain dari admin), bukan langsung pengaturan test bab.
+11. Fitur baru: Matematika (tambah, kurang, kali, bagi dengan digit acak) dan Kraepelin (penjumlahan kolom). Admin → Matematika & Kraepelin untuk operasi, layout baris, timer, dan jumlah kolom. Jalankan SQL supabase-matematika.sql sekali di Supabase.
+
+## Versi 61
+Ganti file berikut saja: app.js, admin.js, matematika.js (baru), lembarpdf.js, pdfsoal.js, resultposter.js, style.css, sw.js, dan supabase-matematika.sql (baru, jalankan sekali di Supabase).
