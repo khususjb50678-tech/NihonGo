@@ -725,7 +725,7 @@ async function renderRoute(){
     else if(route==='tes-hiragana'){ await tesHiragana(); }
     else if(route==='tes-katakana'){ await tesKatakana(); }
     else if(route==='tes-kotoba'){ await tesKotoba({state,shell,recordActivity,supabase,sbReady}); }
-    else if(route==='kosakata'){ await openKotobaSetup(); }
+    else if(route==='kosakata'){ await kosakata({state,shell,supabase,sbReady}); }
     else if(route==='install'){ shell(`<section class="section"><button class="btn" type="button" onclick="location.hash='#home'">← Kembali</button>${installGuide()}</section>`); }
     else { await home(); }
     if(typeof runFx==='function') runFx();
