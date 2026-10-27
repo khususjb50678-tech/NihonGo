@@ -46,14 +46,15 @@ const slotOf = (g, b) => g.slots[b] || { x: .72, y: Math.min(.97, (g.crop.y0 + g
 export async function analyzePdf(file, onProgress) {
   const lib = await loadPdfJs();
   const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
-  const groups = [], pages = {}; let curSec = 0;
+  const groups = [], pages = {}; let curSec = 0; let qSeq = 0;
   for (let p = 1; p <= pdf.numPages; p++) {
     onProgress && onProgress(p, pdf.numPages);
     const page = await pdf.getPage(p), vp = page.getViewport({ scale: SC });
     const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
     await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-    const W = cv.width, H = cv.height, tc = await page.getTextContent(), rows = [], labs = [];
+    const W = cv.width, H = cv.height, tc = await page.getTextContent(), rows = [], labs = [], qmk = [];
     for (const it of tc.items) {
+      { const fq = Math.abs(it.transform[3]) || it.height || 0; if (fq >= 10.5 && fq <= 12.2) { const [qx, qy] = vp.convertToViewportPoint(it.transform[4], it.transform[5]); if (qx < W * .22 && !/[\u3040-\u30ff\u4e00-\u9faf]/.test(String(it.str || ''))) qmk.push({ y: qy, fs: fq * SC }); } }
       if (!String(it.str || '').trim()) continue;
       { const lm = T(it.str).trim().match(/^([a-d])\s*\.?$/); if (lm) labs.push({ c: lm[1], y: vp.convertToViewportPoint(it.transform[4], it.transform[5])[1] }); }
       const fs = Math.abs(it.transform[3]) || it.height || 0; if (fs < 8) continue; // lewati furigana kecil
@@ -74,6 +75,8 @@ export async function analyzePdf(file, onProgress) {
       if (l.x0 < W * .22 && (m = l.text.match(/^(\d{1,2})\s*\.(?!\d)/))) mk.push({ kind: 'sec', no: +m[1], l });
       else if ((m = l.text.match(/^\(\s*(\d{1,2})\s*\)/))) mk.push({ kind: 'item', no: +m[1], l });
     }
+    let fallbackPage = false;
+    if (!mk.length && qmk.length) { qmk.sort((a, b) => a.y - b.y); qmk.forEach(q => mk.push({ kind: 'item', no: ++qSeq, l: { top: q.y - q.fs * .95, text: '', x0: 0, bottom: q.y + q.fs * .3, y: q.y, fs: q.fs } })); fallbackPage = true; }
     const PAD = 14 * SC;
     const reg = mk.map((k, i) => {
       const start = Math.max(0, k.l.top - PAD);
@@ -94,6 +97,7 @@ export async function analyzePdf(file, onProgress) {
       const mx = letters.size ? Math.max(...[...letters].map(ch => ch.charCodeAt(0) - 96)) : 0;
       const marks = /○/.test(txt) && /×/.test(txt);
       let ctype = marks ? 'marks' : mx >= 4 ? 'abcd' : mx === 2 ? 'ab' : 'abc';
+      if (fallbackPage && mx === 0 && !marks) ctype = 'abcd';
       let blanks = Math.max(1, inr.filter(l => /答\s*え\s*\(/.test(l.text)).length);
       if (marks) { const bl = [...inr].reverse().find(l => /^[\s()]+$/.test(l.text)); blanks = bl ? Math.max(1, (bl.text.match(/\(/g) || []).length) : 4; }
       let hot = null; const al = inr.find(l => /Y\s*\d{1,3}\s*[^\d\s]?\s*\d{1,3}/.test(l.text));
