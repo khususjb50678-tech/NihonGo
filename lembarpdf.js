@@ -205,7 +205,7 @@ async function manualSheet({ files, out, partSel, supabase, esc, listExisting })
         <button class="btn" type="button" data-hot="${q.id}">🔊 ${q.hot ? 'Ikon suara ditandai' : 'Tandai ikon suara'}</button>
         <button class="btn" type="button" data-del="${q.id}">Hapus</button></div>
       <div class="sp-ctrl"><label>Pilihan ${ctSelect(q.ctype, q.id)}</label></div>
-      <div class="sp-key"><span>Jawaban benar</span>${CHOICES[q.ctype].map(v => `<label class="sp-opt${q.key === v ? ' on' : ''}"><input type="radio" name="k${q.id}" value="${v}" data-key="${q.id}" ${q.key === v ? 'checked' : ''}>${optLabel(v)}</label>`).join('')}</div>
+      <div class="sp-key"><span>Jawaban benar</span>${(q.ctype === 'marks' ? CHOICES.marks : ['a','b','c','d','1','2','3','4']).map(v => `<label class="sp-opt${q.key === v ? ' on' : ''}"><input type="radio" name="k${q.id}" value="${v}" data-key="${q.id}" ${q.key === v ? 'checked' : ''}>${optLabel(v)}</label>`).join('')}</div>
       <label class="btn sp-audio">🔊 ${q.audioFile ? esc(q.audioFile.name) : 'Pilih audio dari HP'}<input hidden type="file" accept="audio/*" data-au="${q.id}"></label>
       ${hint ? `<p class="muted" style="margin:6px 0 0">${hint}</p>` : ''}
     </div>`;
@@ -270,7 +270,7 @@ async function manualSheet({ files, out, partSel, supabase, esc, listExisting })
     if (t.id === 'mDef' || d.ct === 'def') { defCt = t.value; return; }
     if (d.num != null) { const q = Q.find(x => x.id === d.num); if (q) { q.num = Math.max(1, +t.value || 1); render(); } return; }
     if (d.ct != null) { const q = Q.find(x => x.id === d.ct); if (q) { q.ctype = t.value; q.key = ''; render(); } return; }
-    if (d.key != null) { const q = Q.find(x => x.id === d.key); if (q) { q.key = t.value; t.closest('.sp-key').querySelectorAll('.sp-opt').forEach(l => l.classList.toggle('on', l.contains(t))); } return; }
+    if (d.key != null) { const q = Q.find(x => x.id === d.key); if (q) { const v = t.value; q.key = v; if (/^\d$/.test(v)) q.ctype = 'num4'; else if (!CHOICES[q.ctype] || !CHOICES[q.ctype].includes(v)) q.ctype = v === 'd' ? 'abcd' : 'abc'; render(); } return; }
     if (d.au != null) { const q = Q.find(x => x.id === d.au); if (q) { q.audioFile = t.files?.[0] || null; render(); } return; }
   };
   render();
