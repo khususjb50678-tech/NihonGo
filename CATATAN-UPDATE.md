@@ -157,3 +157,8 @@ File baru: supabase-penjelasan-soal.sql. Diubah: review-view.js, app.js, admin.j
 
 ## Versi 61
 Ganti file berikut saja: app.js, admin.js, matematika.js (baru), lembarpdf.js, pdfsoal.js, resultposter.js, style.css, sw.js, dan supabase-matematika.sql (baru, jalankan sekali di Supabase).
+
+## Versi 62
+Ganti file berikut: app.js, vocab.js, matematika.js, sw.js, admin.js.
+- Matematika, Kraepelin, dan Test Kotoba memakai tampilan mengerjakan soal (progres + layar soal).
+- Hasil ketiganya memakai tampilan hasil latihan (kartu nilai + review jawaban), dan otomatis masuk ke Akun → Hasil Saya.

@@ -556,6 +556,9 @@ function normSound(v){let s=v;if(typeof s==='string'){try{s=JSON.parse(s);}catch
 function normResultCfg(v){let o=v;if(typeof o==='string'){try{o=JSON.parse(o);}catch{o=null;}}o=o&&typeof o==='object'&&!Array.isArray(o)?o:{};const t=Array.isArray(o.tiers)&&o.tiers.length?o.tiers:RESULT_DEFAULTS.tiers;return {enabled:o.enabled!==false,sound:normSound(o.sound),count:Number.isFinite(Number(o.count))&&o.count!==null&&o.count!==''&&o.count!==undefined?Math.min(80,Math.max(0,Math.round(Number(o.count)))):RESULT_DEFAULTS.count,tiers:t.map(x=>({min:Math.min(100,Math.max(0,Number(x.min)||0)),icon:String(x.icon||''),title:String(x.title||''),sub:String(x.sub||''),emoji:String(x.emoji||''),bgemoji:String(x.bgemoji||'').trim().slice(0,12),color:/^#[0-9a-f]{6}$/i.test(String(x.color||''))?x.color:'#f5c542'}))};}
 let accTab='ringkasan',accNotice='';
 function heroUrlOf(b){const raw=(b?.hero_image&&String(b.hero_image).trim())||'';return (raw&&!/^https?:\/\/(www\.)?ibb\.co\//i.test(raw))?raw:CONFIG.heroImage;}
+function testTitle(tt){return tt==='kotoba'?'Test Kotoba':tt==='matematika'?'Matematika':tt==='kraepelin'?'Kraepelin':`Tes ${tt==='katakana_46'?'Katakana':'Hiragana'} · 46`;}
+function testLabel(tt){return tt==='kotoba'?'TEST KOTOBA':tt==='matematika'?'MATEMATIKA':tt==='kraepelin'?'KRAEPELIN':`TES ${tt==='katakana_46'?'KATAKANA':'HIRAGANA'} · 46`;}
+function resultCtx(){return {state,tierFor,playSound:s=>playResultSound(s,normResultCfg(state.branding?.result_settings).sound),name:state.user?userName(state.user):'',siteName:state.branding?.site_name||CONFIG.siteName,logo:state.branding?.logo_url||''};}
 function tierFor(score){const cfg=normResultCfg(state.branding?.result_settings);const ts=[...cfg.tiers].sort((x,y)=>y.min-x.min);return ts.find(t=>score>=t.min)||ts[ts.length-1];}
 function renderResult(){
   const r=state.result,blank=x=>!String(x.user||'').trim();
@@ -628,9 +631,9 @@ async function account(){
   const totalCorrect=cards.reduce((n,c)=>n+(Number(c.data.correct_count)||0),0),totalWrong=cards.reduce((n,c)=>n+(Number(c.data.wrong_count)||0),0),avg=cards.length?Math.round(cards.reduce((n,c)=>n+(Number(c.data.score)||0),0)/cards.length):0;
   const daySet=new Set(cards.map(c=>new Date(c.date).toLocaleDateString('sv-SE')));let streak=0;for(let i=0;i<365;i++){const d=new Date();d.setDate(d.getDate()-i);if(daySet.has(d.toLocaleDateString('sv-SE')))streak++;else if(i===0)continue;else break;}
   const level=Math.max(1,Math.floor(totalCorrect/25)+1),levelProgress=totalCorrect%25/25*100;
-  const resultHTML=cards.length?cards.map(x=>x.kind==='test'?`<button type="button" class="account-result-card fx-card" data-test-id="${esc(x.data.id)}"><span class="account-result-tag">${x.data.test_type==='kotoba'?'TEST KOTOBA':`TES ${x.data.test_type==='katakana_46'?'KATAKANA':'HIRAGANA'} · 46`}</span><strong>Nilai ${x.data.score}</strong><span>Benar ${x.data.correct_count} · Salah ${x.data.wrong_count} · Tidak dijawab ${x.data.unanswered_count}</span><small>${new Date(x.date).toLocaleString('id-ID')}</small><b>Lihat Detail →</b></button>`:`<button type="button" class="account-result-card fx-card" data-result-id="${esc(x.data.id)}"><span class="account-result-tag">${esc(x.data.parts?.name||'Latihan')}</span><strong>Nilai ${x.data.score}</strong><span>Benar ${x.data.correct_count} · Salah ${x.data.wrong_count} · Tidak dijawab ${x.data.unanswered_count}</span><small>${new Date(x.date).toLocaleString('id-ID')}</small><b>Lihat Detail →</b></button>`).join(''):'<div class="account-empty">Belum ada hasil latihan.<small>Kerjakan latihan atau Tes Kana 46 untuk melihat hasilnya di sini.</small></div>';
+  const resultHTML=cards.length?cards.map(x=>x.kind==='test'?`<button type="button" class="account-result-card fx-card" data-test-id="${esc(x.data.id)}"><span class="account-result-tag">${testLabel(x.data.test_type)}</span><strong>Nilai ${x.data.score}</strong><span>Benar ${x.data.correct_count} · Salah ${x.data.wrong_count} · Tidak dijawab ${x.data.unanswered_count}</span><small>${new Date(x.date).toLocaleString('id-ID')}</small><b>Lihat Detail →</b></button>`:`<button type="button" class="account-result-card fx-card" data-result-id="${esc(x.data.id)}"><span class="account-result-tag">${esc(x.data.parts?.name||'Latihan')}</span><strong>Nilai ${x.data.score}</strong><span>Benar ${x.data.correct_count} · Salah ${x.data.wrong_count} · Tidak dijawab ${x.data.unanswered_count}</span><small>${new Date(x.date).toLocaleString('id-ID')}</small><b>Lihat Detail →</b></button>`).join(''):'<div class="account-empty">Belum ada hasil latihan.<small>Kerjakan latihan atau Tes Kana 46 untuk melihat hasilnya di sini.</small></div>';
   const achievements=[{icon:'🎯',name:'Mulai Belajar',ok:cards.length>0},{icon:'✍️',name:'5 Latihan',ok:cards.length>=5},{icon:'🔥',name:'Streak 3 Hari',ok:streak>=3},{icon:'🏆',name:'Nilai 90+',ok:cards.some(c=>Number(c.data.score)>=90)}];
-  const recent=cards.slice(0,3).map(c=>`<div class="account-activity-row"><span class="account-activity-icon">${c.kind==='test'?'📝':'📚'}</span><div><b>${esc(c.data.parts?.name||(c.kind==='test'?(c.data.test_type==='kotoba'?'Test Kotoba':`Tes ${c.data.test_type==='katakana_46'?'Katakana':'Hiragana'}`):'Latihan'))}</b><small>${new Date(c.date).toLocaleString('id-ID')}</small></div><strong>${Number(c.data.score)||0}</strong></div>`).join('')||'<p class="muted">Aktivitas latihan akan muncul di sini.</p>';
+  const recent=cards.slice(0,3).map(c=>`<div class="account-activity-row"><span class="account-activity-icon">${c.kind==='test'?'📝':'📚'}</span><div><b>${esc(c.data.parts?.name||(c.kind==='test'?testTitle(c.data.test_type):'Latihan'))}</b><small>${new Date(c.date).toLocaleString('id-ID')}</small></div><strong>${Number(c.data.score)||0}</strong></div>`).join('')||'<p class="muted">Aktivitas latihan akan muncul di sini.</p>';
   const avatarHTML=myAvatar?`<img src="${esc(myAvatar)}" alt="Foto profil">`:esc((nm[0]||'?').toUpperCase());
   const paneAttr=k=>accTab===k?'':' hidden';
   const notice=accNotice;accNotice='';
@@ -697,7 +700,7 @@ function showUserProfile(d){
   const m=document.querySelector('#userProfileModal');document.querySelector('#userProfileClose').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove();};
 }
 function showAccountResult(x,isTest){
-  const d=parseJSON(x.details,[]), isKotoba=x.test_type==='kotoba', kanaLabel=x.test_type==='katakana_46'?'Katakana':'Hiragana', title=isTest?(isKotoba?'Test Kotoba':`Tes ${kanaLabel} · 46`):(x.parts?.name||'Hasil Latihan');
+  const d=parseJSON(x.details,[]), isKotoba=x.test_type==='kotoba', kanaLabel=x.test_type==='katakana_46'?'Katakana':'Hiragana', title=isTest?testTitle(x.test_type):(x.parts?.name||'Hasil Latihan');
   const sheetRev=!isTest&&hasSheetReview(fromSavedDetails(d));
   const body=isTest?(isKotoba?d.map((r,i)=>`<article class="review ${r.correct?'ok':'bad'}"><b>${i+1}. ${esc(r.japanese||'')} · ${esc(r.romaji||'')}</b><span>Arti: ${esc(r.meaning||'')}</span><span>Jawaban kamu: ${esc(r.user_answer)||'—'}</span><span>Jawaban benar: ${esc(r.direction==='jp_id'?r.meaning:r.romaji)||'—'}</span></article>`).join(''):d.map((r,i)=>`<article class="review ${r.correct?'ok':'bad'}"><b>${r.number||i+1}. ${esc(r.kana||r.hiragana||'')} ↔ ${esc(r.romaji||'')}</b><span>Jawaban kamu: ${esc(r.user_answer)||'—'}</span><span>Jawaban benar: ${esc(r.correct_answer)||'—'}</span></article>`).join(''))
     :(sheetRev?sheetReviewHTML(fromSavedDetails(d)):`<h2>Review Jawaban</h2>${plainReviewHTML(fromSavedDetails(d))}`);
@@ -725,10 +728,10 @@ async function renderRoute(){
     else if(route==='akun'){ await account(); }
     else if(route==='tes-hiragana'){ await tesHiragana(); }
     else if(route==='tes-katakana'){ await tesKatakana(); }
-    else if(route==='tes-kotoba'){ await tesKotoba({state,shell,recordActivity,supabase,sbReady}); }
+    else if(route==='tes-kotoba'){ await tesKotoba({state,shell,recordActivity,supabase,sbReady,...resultCtx()}); }
     else if(route==='kosakata'){ await kosakata({state,shell,supabase,sbReady}); }
-    else if(route==='matematika'){ await mathRun({shell,supabase,sbReady}); }
-    else if(route==='kraepelin'){ await kraepelinRun({shell,supabase,sbReady}); }
+    else if(route==='matematika'){ await mathRun({shell,supabase,sbReady,...resultCtx()}); }
+    else if(route==='kraepelin'){ await kraepelinRun({shell,supabase,sbReady,...resultCtx()}); }
     else if(route==='install'){ shell(`<section class="section"><button class="btn" type="button" onclick="location.hash='#home'">← Kembali</button>${installGuide()}</section>`); }
     else { await home(); }
     if(typeof runFx==='function') runFx();

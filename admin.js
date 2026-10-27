@@ -153,7 +153,7 @@ const ALL_MENUS=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','
 function menuFor(){return visibleMenus(ALL_MENUS,role,allowedMenus);}
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
-  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v61 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
+  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v62 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
   document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});
   document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};
 }
