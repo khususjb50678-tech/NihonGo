@@ -5,11 +5,54 @@ const DEF = {
   math: {
     enabled: true,
     ops: { tambah: { on: true, a: [3, 3], b: [3, 3] }, kurang: { on: true, a: [3, 3], b: [3, 3] }, kali: { on: true, a: [2, 2], b: [2, 2] }, bagi: { on: true, a: [3, 3], b: [1, 1] } },
-    layout: 'rows', per_row: 5, rows: 4, count: 20,
+    layout: 'rows', per_row: 5, rows: 4, count: 20, setup_mode: 'admin',
     timer: { mode: 'unit', seconds: 30, minutes: 3 }
   },
-  kraepelin: { enabled: true, columns: 10, digits: 11, timer: { mode: 'col', seconds: 15 } }
+  kraepelin: { enabled: true, columns: 10, digits: 11, setup_mode: 'admin', timer: { mode: 'col', seconds: 15 } }
 };
+
+// Penjaga tes: kalau user menekan Kembali / keluar saat tes berjalan, muncul pilihan Lanjut atau Keluar.
+export function setTestGuard(hash, name, abort) { window.__testGuard = { hash, name, abort }; }
+export function clearTestGuard() { window.__testGuard = null; }
+// Pengaturan Matematika/Kraepelin: "admin" (admin yang atur) atau "user" (user boleh atur timer & jumlah).
+function setupField(label, id, val, extra = '') { return `<label>${label}<input class="input" id="${id}" type="number" value="${val}" ${extra}></label>`; }
+function mathSetupForm(cfg, next, shell) {
+  const t = cfg.timer || {};
+  shell(`<section class="section"><div class="card"><div class="eyebrow">📐 MATEMATIKA</div><h2>Atur sendiri</h2><p class="muted">Pilih tipe dan waktu sesuai keinginanmu. Operasi tetap diatur admin.</p><div class="form-grid">
+    <label>Tipe<select class="input" id="suLayout"><option value="rows" ${cfg.layout !== 'single' ? 'selected' : ''}>Per baris</option><option value="single" ${cfg.layout === 'single' ? 'selected' : ''}>Satu soal per layar</option></select></label>
+    ${setupField('Soal per baris', 'suPerRow', cfg.per_row || 5, 'min="1" max="20"')}
+    ${setupField('Jumlah baris', 'suRows', cfg.rows || 4, 'min="1" max="50"')}
+    ${setupField('Jumlah soal (satu soal)', 'suCount', cfg.count || 20, 'min="1" max="200"')}
+    <label>Timer<select class="input" id="suTMode"><option value="none" ${t.mode === 'none' ? 'selected' : ''}>Tanpa timer</option><option value="unit" ${t.mode === 'unit' ? 'selected' : ''}>Per baris / soal</option><option value="total" ${t.mode === 'total' ? 'selected' : ''}>Total</option></select></label>
+    ${setupField('Detik per baris / soal', 'suSec', t.seconds || 30, 'min="5" max="600"')}
+    ${setupField('Menit total', 'suMin', t.minutes || 3, 'min="1" max="180"')}
+  </div><button class="btn red fullbtn" id="suGo" type="button" style="margin-top:12px">Lanjut →</button></div></section>`);
+  document.querySelector('#suGo').onclick = () => {
+    const v = id => document.querySelector('#' + id).value;
+    const n = (id, d) => { const x = Math.round(Number(v(id))); return Number.isFinite(x) && x > 0 ? x : d; };
+    const c2 = JSON.parse(JSON.stringify(cfg));
+    c2.layout = v('suLayout'); c2.per_row = n('suPerRow', 5); c2.rows = n('suRows', 4); c2.count = n('suCount', 20);
+    c2.timer = { mode: v('suTMode'), seconds: n('suSec', 30), minutes: n('suMin', 3) };
+    next(c2);
+  };
+}
+function kraepelinSetupForm(cfg, next, shell) {
+  const t = cfg.timer || {};
+  shell(`<section class="section"><div class="card"><div class="eyebrow">🧮 KRAEPELIN</div><h2>Atur sendiri</h2><div class="form-grid">
+    ${setupField('Jumlah kolom', 'kuCols', cfg.columns || 10, 'min="1" max="30"')}
+    ${setupField('Angka per kolom', 'kuDigits', cfg.digits || 11, 'min="3" max="40"')}
+    <label>Timer<select class="input" id="kuTMode"><option value="none" ${t.mode === 'none' ? 'selected' : ''}>Tanpa timer</option><option value="col" ${t.mode === 'col' ? 'selected' : ''}>Per kolom</option></select></label>
+    ${setupField('Detik per kolom', 'kuSec', t.seconds || 15, 'min="5" max="600"')}
+  </div><button class="btn red fullbtn" id="kuGo" type="button" style="margin-top:12px">Lanjut →</button></div></section>`);
+  document.querySelector('#kuGo').onclick = () => {
+    const v = id => document.querySelector('#' + id).value;
+    const n = (id, d) => { const x = Math.round(Number(v(id))); return Number.isFinite(x) && x > 0 ? x : d; };
+    const c2 = JSON.parse(JSON.stringify(cfg));
+    c2.columns = n('kuCols', 10); c2.digits = Math.max(3, n('kuDigits', 11));
+    c2.timer = { mode: v('kuTMode'), seconds: n('kuSec', 15) };
+    next(c2);
+  };
+}
 const OPS = { tambah: '+', kurang: '−', kali: '×', bagi: '÷' };
 const OP_NAME = { tambah: 'Tambah', kurang: 'Kurang', kali: 'Kali', bagi: 'Bagi' };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -101,9 +144,14 @@ const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60
 const progress = (pct, title, eyebrow, id = '') => `<div class="section-title"><div><div class="eyebrow">${eyebrow}</div><h2>${title}</h2></div></div><div class="hira-progress"><i ${id ? `id="${id}"` : ''} style="width:${Math.min(100, pct)}%"></i></div>`;
 
 // ===== Matematika =====
-export async function mathRun({ shell, supabase, sbReady, state, tierFor, playSound, name, siteName, logo }) {
+export async function mathRun(deps) {
   ensureStyle();
-  const cfg = (await loadMathCfg(supabase, sbReady)).math;
+  const cfg = (await loadMathCfg(deps.supabase, deps.sbReady)).math;
+  if (cfg.enabled && cfg.setup_mode === 'user') return mathSetupForm(cfg, c2 => mathPlay(c2, deps), deps.shell);
+  return mathPlay(cfg, deps);
+}
+async function mathPlay(cfg, deps) {
+  const { shell, supabase, sbReady, state, tierFor, playSound, name, siteName, logo } = deps;
   if (!cfg.enabled) return shell(`<section class="section"><div class="card"><h2>Matematika belum dibuka</h2><p class="muted">Admin belum mengaktifkan fitur ini.</p><a class="btn" href="#home">← Beranda</a></div></section>`);
   const rowsMode = cfg.layout === 'rows';
   const perUnit = rowsMode ? Math.max(1, +cfg.per_row || 5) : 1;
@@ -121,7 +169,7 @@ export async function mathRun({ shell, supabase, sbReady, state, tierFor, playSo
   const stopTimer = () => { if (timer) clearInterval(timer); timer = null; };
 
   const finish = async () => {
-    if (done) return; done = true; stopTimer();
+    if (done) return; done = true; stopTimer(); clearTestGuard();
     const items = qs.map((q, i) => { const ok = q.user !== '' && Number(q.user) === q.ans; return { number: i + 1, kana: `${q.a} ${q.sym} ${q.b} =`, romaji: '', user_answer: q.user, correct_answer: String(q.ans), correct: ok }; });
     const correct = items.filter(x => x.correct).length, unanswered = items.filter(x => x.user_answer === '').length, wrong = items.length - correct - unanswered;
     const score = Math.round(correct / items.length * 100), duration = Math.round((Date.now() - started) / 1000);
@@ -152,7 +200,7 @@ export async function mathRun({ shell, supabase, sbReady, state, tierFor, playSo
     unit++; if (tm.mode === 'unit') left = unitSec; paint();
   };
   const start = () => {
-    started = Date.now();
+    started = Date.now(); setTestGuard('#matematika', 'Matematika', () => stopTimer());
     if (tm.mode === 'total') left = totalSec; if (tm.mode === 'unit') left = unitSec;
     paint();
     timer = setInterval(() => {
@@ -170,9 +218,14 @@ export async function mathRun({ shell, supabase, sbReady, state, tierFor, playSo
 }
 
 // ===== Kraepelin =====
-export async function kraepelinRun({ shell, supabase, sbReady, state, tierFor, playSound, name, siteName, logo }) {
+export async function kraepelinRun(deps) {
   ensureStyle();
-  const cfg = (await loadMathCfg(supabase, sbReady)).kraepelin;
+  const cfg = (await loadMathCfg(deps.supabase, deps.sbReady)).kraepelin;
+  if (cfg.enabled && cfg.setup_mode === 'user') return kraepelinSetupForm(cfg, c2 => kraepelinPlay(c2, deps), deps.shell);
+  return kraepelinPlay(cfg, deps);
+}
+async function kraepelinPlay(cfg, deps) {
+  const { shell, supabase, sbReady, state, tierFor, playSound, name, siteName, logo } = deps;
   if (!cfg.enabled) return shell(`<section class="section"><div class="card"><h2>Kraepelin belum dibuka</h2><p class="muted">Admin belum mengaktifkan fitur ini.</p><a class="btn" href="#home">← Beranda</a></div></section>`);
   const C = Math.max(1, +cfg.columns || 10), D = Math.max(3, +cfg.digits || 11);
   const cols = Array.from({ length: C }, () => Array.from({ length: D }, () => rnd(10)));
@@ -183,7 +236,7 @@ export async function kraepelinRun({ shell, supabase, sbReady, state, tierFor, p
   const stopTimer = () => { if (timer) clearInterval(timer); timer = null; };
   const totalPairs = C * (D - 1);
   const finish = async () => {
-    if (done) return; done = true; stopTimer();
+    if (done) return; done = true; stopTimer(); clearTestGuard();
     const items = [];
     cols.forEach((col, ci) => col.slice(0, -1).forEach((_, ki) => {
       const v = ans[ci][ki], right = (col[ki] + col[ki + 1]) % 10;
@@ -230,7 +283,7 @@ export async function kraepelinRun({ shell, supabase, sbReady, state, tierFor, p
     paint();
   };
   const start = () => {
-    started = Date.now(); left = colSec;
+    started = Date.now(); left = colSec; setTestGuard('#kraepelin', 'Kraepelin', () => stopTimer());
     build();
     timer = setInterval(() => {
       if (!document.querySelector('#krRoot')) return stopTimer();

@@ -162,3 +162,8 @@ Ganti file berikut saja: app.js, admin.js, matematika.js (baru), lembarpdf.js, p
 Ganti file berikut: app.js, vocab.js, matematika.js, sw.js, admin.js.
 - Matematika, Kraepelin, dan Test Kotoba memakai tampilan mengerjakan soal (progres + layar soal).
 - Hasil ketiganya memakai tampilan hasil latihan (kartu nilai + review jawaban), dan otomatis masuk ke Akun → Hasil Saya.
+
+## Versi 63
+Ganti file berikut: app.js, vocab.js, matematika.js, admin.js, sw.js.
+- Saat tes Matematika, Kraepelin, atau Test Kosakata sedang berjalan dan user menekan Kembali / pindah halaman, muncul notif "Tes belum selesai": Lanjut Mengerjakan atau Keluar dari tes.
+- Admin → Matematika & Kraepelin: pilih "Yang mengatur": Admin, atau User. Kalau User, sebelum mulai user bisa mengatur tipe, jumlah soal/baris/kolom, dan timer (operasi tetap diatur admin).

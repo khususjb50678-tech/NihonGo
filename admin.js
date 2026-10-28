@@ -153,7 +153,7 @@ const ALL_MENUS=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','
 function menuFor(){return visibleMenus(ALL_MENUS,role,allowedMenus);}
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
-  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v62 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
+  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v63 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
   document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});
   document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};
 }
@@ -887,7 +887,7 @@ async function mathAdmin(){
   K.timer=Object.assign({mode:'col',seconds:15},(c.kraepelin||{}).timer||{});
   const op=(k,label)=>{const o=(M.ops&&M.ops[k])||{};const a=o.a||[3,3],b=o.b||[3,3];return `<div class="card admin-card"><label class="check-line"><input type="checkbox" data-op="${k}" data-f="on" ${o.on!==false?'checked':''}> <b>${label}</b></label><div class="form-grid"><label>Digit A min<input class="input" type="number" min="1" max="6" data-op="${k}" data-f="amin" value="${a[0]}"></label><label>Digit A max<input class="input" type="number" min="1" max="6" data-op="${k}" data-f="amax" value="${a[1]}"></label><label>Digit B min<input class="input" type="number" min="1" max="6" data-op="${k}" data-f="bmin" value="${b[0]}"></label><label>Digit B max<input class="input" type="number" min="1" max="6" data-op="${k}" data-f="bmax" value="${b[1]}"></label></div></div>`;};
   app(`${head}
-  <div class="card admin-card"><h3>📐 Matematika</h3><label class="check-line"><input type="checkbox" id="mEn" ${M.enabled!==false?'checked':''}> Tampilkan Matematika di beranda</label>
+  <div class="card admin-card"><h3>📐 Matematika</h3><label class="check-line"><input type="checkbox" id="mEn" ${M.enabled!==false?'checked':''}> Tampilkan Matematika di beranda</label><label>Yang mengatur tipe & timer<select class="input" id="mSetup"><option value="admin" ${M.setup_mode!=='user'?'selected':''}>Admin</option><option value="user" ${M.setup_mode==='user'?'selected':''}>User (user boleh atur tipe, jumlah, dan timer)</option></select></label>
   <h4>Operasi (jumlah digit dibuat acak antara min dan max)</h4>
   ${op('tambah','Tambah (+)')}${op('kurang','Kurang (−)')}${op('kali','Kali (×)')}${op('bagi','Bagi (÷)')}
   <h4>Layout</h4><div class="form-grid">
@@ -901,7 +901,7 @@ async function mathAdmin(){
     <label>Detik per baris / soal<input class="input" type="number" min="5" max="600" id="mSec" value="${M.timer.seconds}"></label>
     <label>Menit total<input class="input" type="number" min="1" max="180" id="mMin" value="${M.timer.minutes}"></label>
   </div></div>
-  <div class="card admin-card"><h3>🧮 Kraepelin</h3><label class="check-line"><input type="checkbox" id="kEn" ${K.enabled!==false?'checked':''}> Tampilkan Kraepelin di beranda</label>
+  <div class="card admin-card"><h3>🧮 Kraepelin</h3><label class="check-line"><input type="checkbox" id="kEn" ${K.enabled!==false?'checked':''}> Tampilkan Kraepelin di beranda</label><label>Yang mengatur kolom & timer<select class="input" id="kSetup"><option value="admin" ${K.setup_mode!=='user'?'selected':''}>Admin</option><option value="user" ${K.setup_mode==='user'?'selected':''}>User (user boleh atur kolom, angka, dan timer)</option></select></label>
   <div class="form-grid">
     <label>Jumlah kolom<input class="input" type="number" min="1" max="30" id="kCols" value="${K.columns}"></label>
     <label>Angka per kolom<input class="input" type="number" min="3" max="40" id="kDigits" value="${K.digits}"></label>
@@ -921,8 +921,8 @@ async function mathAdmin(){
       ops[k]={on:g('on').checked,a:[amin,amax],b:[bmin,bmax]};
     }
     const cfg={
-      math:{enabled:document.querySelector('#mEn').checked,ops,layout:v('#mLayout'),per_row:n('#mPerRow',5),rows:n('#mRows',4),count:n('#mCount',20),timer:{mode:v('#mTMode'),seconds:n('#mSec',30),minutes:n('#mMin',3)}},
-      kraepelin:{enabled:document.querySelector('#kEn').checked,columns:n('#kCols',10),digits:Math.max(3,n('#kDigits',11)),timer:{mode:v('#kTMode'),seconds:n('#kSec',15)}}
+      math:{enabled:document.querySelector('#mEn').checked,setup_mode:v('#mSetup'),ops,layout:v('#mLayout'),per_row:n('#mPerRow',5),rows:n('#mRows',4),count:n('#mCount',20),timer:{mode:v('#mTMode'),seconds:n('#mSec',30),minutes:n('#mMin',3)}},
+      kraepelin:{enabled:document.querySelector('#kEn').checked,setup_mode:v('#kSetup'),columns:n('#kCols',10),digits:Math.max(3,n('#kDigits',11)),timer:{mode:v('#kTMode'),seconds:n('#kSec',15)}}
     };
     const {error:e}=await supabase.from('math_settings').upsert({id:1,config:cfg});
     if(e) return alert('Gagal menyimpan: '+e.message);
