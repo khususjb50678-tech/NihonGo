@@ -105,7 +105,7 @@ alter table public.branding add column if not exists maintenance_title text;
 alter table public.branding add column if not exists maintenance_body text;
 notify pgrst, 'reload schema';`;
 const DB_NOTE='Database belum diupdate, jadi pengaturan baru belum bisa disimpan. Buka menu Dashboard, salin SQL yang tampil, lalu jalankan di Supabase → SQL Editor.';
-const PART_OPT=['setup_mode','timer_seconds','scheduled_start_at','scheduled_end_at','inactive_mode'], KANJI_OPT=['animate','part_number'];
+const PART_OPT=['setup_mode','timer_seconds','scheduled_start_at','scheduled_end_at','inactive_mode','max_attempts'], KANJI_OPT=['animate','part_number'];
 async function dbStatus(){const [a,b]=await Promise.all([supabase.from('parts').select('setup_mode,timer_seconds,scheduled_start_at,scheduled_end_at').limit(1),supabase.from('kanji').select('animate').limit(1)]);return !a.error&&!b.error;}
 function dbNoticeHTML(){return `<div class="card admin-card db-notice"><h2>⚠ Update database diperlukan</h2><p class="muted">Fitur baru (pengaturan soal &amp; timer, jadwal aktif/nonaktif Part, dan animasi Kanji) butuh kolom database tambahan. Salin SQL di bawah, buka Supabase → SQL Editor, tempel, lalu klik Run. Cukup dilakukan sekali.</p><pre id="dbSql">${esc(DB_SQL)}</pre><button id="copySql" class="btn" type="button">Salin SQL</button></div>`;}
 async function copySql(){try{await navigator.clipboard.writeText(DB_SQL);alert('SQL tersalin. Tempel di Supabase → SQL Editor, lalu Run.');}catch{alert('Salin manual SQL yang tampil di layar.');}}
@@ -126,6 +126,7 @@ const fmtDur=n=>{n=Math.floor(Number(n)||0);const m=Math.floor(n/60),r=n%60;retu
 function partSetupHTML(x={}){
   const user=x.setup_mode==='user',t=Number(x.timer_seconds||0);
   return `<div class="part-setup" data-part-setup><label>Soal &amp; timer diatur oleh siapa?<select class="input" name="setup_mode"><option value="admin" ${user?'':'selected'}>Diatur Admin</option><option value="user" ${user?'selected':''}>Diatur User</option></select></label>
+  <label>Kesempatan mengerjakan per user<input class="input" name="max_attempts" type="number" min="1" value="${Math.max(1,Number(x.max_attempts)||1)}"><small class="hint">Isi 1 = hanya bisa sekali. Admin bisa menaikkan angka ini kapan saja.</small></label>
   <p class="hint" data-hint-admin>Admin menentukan jumlah soal dan timer. User cukup mengisi nama lalu mengerjakan.</p>
   <p class="hint" data-hint-user hidden>Setiap mau mengerjakan, user mengisi sendiri nama, jumlah soal, dan waktunya. Tidak ada batas minimum.</p>
   <div data-admin-opts class="form-grid"><label class="full">Jumlah soal<input class="input" name="question_limit" type="number" min="1" value="${x.question_limit||''}" placeholder="Kosongkan = semua soal"></label><label>Timer (menit)<input class="input" name="timer_min" type="number" min="0" value="${t?Math.floor(t/60):''}" placeholder="0"></label><label>Timer (detik)<input class="input" name="timer_sec" type="number" min="0" value="${t?t%60:''}" placeholder="0"></label><p class="hint full">Kosongkan timer jika tidak ingin memakai batas waktu.</p></div></div>`;
@@ -137,10 +138,11 @@ function bindPartSetup(root){
 }
 function readPartSetup(root){
   const g=n=>root.querySelector(`[name="${n}"]`);
-  if(g('setup_mode').value==='user')return {setup_mode:'user',question_limit:null,timer_seconds:null};
+  const maxA=Math.max(1,Math.floor(Number(g('max_attempts')?.value)||1));
+  if(g('setup_mode').value==='user')return {setup_mode:'user',question_limit:null,timer_seconds:null,max_attempts:maxA};
   const lim=Math.floor(Number(g('question_limit').value)),m=Number(g('timer_min').value||0),sc=Number(g('timer_sec').value||0);
   const total=Math.round((m>0?m:0)*60+(sc>0?sc:0));
-  return {setup_mode:'admin',question_limit:lim>0?lim:null,timer_seconds:total>0?total:null};
+  return {setup_mode:'admin',question_limit:lim>0?lim:null,timer_seconds:total>0?total:null,max_attempts:maxA};
 }
 function partModeBadge(x){
   if(x.setup_mode==='user')return '<i class="mode-pill user">Diatur User</i>';
@@ -153,7 +155,7 @@ const ALL_MENUS=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','
 function menuFor(){return visibleMenus(ALL_MENUS,role,allowedMenus);}
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
-  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v64 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
+  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v65 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
   document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});
   document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};
 }

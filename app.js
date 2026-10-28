@@ -430,6 +430,7 @@ async function openCustomSetup(openRows,cs){
 // Form sebelum mulai: nama selalu diisi. Kalau Part diatur User, user juga mengisi jumlah soal & waktu sendiri.
 async function openSetup(id,parts){
   const p=(parts||[]).find(x=>String(x.id)===String(id)); if(!p)return;
+  if(state.user){let ai=null;try{ai=(await supabase.rpc('attempt_info',{p_part:String(p.id)})).data;}catch{}if(ai&&Number(ai.used)>=Number(ai.max||1)){alert(`Kesempatan mengerjakan Part ini sudah habis (sudah ${ai.used} dari ${ai.max} kali). Hubungi admin jika ingin menambah kesempatan.`);return;}}
   const {data,error}=await q('questions',{eq:{part_id:p.id},select:'id'});
   if(error){alert(error.message);return}
   const total=(data||[]).length;

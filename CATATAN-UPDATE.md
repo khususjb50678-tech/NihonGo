@@ -173,3 +173,8 @@ Ganti file berikut: app.js, admin.js, resultposter.js, sw.js. Jalankan SQL supab
 - Simpan foto hasil di aplikasi AppsGeyser: pakai menu Bagikan (kalau ada), atau tampil gambar yang bisa ditekan lama lalu disimpan.
 - Halaman Developer: menampilkan tombol download aplikasi yang diatur di admin, menggantikan panduan install.
 - Admin → Download Aplikasi (khusus Admin Utama): upload file ZIP aplikasi, atur judul, versi, keterangan, dan tampil/sembunyikan tombol.
+
+## Versi 65
+Ganti file berikut: app.js, admin.js, sw.js. Jalankan SQL supabase-attempt-limit.sql sekali di Supabase.
+- Batas kesempatan mengerjakan per Part. Default 1 (hanya bisa sekali). Admin mengatur di pengaturan tiap Part: "Kesempatan mengerjakan per user".
+- User yang sudah habis kesempatannya tidak bisa membuka Part itu lagi, dan database juga menolak hasil tambahan.
