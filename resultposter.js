@@ -268,18 +268,40 @@ export async function drawPoster(o) {
   return c;
 }
 
+function showPhotoOverlay(url, fname) {
+  const m = document.createElement('div');
+  m.id = 'posterShot';
+  m.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box';
+  m.innerHTML = `<img src="${url}" alt="Foto hasil" style="max-width:100%;max-height:74vh;border-radius:14px">
+    <p style="color:#fff;margin:0;text-align:center;font-size:14px;line-height:1.5">Tekan lama gambar, lalu pilih <b>Simpan gambar</b>.<br>Atau tekan tombol Unduh di bawah.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <a href="${url}" download="${fname}" target="_blank" rel="noopener" style="padding:12px 18px;border-radius:999px;background:#c62828;color:#fff;font-weight:700;text-decoration:none">⬇ Unduh</a>
+      <button type="button" id="posterShotClose" style="padding:12px 18px;border-radius:999px;border:1px solid #666;background:#1a1a22;color:#fff;font-weight:700">Tutup</button>
+    </div>`;
+  document.body.appendChild(m);
+  m.querySelector('#posterShotClose').onclick = () => { m.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); };
+}
+
 export function bindPoster(root, o) {
   const btn = (root || document).querySelector('[data-poster-save]');
   if (!btn) return;
   btn.onclick = async () => {
     const label = btn.textContent; btn.disabled = true; btn.textContent = 'Membuat foto…';
+    const fname = `hasil-${String(o.title || 'latihan').replace(/[^\w\-]+/g, '_').slice(0, 40)}-${o.score}.png`;
+    let ok = false;
     try {
       const c = await drawPoster(o);
-      const blob = await new Promise((ok, no) => c.toBlob(b => (b ? ok(b) : no(new Error('gagal'))), 'image/png'));
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = `hasil-${String(o.title || 'latihan').replace(/[^\w\-]+/g, '_').slice(0, 40)}-${o.score}.png`;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      btn.textContent = '✓ Tersimpan';
+      const blob = await new Promise((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('gagal'))), 'image/png'));
+      // 1) Kalau HP mendukung berbagi file (Android/iOS), pakai menu Bagikan → Simpan ke Galeri
+      try {
+        const file = new File([blob], fname, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: o.title || 'Hasil latihan' });
+          ok = true; btn.textContent = '✓ Tersimpan';
+        }
+      } catch (e) { if (e && e.name === 'AbortError') { btn.textContent = label; btn.disabled = false; return; } }
+      // 2) Kalau tidak bisa, tampilkan foto: tekan lama lalu Simpan gambar, atau tombol Unduh
+      if (!ok) { showPhotoOverlay(URL.createObjectURL(blob), fname); btn.textContent = label; btn.disabled = false; return; }
     } catch { btn.textContent = 'Gagal, coba lagi'; }
     setTimeout(() => { btn.textContent = label; btn.disabled = false; }, 2200);
   };

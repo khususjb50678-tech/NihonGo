@@ -149,11 +149,11 @@ function partModeBadge(x){
 }
 
 applySiteFont(loadCachedFont()||DEFAULT_FONT);fetchSiteFont().then(id=>{if(id)applySiteFont(id);});
-const ALL_MENUS=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['font','Font'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['vocab','Kosakata'],['vocabparts','Part Kosakata'],['math','Matematika & Kraepelin'],['parts','Part'],['questions','Soal'],['sheetpdf','Soal PDF (Mirip Asli)'],['quick','Quick Soal'],['timer','Kelola Timer'],['custom','Mode Custom'],['guard','Peringatan Salin'],['nilai','Pengaturan Nilai'],['users','User'],['prank','Kerjain Teman 😈'],['admins','Tambah Admin'],['access','Fitur Admin Tambahan'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']];
+const ALL_MENUS=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','Tampilan Kolom'],['font','Font'],['kanji','Kanji'],['kaiwa','Kaiwa & Bunpou'],['vocab','Kosakata'],['vocabparts','Part Kosakata'],['math','Matematika & Kraepelin'],['appdl','Download Aplikasi'],['parts','Part'],['questions','Soal'],['sheetpdf','Soal PDF (Mirip Asli)'],['quick','Quick Soal'],['timer','Kelola Timer'],['custom','Mode Custom'],['guard','Peringatan Salin'],['nilai','Pengaturan Nilai'],['users','User'],['prank','Kerjain Teman 😈'],['admins','Tambah Admin'],['access','Fitur Admin Tambahan'],['messages','Pesan & Maintenance'],['guide','Cara Penggunaan Admin']];
 function menuFor(){return visibleMenus(ALL_MENUS,role,allowedMenus);}
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
-  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v63 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
+  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v64 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
   document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});
   document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};
 }
@@ -187,7 +187,7 @@ async function kosakata(){
     const {error:er}=r.eid?await supabase.from('vocab_edits').update({hidden:!r.hidden}).eq('id',r.eid):await supabase.from('vocab_edits').insert(row);if(er)return alert(er.message);kosakata();});
   document.querySelectorAll('[data-vreset]').forEach(b=>b.onclick=async()=>{const r=rows[+b.dataset.vreset];if(!confirm(r.isNew?'Hapus kata tambahan ini?':'Kembalikan kata ini ke versi buku?'))return;const {error:er}=await supabase.from('vocab_edits').delete().eq('id',r.eid);if(er)return alert(er.message);kosakata();});
 }
-async function render(){if(role!=='owner')await loadMenus();if(!canOpen(current,role,allowedMenus))current='dashboard';if(current==='admins')return adminsPage();if(current==='custom')return customPage();if(current==='guard')return guardPage();if(current==='dashboard')return dashboard();if(current==='nilai')return nilai();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='font')return fontPage();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='vocab')return kosakata();if(current==='vocabparts')return vocabParts();if(current==='math')return mathAdmin();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='sheetpdf')return sheetPdfPage({app,esc,supabase});if(current==='prank')return prankPage({app,esc});if(current==='access')return accessPage({app,esc,supabase,items:grantable(ALL_MENUS)});if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
+async function render(){if(role!=='owner')await loadMenus();if(!canOpen(current,role,allowedMenus))current='dashboard';if(current==='admins')return adminsPage();if(current==='custom')return customPage();if(current==='guard')return guardPage();if(current==='dashboard')return dashboard();if(current==='nilai')return nilai();if(current==='branding')return branding();if(current==='tampilan')return tampilan();if(current==='font')return fontPage();if(current==='kanji')return kanji();if(current==='kaiwa')return kaiwa();if(current==='vocab')return kosakata();if(current==='vocabparts')return vocabParts();if(current==='math')return mathAdmin();if(current==='appdl')return appDownloadAdmin();if(current==='parts')return parts();if(current==='questions')return questions();if(current==='sheetpdf')return sheetPdfPage({app,esc,supabase});if(current==='prank')return prankPage({app,esc});if(current==='access')return accessPage({app,esc,supabase,items:grantable(ALL_MENUS)});if(current==='quick')return quick();if(current==='timer')return timer();if(current==='users')return users();if(current==='messages')return messages();if(current==='guide')return guide();}
 
 async function fontPage(){
   let saved=(await fetchSiteFont())||loadCachedFont()||DEFAULT_FONT,cur=saved;
@@ -928,4 +928,46 @@ async function mathAdmin(){
     if(e) return alert('Gagal menyimpan: '+e.message);
     alert('Pengaturan Matematika & Kraepelin tersimpan.');
   };
+}
+
+async function appDownloadAdmin(){
+  const head=`<div class="admin-header"><div><div class="eyebrow">📦 APLIKASI</div><h1>Download Aplikasi</h1><p class="muted">Upload file ZIP aplikasi (hasil build), lalu tombol download akan tampil di halaman Developer.</p></div></div>`;
+  if(role!=='owner'){app(`${head}<div class="card admin-card"><p class="muted">Halaman ini hanya untuk Admin Utama.</p></div>`);return;}
+  const {data,error}=await supabase.from('app_downloads').select('config').eq('id',1).maybeSingle();
+  if(error){app(`${head}<div class="card admin-card"><div class="alert">${esc(error.message)}</div><p class="muted">Jalankan SQL <b>supabase-app-download.sql</b> di Supabase dulu.</p></div>`);return;}
+  const c=data?.config||{};
+  app(`${head}<div class="card admin-card"><h3>File aplikasi</h3>
+    ${c.file_url?`<p><b>${esc(c.file_name||'aplikasi.zip')}</b>${c.file_size?` · ${(c.file_size/1048576).toFixed(1)} MB`:''}${c.version?` · versi ${esc(c.version)}`:''}</p><a class="btn" href="${esc(c.file_url)}" target="_blank" rel="noopener">Cek file</a> <button class="btn danger" id="adlDel" type="button">Hapus file</button>`:'<p class="muted">Belum ada file yang diupload.</p>'}
+    <label>Judul<input class="input" id="adlTitle" value="${esc(c.title||'Itco Study')}"></label>
+    <label>Versi<input class="input" id="adlVer" value="${esc(c.version||'')}" placeholder="contoh: 1.0.0"></label>
+    <label>Keterangan singkat<textarea class="input" id="adlDesc">${esc(c.description||'')}</textarea></label>
+    <label class="check-line"><input type="checkbox" id="adlOn" ${c.enabled!==false?'checked':''}> Tampilkan tombol download di halaman Developer</label>
+    <label>Upload file ZIP baru (maks. 50 MB)<input class="input" type="file" accept=".zip,application/zip" id="adlFile"></label>
+    <button class="btn red fullbtn" id="adlSave" type="button">💾 Simpan</button>
+    <p class="muted" style="margin-top:8px">Kalau tidak memilih file baru, file lama tetap dipakai.</p></div>`);
+  const save=async(extra)=>{
+    const cur=(await supabase.from('app_downloads').select('config').eq('id',1).maybeSingle()).data?.config||{};
+    const cfg={...cur,title:document.querySelector('#adlTitle').value.trim()||'Aplikasi',version:document.querySelector('#adlVer').value.trim(),description:document.querySelector('#adlDesc').value.trim(),enabled:document.querySelector('#adlOn').checked,...(extra||{})};
+    const {error:e}=await supabase.from('app_downloads').upsert({id:1,config:cfg});
+    if(e) return alert('Gagal menyimpan: '+e.message);
+    alert('Tersimpan.'); appDownloadAdmin();
+  };
+  document.querySelector('#adlSave').onclick=async()=>{
+    const f=document.querySelector('#adlFile').files?.[0];
+    if(!f) return save();
+    if(!/\.zip$/i.test(f.name)) return alert('File harus berformat .zip');
+    if(f.size>50*1024*1024) return alert('File terlalu besar (maks. 50 MB).');
+    const btn=document.querySelector('#adlSave'); btn.disabled=true; btn.textContent='Mengunggah…';
+    try{
+      const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path=`apps/${Date.now()}-${safe}`;
+      const {error:ue}=await supabase.storage.from('media').upload(path,f,{upsert:true,contentType:'application/zip',cacheControl:'3600'});
+      if(ue) throw ue;
+      const {data:pub}=supabase.storage.from('media').getPublicUrl(path);
+      await save({file_url:pub.publicUrl,file_name:f.name,file_size:f.size});
+    }catch(err){ alert('Gagal upload: '+(err.message||err)); }
+    btn.disabled=false; btn.textContent='💾 Simpan';
+  };
+  const del=document.querySelector('#adlDel');
+  if(del) del.onclick=async()=>{ if(!confirm('Hapus file download dari halaman Developer?')) return; await save({file_url:'',file_name:'',file_size:0}); };
 }

@@ -167,3 +167,9 @@ Ganti file berikut: app.js, vocab.js, matematika.js, sw.js, admin.js.
 Ganti file berikut: app.js, vocab.js, matematika.js, admin.js, sw.js.
 - Saat tes Matematika, Kraepelin, atau Test Kosakata sedang berjalan dan user menekan Kembali / pindah halaman, muncul notif "Tes belum selesai": Lanjut Mengerjakan atau Keluar dari tes.
 - Admin → Matematika & Kraepelin: pilih "Yang mengatur": Admin, atau User. Kalau User, sebelum mulai user bisa mengatur tipe, jumlah soal/baris/kolom, dan timer (operasi tetap diatur admin).
+
+## Versi 64
+Ganti file berikut: app.js, admin.js, resultposter.js, sw.js. Jalankan SQL supabase-app-download.sql sekali di Supabase.
+- Simpan foto hasil di aplikasi AppsGeyser: pakai menu Bagikan (kalau ada), atau tampil gambar yang bisa ditekan lama lalu disimpan.
+- Halaman Developer: menampilkan tombol download aplikasi yang diatur di admin, menggantikan panduan install.
+- Admin → Download Aplikasi (khusus Admin Utama): upload file ZIP aplikasi, atur judul, versi, keterangan, dan tampil/sembunyikan tombol.
