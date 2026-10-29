@@ -289,7 +289,25 @@ export async function sheetPdfPage({ app, esc, supabase }) {
   partSel.onchange = () => listExisting();
   listExisting();
 
-  document.querySelector('#spFile').onchange = e => { const files = Array.from(e.target.files || []); if (files.length) manualSheet({ files, out, partSel, supabase, esc, listExisting }); };
+  document.querySelector('#spFile').onchange = async e => {
+    const all = Array.from(e.target.files || []);
+    if (!all.length) return;
+    if (all.some(x => /^image\//.test(x.type))) { G.length = 0; manualSheet({ files: all, out, partSel, supabase, esc, listExisting }); return; }
+    const f = all[0];
+    out.innerHTML = '<p class="muted">Membaca PDF…</p>';
+    try {
+      const r = await analyzePdf(f, (p, n) => { out.innerHTML = `<p class="muted">Memfoto halaman ${p} dari ${n}…</p>`; });
+      G = r.groups; PG = r.pages; Object.values(PG).forEach(pg => { pg.url = URL.createObjectURL(pg.blob); });
+      if (!G.length) { out.innerHTML = '<p class="muted">Tidak ada soal terdeteksi. Pastikan PDF berisi teks (bukan hasil scan) dan nomor soal berbentuk （１）（２）…</p>'; return; }
+      const html = [...new Set(G.map(g => g.page))].map(p => `<article class="card admin-card sp-card"><div class="sp-top"><b>Halaman ${p}</b></div>
+        <div class="sp-page" data-pgimg="${p}"><img src="${PG[p].url}" alt="">${overlayHTML(p)}</div>
+        <p class="muted" style="margin:6px 0">Kotak hijau = tempat user menjawab. Soal ada audio? Ketuk halaman tepat di ikon suara 🔊 untuk menandai posisinya (kotak merah), lalu pilih audio di bawah.</p>
+        ${G.map((g, i) => g.page === p ? grpHTML(g, i, esc) : '').join('')}</article>`).join('');
+      out.innerHTML = `<p><b>${G.length} soal terdeteksi dari ${r.count} halaman.</b> Periksa halaman, jumlah jawaban, dan pilih jawaban yang benar. Matikan "Masukkan" untuk soal yang tidak dipakai.</p>${html}<button class="btn red fullbtn" id="spSave" type="button">Simpan ke Part</button><p id="spMsg" class="muted"></p>`;
+      document.querySelector('#spSave').onclick = save;
+    } catch (err) { out.innerHTML = `<p class="muted">${esc(err.message || err)}</p>`; }
+  };
+
 
   document.querySelector('#spUpg').onchange = async e => {
     const f = e.target.files?.[0]; if (!f) return;

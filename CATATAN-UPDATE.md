@@ -178,3 +178,7 @@ Ganti file berikut: app.js, admin.js, resultposter.js, sw.js. Jalankan SQL supab
 Ganti file berikut: app.js, admin.js, sw.js. Jalankan SQL supabase-attempt-limit.sql sekali di Supabase.
 - Batas kesempatan mengerjakan per Part. Default 1 (hanya bisa sekali). Admin mengatur di pengaturan tiap Part: "Kesempatan mengerjakan per user".
 - User yang sudah habis kesempatannya tidak bisa membuka Part itu lagi, dan database juga menolak hasil tambahan.
+
+## Versi 66
+Ganti file berikut: lembarpdf.js, admin.js, sw.js.
+- Soal PDF (Mirip Asli): upload PDF kembali otomatis membaca soal dan jawaban dari semua halaman. Upload foto tetap memakai mode tandai kotak per soal.
