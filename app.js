@@ -97,7 +97,7 @@ function bindSheet(){
     if(__sheetAudio&&__sheetAudio.__u===u&&!__sheetAudio.paused){stopSheetAudio();return;}
     stopSheetAudio();const a=new Audio(u);a.__u=u;__sheetAudio=a;b.classList.add('playing');
     a.onended=a.onpause=()=>b.classList.remove('playing');
-    a.play().catch(()=>{b.classList.remove('playing');alert('Audio tidak bisa diputar. Coba lagi.');});
+    a.play().catch(err=>{b.classList.remove('playing');const c=a.error&&a.error.code;alert(c===4||err?.name==='NotSupportedError'?'Format audio ini tidak didukung HP. Minta admin upload ulang audionya (format MP3).':'Audio gagal dimuat. Periksa koneksi lalu coba lagi.');});
   });
 }
 

@@ -146,7 +146,35 @@ function grpHTML(g, i, esc) {
   </div>`;
 }
 
+// Audio dari HP sering berformat yang tidak bisa diputar di browser/aplikasi (mis. m4a, 3gp, ogg).
+// Diubah ke WAV mono 22 kHz supaya bisa diputar di semua HP.
+function encodeWav(samples, rate) {
+  const buf = new ArrayBuffer(44 + samples.length * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, samples.length * 2, true);
+  let o = 44;
+  for (let i = 0; i < samples.length; i++, o += 2) { const s = Math.max(-1, Math.min(1, samples[i])); v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+async function toWav(blob) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+    ctx.close && ctx.close();
+    const RATE = 22050, len = Math.max(1, Math.ceil(buf.duration * RATE));
+    const off = new OfflineAudioContext(1, len, RATE);
+    const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start(0);
+    const rendered = await off.startRendering();
+    return encodeWav(rendered.getChannelData(0), RATE);
+  } catch { return null; }
+}
 async function upl(supabase, path, blob, type) {
+  if (/^audio\//.test(type || '') || /\.(m4a|aac|3gp|amr|ogg|opus|webm|caf|flac|wma|mp4)$/i.test(path)) {
+    const w = await toWav(blob);
+    if (w) { blob = w; type = 'audio/wav'; path = path.replace(/\.[^./]+$/, '') + '.wav'; }
+  }
   const up = await supabase.storage.from('media').upload(path, blob, { upsert: true, contentType: type || undefined, cacheControl: '31536000' });
   if (up.error) throw new Error(up.error.message);
   return supabase.storage.from('media').getPublicUrl(path).data?.publicUrl || '';

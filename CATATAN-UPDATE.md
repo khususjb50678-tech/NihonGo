@@ -182,3 +182,9 @@ Ganti file berikut: app.js, admin.js, sw.js. Jalankan SQL supabase-attempt-limit
 ## Versi 66
 Ganti file berikut: lembarpdf.js, admin.js, sw.js.
 - Soal PDF (Mirip Asli): upload PDF kembali otomatis membaca soal dan jawaban dari semua halaman. Upload foto tetap memakai mode tandai kotak per soal.
+
+## Versi 67
+Ganti file berikut: app.js, lembarpdf.js, admin.js, sw.js.
+- Audio soal diubah otomatis ke format WAV saat diupload (dari m4a, 3gp, ogg, dan sejenisnya), supaya bisa diputar di semua HP.
+- Pesan gagal putar audio dibuat lebih jelas (format tidak didukung atau gagal dimuat).
+- Audio yang sudah terlanjur diupload dalam format tidak didukung perlu diupload ulang.
