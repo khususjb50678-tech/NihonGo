@@ -194,3 +194,7 @@ Ganti file berikut: app.js, admin.js, lembarpdf.js, sw.js. Jalankan ulang supaba
 - Audio soal: kalau pemutar bawaan HP gagal, otomatis dicoba lewat cara cadangan (unduh lalu decode). Pesan error dibedakan: format tidak bisa dibaca vs gagal dimuat (koneksi).
 - Upload audio/foto: tipe file diisi benar dari ekstensi bila kosong.
 - Kesempatan mengerjakan per Part sekarang bisa 0 = tanpa batas. Diubah di Part yang sudah ada: menu Part → Edit, atau menu Soal → kartu Pengaturan Soal & Timer.
+
+## Versi 69
+Ganti file berikut: admin.js, sw.js. Jalankan ulang supabase-attempt-limit.sql di Supabase.
+- Kesempatan mengerjakan per Part: bawaan sekarang 0 = tanpa batas. Semua Part yang bernilai 1 dikembalikan ke tanpa batas. Admin mengatur sendiri per Part (1 = sekali, 2 = dua kali, dst).

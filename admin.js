@@ -126,7 +126,7 @@ const fmtDur=n=>{n=Math.floor(Number(n)||0);const m=Math.floor(n/60),r=n%60;retu
 function partSetupHTML(x={}){
   const user=x.setup_mode==='user',t=Number(x.timer_seconds||0);
   return `<div class="part-setup" data-part-setup><label>Soal &amp; timer diatur oleh siapa?<select class="input" name="setup_mode"><option value="admin" ${user?'':'selected'}>Diatur Admin</option><option value="user" ${user?'selected':''}>Diatur User</option></select></label>
-  <label>Kesempatan mengerjakan per user (0 = tanpa batas)<input class="input" name="max_attempts" type="number" min="0" step="1" value="${x.max_attempts===0?0:Math.max(1,Number(x.max_attempts)||1)}" placeholder="1"><small class="hint">1 = sekali saja, 2 = dua kali, 0 = tanpa batas. Bisa diubah kapan saja di Part yang sudah ada, tanpa membuat Part baru.</small></label>
+  <label>Kesempatan mengerjakan per user (0 = tanpa batas)<input class="input" name="max_attempts" type="number" min="0" step="1" value="${(x.max_attempts==null||x.max_attempts==='')?0:Math.max(0,Math.floor(Number(x.max_attempts))||0)}" placeholder="0"><small class="hint">0 = tanpa batas (bawaan), 1 = sekali saja, 2 = dua kali, dan seterusnya. Bisa diubah kapan saja di Part yang sudah ada.</small></label>
   <p class="hint" data-hint-admin>Admin menentukan jumlah soal dan timer. User cukup mengisi nama lalu mengerjakan.</p>
   <p class="hint" data-hint-user hidden>Setiap mau mengerjakan, user mengisi sendiri nama, jumlah soal, dan waktunya. Tidak ada batas minimum.</p>
   <div data-admin-opts class="form-grid"><label class="full">Jumlah soal<input class="input" name="question_limit" type="number" min="1" value="${x.question_limit||''}" placeholder="Kosongkan = semua soal"></label><label>Timer (menit)<input class="input" name="timer_min" type="number" min="0" value="${t?Math.floor(t/60):''}" placeholder="0"></label><label>Timer (detik)<input class="input" name="timer_sec" type="number" min="0" value="${t?t%60:''}" placeholder="0"></label><p class="hint full">Kosongkan timer jika tidak ingin memakai batas waktu.</p></div></div>`;
@@ -139,7 +139,7 @@ function bindPartSetup(root){
 function readPartSetup(root){
   const g=n=>root.querySelector(`[name="${n}"]`);
   const rawA=g('max_attempts')?.value,numA=Number(rawA);
-  const maxA=(rawA===''||rawA==null||!Number.isFinite(numA))?1:Math.max(0,Math.floor(numA));
+  const maxA=(rawA===''||rawA==null||!Number.isFinite(numA))?0:Math.max(0,Math.floor(numA));
   if(g('setup_mode').value==='user')return {setup_mode:'user',question_limit:null,timer_seconds:null,max_attempts:maxA};
   const lim=Math.floor(Number(g('question_limit').value)),m=Number(g('timer_min').value||0),sc=Number(g('timer_sec').value||0);
   const total=Math.round((m>0?m:0)*60+(sc>0?sc:0));
@@ -156,7 +156,7 @@ const ALL_MENUS=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','
 function menuFor(){return visibleMenus(ALL_MENUS,role,allowedMenus);}
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
-  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v68 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
+  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v69 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
   document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});
   document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};
 }
