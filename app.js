@@ -77,8 +77,34 @@ function updateSheetUI(k){
 }
 
 // ===== Soal PDF "mirip asli": gambar soal + tombol A/B/C + ikon suara =====
-let __sheetAudio=null;
-function stopSheetAudio(){try{if(__sheetAudio){__sheetAudio.pause();__sheetAudio=null;}}catch{}}
+let __sheetAudio=null,__sheetCtx=null,__sheetCtxSrc=null;
+function stopSheetAudio(){
+  try{if(__sheetAudio){__sheetAudio.pause();__sheetAudio=null;}}catch{}
+  try{if(__sheetCtxSrc){const s=__sheetCtxSrc;__sheetCtxSrc=null;s.onended=null;s.stop();}}catch{}
+  try{document.querySelectorAll('.sheet-hot.playing').forEach(x=>x.classList.remove('playing'));}catch{}
+}
+// Cadangan: unduh file lalu decode sendiri. Tidak bergantung pada tipe file dari server atau pemutar bawaan HP.
+async function playSheetViaWebAudio(u,b){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC){const e=new Error('noaudio');e.kind='format';throw e;}
+  __sheetCtx=__sheetCtx||new AC();
+  try{if(__sheetCtx.state==='suspended')await __sheetCtx.resume();}catch{}
+  let ab;
+  try{
+    const res=await fetch(u,{cache:'reload'});
+    if(!res.ok)throw new Error('http '+res.status);
+    ab=await res.arrayBuffer();
+  }catch(err){err.kind='network';throw err;}
+  let buf;
+  try{
+    buf=await new Promise((ok,no)=>{const p=__sheetCtx.decodeAudioData(ab,ok,()=>no(new Error('decode')));if(p&&p.catch)p.catch(()=>{});});
+  }catch(err){err.kind='format';throw err;}
+  stopSheetAudio();
+  const src=__sheetCtx.createBufferSource();src.buffer=buf;src.connect(__sheetCtx.destination);
+  src.__u=u;__sheetCtxSrc=src;b.classList.add('playing');
+  src.onended=()=>{b.classList.remove('playing');if(__sheetCtxSrc===src)__sheetCtxSrc=null;};
+  src.start(0);
+}
 function sheetHTML(x){
   const hot=slimHot(parseJSON(x.sheet_hot,null)),prev=state.questions[state.index-1];
   const first=!prev||prev.sheet_head_url!==x.sheet_head_url;
@@ -94,10 +120,15 @@ function sheetBody(x,current){
 function bindSheet(){
   document.querySelectorAll('.sheet-hot').forEach(b=>b.onclick=e=>{
     e.preventDefault();const u=b.dataset.audio;
-    if(__sheetAudio&&__sheetAudio.__u===u&&!__sheetAudio.paused){stopSheetAudio();return;}
+    if((__sheetAudio&&__sheetAudio.__u===u&&!__sheetAudio.paused)||(__sheetCtxSrc&&__sheetCtxSrc.__u===u)){stopSheetAudio();return;}
+    try{const AC=window.AudioContext||window.webkitAudioContext;if(AC){__sheetCtx=__sheetCtx||new AC();if(__sheetCtx.state==='suspended')__sheetCtx.resume();}}catch{}
     stopSheetAudio();const a=new Audio(u);a.__u=u;__sheetAudio=a;b.classList.add('playing');
     a.onended=a.onpause=()=>b.classList.remove('playing');
-    a.play().catch(err=>{b.classList.remove('playing');const c=a.error&&a.error.code;alert(c===4||err?.name==='NotSupportedError'?'Format audio ini tidak didukung HP. Minta admin upload ulang audionya (format MP3).':'Audio gagal dimuat. Periksa koneksi lalu coba lagi.');});
+    a.play().catch(async err=>{
+      if(err&&err.name==='AbortError'){b.classList.remove('playing');return;}
+      try{await playSheetViaWebAudio(u,b);}
+      catch(e2){b.classList.remove('playing');alert(e2&&e2.kind==='format'?'Format audio ini tidak bisa dibaca HP. Minta admin upload ulang audionya (format MP3).':'Audio gagal dimuat. Periksa koneksi internet lalu coba lagi.');}
+    });
   });
 }
 
@@ -430,7 +461,7 @@ async function openCustomSetup(openRows,cs){
 // Form sebelum mulai: nama selalu diisi. Kalau Part diatur User, user juga mengisi jumlah soal & waktu sendiri.
 async function openSetup(id,parts){
   const p=(parts||[]).find(x=>String(x.id)===String(id)); if(!p)return;
-  if(state.user){let ai=null;try{ai=(await supabase.rpc('attempt_info',{p_part:String(p.id)})).data;}catch{}if(ai&&Number(ai.used)>=Number(ai.max||1)){alert(`Kesempatan mengerjakan Part ini sudah habis (sudah ${ai.used} dari ${ai.max} kali). Hubungi admin jika ingin menambah kesempatan.`);return;}}
+  if(state.user){let ai=null;try{ai=(await supabase.rpc('attempt_info',{p_part:String(p.id)})).data;}catch{}if(ai&&Number(ai.max)>0&&Number(ai.used)>=Number(ai.max)){alert(`Kesempatan mengerjakan Part ini sudah habis (sudah ${ai.used} dari ${ai.max} kali). Hubungi admin jika ingin menambah kesempatan.`);return;}}
   const {data,error}=await q('questions',{eq:{part_id:p.id},select:'id'});
   if(error){alert(error.message);return}
   const total=(data||[]).length;

@@ -175,6 +175,7 @@ async function upl(supabase, path, blob, type) {
     const w = await toWav(blob);
     if (w) { blob = w; type = 'audio/wav'; path = path.replace(/\.[^./]+$/, '') + '.wav'; }
   }
+  if (!type) { const ext = ((path.match(/\.([a-z0-9]+)$/i) || [])[1] || '').toLowerCase(); const mt = { mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', ogg: 'audio/ogg', aac: 'audio/aac', jpg: 'image/jpeg', png: 'image/png' }; if (mt[ext]) type = mt[ext]; }
   const up = await supabase.storage.from('media').upload(path, blob, { upsert: true, contentType: type || undefined, cacheControl: '31536000' });
   if (up.error) throw new Error(up.error.message);
   return supabase.storage.from('media').getPublicUrl(path).data?.publicUrl || '';

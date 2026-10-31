@@ -188,3 +188,9 @@ Ganti file berikut: app.js, lembarpdf.js, admin.js, sw.js.
 - Audio soal diubah otomatis ke format WAV saat diupload (dari m4a, 3gp, ogg, dan sejenisnya), supaya bisa diputar di semua HP.
 - Pesan gagal putar audio dibuat lebih jelas (format tidak didukung atau gagal dimuat).
 - Audio yang sudah terlanjur diupload dalam format tidak didukung perlu diupload ulang.
+
+## Versi 68
+Ganti file berikut: app.js, admin.js, lembarpdf.js, sw.js. Jalankan ulang supabase-attempt-limit.sql di Supabase (aman dijalankan ulang).
+- Audio soal: kalau pemutar bawaan HP gagal, otomatis dicoba lewat cara cadangan (unduh lalu decode). Pesan error dibedakan: format tidak bisa dibaca vs gagal dimuat (koneksi).
+- Upload audio/foto: tipe file diisi benar dari ekstensi bila kosong.
+- Kesempatan mengerjakan per Part sekarang bisa 0 = tanpa batas. Diubah di Part yang sudah ada: menu Part → Edit, atau menu Soal → kartu Pengaturan Soal & Timer.
