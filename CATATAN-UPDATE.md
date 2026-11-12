@@ -198,3 +198,15 @@ Ganti file berikut: app.js, admin.js, lembarpdf.js, sw.js. Jalankan ulang supaba
 ## Versi 69
 Ganti file berikut: admin.js, sw.js. Jalankan ulang supabase-attempt-limit.sql di Supabase.
 - Kesempatan mengerjakan per Part: bawaan sekarang 0 = tanpa batas. Semua Part yang bernilai 1 dikembalikan ke tanpa batas. Admin mengatur sendiri per Part (1 = sekali, 2 = dua kali, dst).
+
+## Versi 70
+Ganti file berikut: admin.js, sw.js. Jalankan di Supabase: supabase-attempt-limit.sql (aman diulang), lalu supabase-semua-part-tanpa-batas.sql (SEKALI SAJA).
+- Daftar Part sekarang menampilkan lencana batas kesempatan: "∞ Tanpa batas" atau "Batas N× kerjakan", supaya terlihat Part mana yang terbatas.
+- supabase-attempt-limit.sql tidak lagi mengubah angka batas Part yang sudah diatur. Reset semua Part ke tanpa batas dipisah ke supabase-semua-part-tanpa-batas.sql.
+
+## Versi 71
+Ganti file berikut: app.js, admin.js, lembarpdf.js, sw.js.
+- Upload audio dari menu Soal (Tambah / Ganti Audio) sekarang memeriksa format: MP3 dan WAV diunggah apa adanya, format lain (m4a, ogg, opus, amr, 3gp, dll) diubah otomatis ke WAV supaya bisa diputar di semua HP. Kalau browser tidak bisa mengubahnya, admin diberi peringatan.
+- Upload audio lewat Soal PDF (Mirip Asli): MP3 dan WAV tidak lagi diubah, hanya format lain.
+- Tombol baru di menu Soal: "Perbaiki Semua Audio di Part Ini" untuk mengubah audio lama yang formatnya bermasalah tanpa upload ulang satu per satu.
+- Pesan gagal putar audio sekarang menampilkan info teknis (status, tipe file, ukuran, isi file) supaya penyebabnya bisa dicari.

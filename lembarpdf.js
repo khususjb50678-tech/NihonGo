@@ -158,7 +158,7 @@ function encodeWav(samples, rate) {
   for (let i = 0; i < samples.length; i++, o += 2) { const s = Math.max(-1, Math.min(1, samples[i])); v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
   return new Blob([buf], { type: 'audio/wav' });
 }
-async function toWav(blob) {
+export async function toWav(blob) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
@@ -171,7 +171,9 @@ async function toWav(blob) {
   } catch { return null; }
 }
 async function upl(supabase, path, blob, type) {
-  if (/^audio\//.test(type || '') || /\.(m4a|aac|3gp|amr|ogg|opus|webm|caf|flac|wma|mp4)$/i.test(path)) {
+  const isAud = /^audio\//.test(type || '') || /\.(m4a|aac|3gp|amr|ogg|opus|webm|caf|flac|wma|mp4|mp3|wav)$/i.test(path);
+  const isUniversal = /^audio\/(mpeg|mp3|wav|x-wav|wave)$/i.test(type || '') || /\.(mp3|wav)$/i.test(path);
+  if (isAud && !isUniversal) {
     const w = await toWav(blob);
     if (w) { blob = w; type = 'audio/wav'; path = path.replace(/\.[^./]+$/, '') + '.wav'; }
   }

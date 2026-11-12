@@ -89,16 +89,19 @@ async function playSheetViaWebAudio(u,b){
   if(!AC){const e=new Error('noaudio');e.kind='format';throw e;}
   __sheetCtx=__sheetCtx||new AC();
   try{if(__sheetCtx.state==='suspended')await __sheetCtx.resume();}catch{}
-  let ab;
+  let ab,info='';
   try{
     const res=await fetch(u,{cache:'reload'});
+    info=`status=${res.status}, tipe=${res.headers.get('content-type')||'-'}`;
     if(!res.ok)throw new Error('http '+res.status);
     ab=await res.arrayBuffer();
-  }catch(err){err.kind='network';throw err;}
+    const h=new Uint8Array(ab.slice(0,12));const asc=[...h].map(c=>c>=32&&c<127?String.fromCharCode(c):'.').join('');
+    info+=`, ukuran=${(ab.byteLength/1024).toFixed(0)} KB, isi=${asc}`;
+  }catch(err){err.kind='network';err.info=info;throw err;}
   let buf;
   try{
     buf=await new Promise((ok,no)=>{const p=__sheetCtx.decodeAudioData(ab,ok,()=>no(new Error('decode')));if(p&&p.catch)p.catch(()=>{});});
-  }catch(err){err.kind='format';throw err;}
+  }catch(err){err.kind='format';err.info=info;throw err;}
   stopSheetAudio();
   const src=__sheetCtx.createBufferSource();src.buffer=buf;src.connect(__sheetCtx.destination);
   src.__u=u;__sheetCtxSrc=src;b.classList.add('playing');
@@ -127,7 +130,7 @@ function bindSheet(){
     a.play().catch(async err=>{
       if(err&&err.name==='AbortError'){b.classList.remove('playing');return;}
       try{await playSheetViaWebAudio(u,b);}
-      catch(e2){b.classList.remove('playing');alert(e2&&e2.kind==='format'?'Format audio ini tidak bisa dibaca HP. Minta admin upload ulang audionya (format MP3).':'Audio gagal dimuat. Periksa koneksi internet lalu coba lagi.');}
+      catch(e2){b.classList.remove('playing');const inf=e2&&e2.info?`\n\nInfo teknis: ${e2.info}`:'';alert((e2&&e2.kind==='format'?'Audio ini belum bisa diputar di HP kamu. Hubungi admin untuk memperbaikinya.':'Audio gagal dimuat. Periksa koneksi internet lalu coba lagi.')+inf);}
     });
   });
 }

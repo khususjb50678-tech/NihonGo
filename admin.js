@@ -4,7 +4,7 @@ import { CONFIG } from './config.js';
 import { defaultBunpou } from './default-bunpou.js';
 import { BOOK } from './vocab-book.js';
 import { readPdfPages, parsePdfQuestions, parseKeyText } from './pdfsoal.js';
-import { sheetPdfPage } from './lembarpdf.js';
+import { sheetPdfPage, toWav } from './lembarpdf.js';
 import { prankPage } from './kerjainteman.js';
 import { accessPage } from './aksesadmin.js';
 import { sheetReviewHTML, bindSheetReviewAudio, fitSheetFonts, hasSheetReview, fromSavedDetails, plainReviewHTML, scoreBadgeHTML, statRowHTML } from './review-view.js';
@@ -145,10 +145,12 @@ function readPartSetup(root){
   const total=Math.round((m>0?m:0)*60+(sc>0?sc:0));
   return {setup_mode:'admin',question_limit:lim>0?lim:null,timer_seconds:total>0?total:null,max_attempts:maxA};
 }
+function attemptBadge(x){if(x.max_attempts==null)return '';const n=Number(x.max_attempts)||0;return n>0?`<i class="mode-pill user">Batas ${n}× kerjakan</i>`:'<i class="mode-pill">∞ Tanpa batas</i>';}
 function partModeBadge(x){
-  if(x.setup_mode==='user')return '<i class="mode-pill user">Diatur User</i>';
+  const at=attemptBadge(x);
+  if(x.setup_mode==='user')return '<i class="mode-pill user">Diatur User</i> '+at;
   const bits=[x.question_limit?`${x.question_limit} soal`:'semua soal'];if(Number(x.timer_seconds)>0)bits.push(fmtDur(x.timer_seconds));
-  return `<i class="mode-pill">Diatur Admin · ${esc(bits.join(' · '))}</i>`;
+  return `<i class="mode-pill">Diatur Admin · ${esc(bits.join(' · '))}</i> ${at}`;
 }
 
 applySiteFont(loadCachedFont()||DEFAULT_FONT);fetchSiteFont().then(id=>{if(id)applySiteFont(id);});
@@ -156,7 +158,7 @@ const ALL_MENUS=[['dashboard','Dashboard'],['branding','Branding'],['tampilan','
 function menuFor(){return visibleMenus(ALL_MENUS,role,allowedMenus);}
 function app(html){
   if(userRefreshTimer){clearInterval(userRefreshTimer);userRefreshTimer=null;}
-  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v69 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
+  root.innerHTML=`<div class="admin-shell"><aside class="admin-side"><div class="admin-brand"><span>⛩</span><div><b>ITCO JAPAN</b><small>ADMIN PANEL · ${role==='owner'?'ADMIN UTAMA':'SENSEI'}</small></div></div><nav>${menuFor().map(([k,t])=>`<button class="side-link ${current===k?'active':''}" data-menu="${k}">${t}</button>`).join('')}<a class="side-link side-external-link" href="./" target="_blank" rel="noopener">↗ Website User</a></nav><div class="side-ver">Panel v71 · ${role==='owner'?'Admin Utama':'Sensei'}</div><button id="logout" class="logout">Keluar</button></aside><main class="admin-main">${html}</main></div>`;
   document.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>{current=b.dataset.menu;render()});
   document.querySelector('#logout').onclick=async()=>{await supabase.auth.signOut();render()};
 }
@@ -506,7 +508,7 @@ async function questions0(){
     const seq={};rows.forEach(x=>{const k=x.source_page??'m';seq[k]=(seq[k]||0)+1;x._no=seq[k];});
     const el=document.querySelector('#qList');
     const curPart=partId?(parts||[]).find(p=>String(p.id)===String(partId)):null;
-    const countCard=`<div class="card admin-card" style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><div class="eyebrow">📊 JUMLAH SOAL</div><h3 style="margin:4px 0 0">${rows.length} soal <small class="muted">${curPart?`di ${esc(curPart.name||'Part')} (Part ${curPart.part_number})`:'di semua Part'}</small></h3></div>${curPart&&rows.length?'<button class="btn danger" type="button" id="delAllQ">🗑 Hapus Semua Soal di Part Ini</button>':''}${curPart?`<div style="flex-basis:100%;display:grid;gap:8px"><label>Nama Part <small class="muted">(judul yang dilihat user)</small><input id="partRename" class="input" value="${esc(curPart.name||'')}"></label><button class="btn red" type="button" id="partRenameSave">✏️ Simpan Nama Part</button></div>`:''}</div>`;
+    const countCard=`<div class="card admin-card" style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><div class="eyebrow">📊 JUMLAH SOAL</div><h3 style="margin:4px 0 0">${rows.length} soal <small class="muted">${curPart?`di ${esc(curPart.name||'Part')} (Part ${curPart.part_number})`:'di semua Part'}</small></h3></div>${curPart&&rows.length?'<button class="btn danger" type="button" id="delAllQ">🗑 Hapus Semua Soal di Part Ini</button>':''}${curPart&&rows.some(x=>x.audio_url)?'<button class="btn" type="button" id="fixAudioQ">🔧 Perbaiki Semua Audio di Part Ini</button>':''}${curPart?`<div style="flex-basis:100%;display:grid;gap:8px"><label>Nama Part <small class="muted">(judul yang dilihat user)</small><input id="partRename" class="input" value="${esc(curPart.name||'')}"></label><button class="btn red" type="button" id="partRenameSave">✏️ Simpan Nama Part</button></div>`:''}</div>`;
     const setupCard=(curPart&&rows.length)?`<div class="card admin-card" style="margin-bottom:14px"><div class="eyebrow">PART ${String(curPart.part_number||'').padStart(2,'0')}</div><h3 style="margin:4px 0 2px">${esc(curPart.name||'Part')} · ${rows.length} soal</h3><p class="muted" style="margin:0 0 10px">Pengaturan Soal &amp; Timer untuk Part ini</p><form id="partSetupForm">${partSetupHTML(curPart)}<button class="btn red fullbtn" type="submit">Simpan Pengaturan</button></form></div>`:'';
     if(el)el.innerHTML=countCard+setupCard+dupBanner+(rows.map((x,i)=>`${(i===0||rows[i-1].source_page!==x.source_page)?`<h4 style="margin:34px 0 8px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)">${x.source_page?`Halaman ${x.source_page}`:'Soal manual'}</h4>`:''}<div class="list-row" style="display:block" data-qrow="${x.id}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><b>${x._no}. ${sanitizePromptHTML(x.prompt||'(tanpa teks — soal bergambar/audio)')}</b><span>${esc(x.type==='multiple_choice'?'Ganda':'Ketik')} · jawaban: ${esc(x.answer||'')}</span></div><div style="display:flex;gap:6px"><button class="btn" data-qedit="${x.id}">Edit</button><button class="btn danger" data-qdel="${x.id}">Hapus</button></div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><span class="media-pill ${x.photo_url?'':'muted-pill'}">📷 ${x.photo_url?'Foto tersimpan':'Belum ada foto'}</span><span class="media-pill ${x.audio_url?'':'muted-pill'}">🔊 ${x.audio_url?'Audio tersimpan':'Belum ada audio'}</span></div>
@@ -515,6 +517,30 @@ async function questions0(){
       <div data-qeditbox="${x.id}" hidden></div></div>`).join('')||'<p class="muted">Belum ada soal untuk Part ini.</p>');
     {const rb=document.querySelector('#partRenameSave');if(rb&&curPart)rb.onclick=async()=>{const v=document.querySelector('#partRename').value.trim();if(!v)return alert('Nama Part tidak boleh kosong.');const {error}=await supabase.from('parts').update({name:v}).eq('id',curPart.id);if(error)return alert(error.message);alert('Nama Part tersimpan.');render();};}
     {const db=document.querySelector('#delAllQ');if(db&&curPart)db.onclick=async()=>{const n=rows.length;const t=prompt(`Hapus SEMUA ${n} soal di "${curPart.name}" (Part ${curPart.part_number})?\nTindakan ini tidak bisa dibatalkan.\n\nKetik HAPUS untuk melanjutkan:`);if(t===null)return;if(t.trim().toUpperCase()!=='HAPUS')return alert('Dibatalkan: kata konfirmasi tidak cocok.');const {error}=await supabase.from('questions').delete().eq('part_id',curPart.id);if(error)return alert(error.message);alert(`${n} soal berhasil dihapus.`);render();};}
+    {const fx=document.querySelector('#fixAudioQ');
+    if(fx)fx.onclick=async()=>{
+      const todo=rows.filter(x=>x.audio_url&&!/\.(wav|mp3)(\?|$)/i.test(x.audio_url));
+      if(!todo.length)return alert('Semua audio di Part ini sudah berformat MP3 atau WAV, jadi tidak ada yang perlu diperbaiki.');
+      if(!confirm(`Ubah ${todo.length} audio ke format yang bisa diputar di semua HP? Butuh internet dan beberapa menit. Jangan tutup halaman sampai selesai.`))return;
+      fx.disabled=true;let ok=0;const fail=[];
+      for(let i=0;i<todo.length;i++){
+        const x=todo[i];fx.textContent=`Mengubah ${i+1} dari ${todo.length}…`;
+        try{
+          const r=await fetch(x.audio_url,{cache:'reload'});if(!r.ok)throw new Error('gagal unduh ('+r.status+')');
+          const w=await toWav(await r.blob());if(!w)throw new Error('browser tidak bisa membaca formatnya');
+          if(w.size>45*1024*1024)throw new Error('file terlalu besar');
+          const path=`questions/${x.id}/${Date.now()}-audio.wav`;
+          const {error:ue}=await supabase.storage.from('media').upload(path,w,{upsert:true,contentType:'audio/wav',cacheControl:'31536000'});
+          if(ue)throw ue;
+          const url=supabase.storage.from('media').getPublicUrl(path).data?.publicUrl;
+          if(!url)throw new Error('URL tidak terbentuk');
+          const {error:pe}=await supabase.from('questions').update({audio_url:url}).eq('id',x.id);
+          if(pe)throw pe;ok++;
+        }catch(err){fail.push(`Soal ${x._no}: ${err.message||err}`);}
+      }
+      alert(`Selesai: ${ok} audio berhasil diperbaiki.`+(fail.length?`\n\nGagal ${fail.length}:\n`+fail.slice(0,8).join('\n')+'\n\nUntuk yang gagal, upload ulang audionya dalam format MP3.':''));
+      partQuestions(partId);
+    };}
     {const sf=document.querySelector('#partSetupForm');if(sf&&curPart){bindPartSetup(sf);sf.onsubmit=async e=>{e.preventDefault();const vals=readPartSetup(e.target);const {error,degraded}=await saveOptional(r=>supabase.from('parts').update(r).eq('id',curPart.id),vals,PART_OPT);if(error)alert(error.message);else if(!degraded){Object.assign(curPart,vals);alert('Pengaturan Part tersimpan.');}};}}
     document.querySelectorAll('[data-photo],[data-audio]').forEach(i=>i.onchange=()=>{const row=i.closest('[data-qrow]');const n=[...row.querySelectorAll('input[type=file]')].map(f=>f.files?.[0]?.name).filter(Boolean);row.querySelector('[data-fname]').textContent=n.length?n.join(' + '):'Belum ada file dipilih';});
     document.querySelectorAll('[data-qsave]').forEach(b=>b.onclick=async()=>{const row=b.closest('[data-qrow]');const ph=row.querySelector('[data-photo]'),au=row.querySelector('[data-audio]');if(!ph.files?.[0]&&!au.files?.[0])return alert('Pilih foto atau audio dulu, lalu tekan Simpan.');b.disabled=true;b.textContent='Menyimpan…';if(ph.files?.[0])await uploadMedia(ph,'photo');if(au.files?.[0])await uploadMedia(au,'audio');render();});
@@ -613,8 +639,16 @@ async function uploadMedia(input,kind){
   if(!file)return;
   const id=input.dataset[kind]||input.dataset[`part${kind[0].toUpperCase()}${kind.slice(1)}`];
   const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-  const path=`questions/${id}/${Date.now()}-${safe}`;
-  const {error:uploadError}=await supabase.storage.from('media').upload(path,file,{upsert:true,contentType:file.type||undefined});
+  let upFile=file,upType=file.type||undefined,path=`questions/${id}/${Date.now()}-${safe}`;
+  if(kind==='audio'){
+    const universal=/^audio\/(mpeg|mp3|wav|x-wav|wave)$/i.test(file.type||'')||/\.(mp3|wav)$/i.test(file.name);
+    if(!universal){
+      const w=await toWav(file);
+      if(w&&w.size<=45*1024*1024){upFile=w;upType='audio/wav';path=`questions/${id}/${Date.now()}-${safe.replace(/\.[^.]*$/,'')}.wav`;}
+      else if(!confirm('Format audio ini mungkin tidak bisa diputar di semua HP, dan browser tidak bisa mengubahnya. Sebaiknya pakai file MP3. Tetap upload?'))return;
+    } else if(!upType){upType=/\.wav$/i.test(file.name)?'audio/wav':'audio/mpeg';}
+  }
+  const {error:uploadError}=await supabase.storage.from('media').upload(path,upFile,{upsert:true,contentType:upType,cacheControl:'31536000'});
   if(uploadError)return alert(`Upload gagal: ${uploadError.message}`);
   const {data:urlData}=supabase.storage.from('media').getPublicUrl(path);
   const publicUrl=urlData?.publicUrl||'';
